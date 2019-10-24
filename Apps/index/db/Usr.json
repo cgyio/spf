@@ -1,0 +1,177 @@
+{
+    "code" : "Usr",
+    "dbn" : "usr",
+    "name" : "用户数据库",
+    "desc" : "保存全局用户数据",
+
+    "time_create" : 1569238242,
+    "time_lastmod" : 1569238242,
+
+    "log" : [],
+
+    "tablesetting" : {
+
+    },
+
+    "tables" : {
+        "usrgroup" : {
+            "idx" : 7,
+            "default" : {
+                "id" : 0,
+                "code" : "",
+                "fid" : 0,
+                "name" : "",
+                "info" : "",
+                "app" : "",
+                "authority" : "",
+                "enabled" : true
+            },
+            "field" : {
+                "needed" : ["code","name","authority"],
+                "search" : ["code","name","info"]
+            },
+            "data" : [
+                {
+                    "id" : 1,
+                    "code" : "_BASE_USR_",
+                    "name" : "默认用户组",
+                    "info" : "默认用户组",
+                    "authority" : ""
+                },
+                {
+                    "id" : 2,
+                    "code" : "_BASE_ADMIN_",
+                    "name" : "默认管理员组",
+                    "info" : "默认管理员组",
+                    "authority" : ""
+                },
+                {
+                    "id" : 3,
+                    "code" : "_APP_USR_",
+                    "fid" : 1,
+                    "name" : "App全局用户组",
+                    "info" : "App全局用户组",
+                    "app" : "*",
+                    "authority" : ""
+                },
+                {
+                    "id" : 4,
+                    "code" : "_APP_ADMIN_",
+                    "fid" : 2,
+                    "name" : "App全局管理员组",
+                    "info" : "App全局管理员组",
+                    "app" : "*",
+                    "authority" : ""
+                },
+                {
+                    "id" : 5,
+                    "code" : "_GLOBAL_USR_",
+                    "fid" : 1,
+                    "name" : "全局用户组",
+                    "info" : "全局用户组",
+                    "authority" : ""
+                },
+                {
+                    "id" : 6,
+                    "code" : "_GLOBAL_ADMIN_",
+                    "fid" : 2,
+                    "name" : "全局管理员组",
+                    "info" : "全局管理员组",
+                    "authority" : ""
+                },
+                {
+                    "id" : 7,
+                    "code" : "_SUPER_",
+                    "fid" : 6,
+                    "name" : "超级管理员组",
+                    "info" : "超级管理员组",
+                    "authority" : ""
+                }
+            ]
+        },
+    
+        "usr" : {
+            "idx" : 1,
+            "default" : {
+                "id" : 0,
+                "name" : "游客",
+                "nick" : "",
+                "pwd" : "e10adc3949ba59abbe56e057f20f883e",
+    
+                "group" : 1,
+                "app" : "",
+                "authority" : "",
+    
+                "info_face" : "",
+                "info_mobi" : "",
+                "info_address" : "",
+                "info_qq" : "",
+                "info_mail" : "",
+    
+                "wx_account" : "",
+                "wx_openid" : "",
+    
+                "enabled" : true
+            },
+            "field" : {
+                "needed" : ["name","pwd"],
+                "search" : ["name","nick","info_address","info_qq","wx_account","wx_openid"]
+            },
+            "data" : [
+                {
+                    "id" : 1,
+                    "name" : "陈广宇",
+                    "nick" : "老灰",
+                    "pwd" : "e10adc3949ba59abbe56e057f20f883e",
+        
+                    "group" : 7,
+                    "app" : "",
+                    "authority" : "",
+        
+                    "info_face" : "",
+                    "info_mobi" : "",
+                    "info_address" : "",
+                    "info_qq" : "",
+                    "info_mail" : "",
+        
+                    "wx_account" : "",
+                    "wx_openid" : "",
+        
+                    "enabled" : true
+                }
+            ]
+        },
+    
+        "usrlogin" : {
+            "idx" : 1,
+            "default" : {
+                "id" : 0,
+                "uid" : 0,
+                "ip" : "",
+                "timestamp" : 0,
+                "expire" : false,
+                "logout" : false,
+                "logouttime" : 0,
+                "session" : "",
+                "enabled" : true
+            },
+            "field" : {
+                "needed" : ["uid","timestamp"],
+                "search" : ["session"]
+            },
+            "data" : [
+                {
+                    "id" : 1,
+                    "uid" : 1,
+                    "ip" : "",
+                    "timestamp" : 1569835991,
+                    "expire" : false,
+                    "logout" : false,
+                    "logouttime" : 0,
+                    "session" : "foo=bar2",
+                    "enabled" : true
+                }
+            ]
+        }
+    }
+}

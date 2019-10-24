@@ -1,0 +1,142 @@
+{
+    "cn" : {
+        "idx" : "01",
+
+        "sys" : ["PHP系统错误","%{1}% %{2}%","01"],
+
+        "autoload" : {
+            "idx" : "01",
+            "needparam" : ["参数不完整","Autoload请求需要参数","01"],
+            "undefined" : ["要加载的类未定义","Autoload请求的类 [ %{1}% ] 未定义","02"]
+        },
+
+        "error" : {
+            "idx" : "02",
+            "undefined" : ["错误代码未定义","错误代码 [ %{1}% ] 未定义","01"]
+        },
+
+        "request" : {
+            "idx" : "03"
+        },
+
+        "response" : {
+            "idx" : "04",
+            "headersent" : ["页面headers已发送","不能重复发送headers","01"]
+        },
+
+        "router" : {
+            "idx" : "05",
+            "undefined" : ["路由未定义","请求的目标路由未定义 [ %{1}% ]","01"],
+            "noauth" : ["无权访问","无权访问目标路径 [ %{1}% ]","02"],
+            "needparam" : ["参数不完整","请求的目标路由需要参数","03"]
+        },
+
+        "ctrl" : {
+            "idx" : "06",
+            "undefined" : ["控制器未定义","要调用的控制器 [ %{1}% ] 未定义","01"],
+            "noauth" : ["无权访问","无权访问目标控制器 [ %{1}% ]","02"],
+            "needparam" : ["控制器参数不完整","调用目标控制器需要参数","03"]
+        },
+
+        "model" : {
+            "idx" : "07",
+            "undefined" : ["模型未定义","要调用的模型 [ %{1}% ] 未定义","01"],
+            "noauth" : ["无权访问","无权访问目标路径 [ %{1}% ]","02"],
+            "needparam" : ["模型参数不完整","调用目标模型需要参数","03"]
+        },
+
+        "view" : {
+            "idx" : "08",
+            "undefined" : ["视图未定义","要调用的视图 [ %{1}% ] 未定义","01"],
+            "noauth" : ["无权访问","无权访问目标路径 [ %{1}% ]","02"],
+            "needparam" : ["视图参数不完整","调用目标视图需要参数","03"]
+        },
+
+        "template" : {
+            "idx" : "09",
+            "undefined" : ["模板未定义","要调用的模板 [ %{1}% ] 未定义","01"],
+            "noauth" : ["无权访问","无权访问目标路径 [ %{1}% ]","02"],
+            "needparam" : ["模板参数不完整","调用目标模板需要参数","03"]
+        },
+
+        "resource" : {
+            "idx" : "10",
+            "notexists" : ["路径或文件不存在","请求的资源路径或文件不存在","01"],
+            "illegalname" : ["文件名不合法","请求的资源文件名不合法","02"]
+        },
+
+        "plugin" : {
+            "idx" : "11",
+            "undefined" : ["插件未定义","请求的目标插件未定义 [ %{1}% ]","01"],
+            "noclass" : ["插件定义错误","请求的目标插件定义文件出错 [ %{1}% ]","02"]
+
+        },
+
+        "db" : {
+            "idx" : "12",
+            "needparam" : ["参数不完整","访问或操作目标数据库需要参数","01"],
+            "notexists" : ["数据库、表、字段不存在","要访问的目标数据库、表、字段 [ %{1}% ] 不存在","02"],
+
+            "jdb" : {
+                "idx" : "50",
+                "incurd" : ["CURD操作并行","已经有CURD操作正在进行中，不能同时进行多个CURD操作 [ JDB : %{1}% ]","01"],
+                "needtable" : ["CURD操作未指定表","执行CURD操作需要指定一个数据表","02"]
+            }
+        },
+
+        "usr" : {
+            "idx" : "13",
+            "noauth" : ["UAC禁止访问","当前用户 [ %{1}% ] 无权访问目标 [ %{2}% ]","01"]
+        }
+
+
+    },
+
+    "en" : {
+        "idx" : "01",
+
+        "sys" : ["PHP system error","%{1}% %{2}%","00"],
+
+        "autoload" : {
+            "idx" : "01",
+            "needparam" : ["need params","Autoload need params","01"],
+            "undefined" : ["class undefined","Autoload class [ %{1}% ] undefined","02"]
+        },
+
+        "error" : {
+            "idx" : "02",
+            "undefined" : ["errcode undefined","errcode [ %{1}% ] undefined","01"]
+        },
+
+        "request" : {
+            "idx" : "03"
+        },
+
+        "response" : {
+            "idx" : "04",
+            "headersent" : ["http headers sented","cannot sent headers again","01"]
+        },
+
+        "router" : {
+            "idx" : "05",
+            "undefined" : ["router role undefined","router role [ %{1}% ] undefined","01"],
+            "noauth" : ["no authority","request router role [ %{1}% ] has no authority","02"],
+            "needparam" : ["need params","request router need params","03"]
+        },
+
+        "resource" : {
+            "idx" : "06",
+            "notexists" : ["file or path not exists","request file or path not exists","01"],
+            "illegalname" : ["illegal file name","illegal request file name","02"]
+        },
+
+        "plugin" : {
+            "idx" : "07",
+            "undefined" : ["plugin undefined","request plugin [ %{1}% ] undefined","01"],
+            "noclass" : ["plugin define error","request plugin [ %{1}% ] define error","02"]
+
+        }
+
+
+    }
+}

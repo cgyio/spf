@@ -1,0 +1,12 @@
+
+[class*="flex-"]{
+    display: flex;
+}
+    [class*="flex-"][class*="-row"] {flex-direction: row;}
+    [class*="flex-"][class*="-row_rev"] {flex-direction: row-reverse;}
+    [class*="flex-"][class*="-col"] {flex-direction: column;}
+    [class*="flex-"][class*="-col_rev"] {flex-direction: column-reverse;}
+    [class*="flex-"][class*="-wrap"] {flex-wrap: wrap;}
+    [class*="flex-"][class*="-wrap_rev"] {flex-wrap: wrap-reverse;}
+    [class*="flex-"][class*="-nowrap"] {flex-wrap: nowrap;}
+    [class*="flex-"][class*="-left"] {flex-wrap: nowrap;}

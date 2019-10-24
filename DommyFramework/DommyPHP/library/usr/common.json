@@ -1,0 +1,142 @@
+{
+    "usrgroup" : {
+        "default" : {
+            "id" : "",
+            "fid" : "",
+            "name" : "",
+            "info" : "",
+            "app" : "",
+            "authority" : "",
+            "enabled" : true
+        },
+        "data" : {
+            "_BASE_USR_" : {
+                "id" : "_BASE_USR_",
+                "name" : "默认用户组",
+                "info" : "默认用户组",
+                "authority" : ""
+            },
+            "_BASE_ADMIN_" : {
+                "id" : "_BASE_ADMIN_",
+                "name" : "默认管理员组",
+                "info" : "默认管理员组",
+                "authority" : ""
+            },
+            "_APP_USR_" : {
+                "id" : "_APP_USR_",
+                "fid" : "_BASE_USR_",
+                "name" : "App全局用户组",
+                "info" : "App全局用户组",
+                "app" : "*",
+                "authority" : ""
+            },
+            "_APP_ADMIN_" : {
+                "id" : "_APP_ADMIN_",
+                "fid" : "_BASE_ADMIN_",
+                "name" : "App全局管理员组",
+                "info" : "App全局管理员组",
+                "app" : "*",
+                "authority" : ""
+            },
+            "_GLOBAL_USR_" : {
+                "id" : "_GLOBAL_USR_",
+                "fid" : "_BASE_USR_",
+                "name" : "全局用户组",
+                "info" : "全局用户组",
+                "authority" : ""
+            },
+            "_GLOBAL_ADMIN_" : {
+                "id" : "_GLOBAL_ADMIN_",
+                "fid" : "_BASE_ADMIN_",
+                "name" : "全局管理员组",
+                "info" : "全局管理员组",
+                "authority" : ""
+            },
+            "_SUPER_" : {
+                "id" : "_SUPER_",
+                "fid" : "_GLOBAL_ADMIN_",
+                "name" : "超级管理员组",
+                "info" : "超级管理员组",
+                "authority" : ""
+            }
+        }
+    },
+
+    "usr" : {
+        "idx" : 1,
+        "default" : {
+            "id" : 0,
+            "name" : "游客",
+            "nick" : "",
+            "pwd" : "e10adc3949ba59abbe56e057f20f883e",
+
+            "group" : "_BASE_USR_",
+            "app" : "",
+            "authority" : "",
+
+            "info_face" : "",
+            "info_mobi" : "",
+            "info_address" : "",
+            "info_qq" : "",
+            "info_mail" : "",
+
+            "wx_account" : "",
+            "wx_openid" : "",
+
+            "enabled" : true
+        },
+        "field" : {
+            "needed" : ["name","pwd"]
+        },
+        "data" : [
+            {
+                "id" : 1,
+                "name" : "陈广宇",
+                "nick" : "老灰",
+                "pwd" : "e10adc3949ba59abbe56e057f20f883e",
+    
+                "group" : "_SUPER_",
+                "app" : "",
+                "authority" : "",
+    
+                "info_face" : "",
+                "info_mobi" : "",
+                "info_address" : "",
+                "info_qq" : "",
+                "info_mail" : "",
+    
+                "wx_account" : "",
+                "wx_openid" : "",
+    
+                "enabled" : true
+            }
+        ]
+    },
+
+    "usrlogin" : {
+        "idx" : 1,
+        "default" : {
+            "id" : 0,
+            "uid" : 0,
+            "ip" : "",
+            "timestamp" : 0,
+            "expire" : false,
+            "session" : "",
+            "enabled" : true
+        },
+        "field" : {
+            "needed" : ["uid","timestamp"]
+        },
+        "data" : [
+            {
+                "id" : 1,
+                "uid" : 1,
+                "ip" : "",
+                "timestamp" : 1569226407,
+                "expire" : false,
+                "session" : "",
+                "enabled" : true
+            }
+        ]
+    }
+}

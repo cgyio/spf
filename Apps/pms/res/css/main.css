@@ -1,0 +1,129 @@
+/*
+ *  app/pms/tpl/main.tpl   样式表
+ */
+
+body {
+    position: relative; display: flex; width: 100vw; height: 100vh; padding: 0; margin: 0; overflow: hidden;
+    background-color: var(--c-gray-2);
+    border: none;
+    align-items: top;
+    font-size: 1.4rem;
+}
+
+/*#PMS_navbar {
+    width: 24rem; height: 100vh; margin: 0; padding: 15rem 0 5.4rem 0;
+    overflow-x: hidden; overflow-y: auto;
+    box-sizing: border-box;
+    color: var(--c-gray-5);
+    background-color: var(--c-darkgrayblue);
+    z-index: 500;
+}
+
+    #PMS_navbar {
+        display: block;
+    }
+        [class^="pms-nav-btn"] {
+            display: flex; width: 100%; height: 4.2rem;
+            align-items: center;
+            cursor: pointer;
+        }
+            [class^="pms-nav-btn"][class*="_open"] {
+                background-color: var(--c-black);
+                color: var(--c-white);
+            }
+            [class^="pms-nav-btn"][class*="_active"] {
+                background-color: var(--c-black);
+                color: var(--c-cyan);
+            }
+            [class^="pms-nav-btn"]:hover {
+                background-color: var(--c-grayblue);
+                color: var(--c-white);
+            }
+            [class^="pms-nav-btn"][class*="_active"]:hover {background-color: var(--c-black);}
+            [class^="pms-nav-btn"] > i {
+                width: 4.2rem; height: 4.2rem; 
+                text-align: center; font-size: 2rem; line-height: 4.2rem;
+            }
+            [class^="pms-nav-btn"] > div {
+                flex: 1; height: 4.2rem; 
+                line-height: 4.2rem; font-size: 1.6rem;
+            }
+            [class^="pms-nav-subox"] {
+                display: block; padding-bottom: 1rem;
+                background-color: var(--c-darkergrayblue);
+            }
+                [class^="pms-nav-subox"][class*="_active"] {color: var(--c-white);}
+                [class^="pms-nav-subitem"]{
+                    display: flex; width: 100%; height: 3.6rem;
+                    align-items: center;
+                    cursor: pointer;
+                }
+                    [class^="pms-nav-subitem"][class*="_active"]{
+                        background-color: var(--c-yellow);
+                        color: var(--c-black);
+                    }
+                    [class^="pms-nav-subitem"]:hover {
+                        background-color: var(--c-cyan);
+                        color: var(--c-black);
+                    }
+                    [class^="pms-nav-subitem"][class*="_active"]:hover {
+                        background-color: var(--c-yellow);
+                    }
+                    [class^="pms-nav-subitem"] > i {
+                        width: 4.2rem; height: 3.6rem; 
+                    }
+                    [class^="pms-nav-subitem"] > div {
+                        flex: 1; height: 3.6rem; 
+                        line-height: 3.6rem;
+                    }
+*/
+
+#PMS_main {
+    flex: 1; height: 100vh; margin: 0; padding: 5.4rem 0 0 0;
+    overflow-x: hidden; overflow-y: auto;
+    box-sizing: border-box;
+    color: var(--c-black);
+}
+
+#PMS_tablebox {
+    width: 50vw; height: 100vh; margin: 0; padding: 0; overflow: hidden;
+    background-color: var(--c-white);
+    border-left: 1px solid var(--c-gray-3); box-sizing: border-box;
+    z-index: 500;
+}
+    #PMS_table_topbar {
+        display: flex; width: 100%; height: 3.6rem; overflow: hidden;
+        background-color: var(--c-gray-2);
+        border-bottom: 1px solid var(--c-gray-3); box-sizing: border-box;
+        align-items: center; 
+        color: var(--c-gray-8);
+    }
+        .pms-table-topbarbtn {
+            width: 3.6rem; height: 3.6rem; margin: 0; padding: 0;
+            text-align: center; line-height: 3.6rem; text-decoration: none;
+        }
+            .pms-table-topbarbtn:hover {color: var(--c-white); background-color: var(--c-cyan);}
+            .pms-table-topbarbtn > i {font-size: 1.8rem; width: 3.6rem; height: 3.6rem; text-align: center; line-height: 3.6rem;}
+        
+        #PMS_table_tabs {
+            flex: 1; display: flex; height: 3.6rem; margin: 0 1rem; padding: 0; overflow: hidden;
+            align-items: center;
+        }
+            #PMS_table_tabs > select {
+                height: 3.6rem; 
+                font-size: 1.4rem; line-height: 3.6rem; 
+                background-color: transparent; border: none;
+            }
+            [class^="pms-table-tab"] {
+                height: 3.6rem; padding: 0 1rem; overflow: hidden;
+                box-sizing: border-box;
+                line-height: 3.6rem;
+                cursor: pointer;
+            }
+            [class^="pms-table-tab"]:hover {background-color: var(--c-gray-3); color: var(--c-black);}
+            [class^="pms-table-tab"][class*="_active"] {
+                background-color: var(--c-cyan); color: var(--c-white);
+            }
+    #PMS_table {
+
+    }
