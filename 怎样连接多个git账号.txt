@@ -1,0 +1,30 @@
+1   为每个账号创建 SSH Key
+
+2   编辑 ~/.ssh/config 文件：
+
+    Host github_attokit
+        HostName github.com
+        User git
+        IdentityFile ~/.ssh/id_rsa
+        PreferredAuthentications publickey
+
+    Host github_cgyio
+        HostName github.com
+        User git
+        IdentityFile ~/.ssh/cgyio_id_rsa
+        PreferredAuthentications publickey
+
+
+3   克隆仓库，使用如下命令
+
+    $ cd cgyio
+    $ git clone git@github_cgyio:cgyio/spf.git
+    
+    克隆完成后，执行
+
+    $ cd spf
+    $ git config --local user.name "cgyio"
+    $ git config --local user.email "dommy_cgy@qq.com"
+    $ git config --list
+
+4   检查是否正常 pull/push

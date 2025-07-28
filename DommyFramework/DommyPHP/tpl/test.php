@@ -1,5 +1,0 @@
-<?php
-
-$this->html = "foobar";
-
-
