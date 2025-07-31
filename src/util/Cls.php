@@ -1,6 +1,6 @@
 <?php
 /**
- * cgyio/spf 工具类
+ * 工具类
  * Cls 类操作工具
  */
 
@@ -72,7 +72,7 @@ class Cls extends Util
     public static function name($obj)
     {
         if (Is::nemstr($obj)) {
-            $oarr = explode("//", $obj);
+            $oarr = explode("\\", $obj);
             return array_pop($oarr);
         }
         if (is_object($obj)) {
@@ -350,7 +350,7 @@ class Cls extends Util
         //key 转为 首字母大写形式
         $ukey = ucfirst(strtolower($key));
         //是否 必须包含对应后缀，api|getter|proxy 类型的方法，方法名中必须包含 Api|Getter|Proxy 后缀
-        $suffix = in_array(strtolower($key), ["api", "getter", "proxy"]);
+        $suffix = in_array(strtolower($key), ["api", "view", "getter", "proxy"]);
         //获取 $cls 类中 符合条件的 特殊方法
         $ms = self::methods($cls, $filter, function($mi) use ($key, $ukey, $suffix, $condition) {
             if ($suffix) {
@@ -454,10 +454,10 @@ class Cls extends Util
                 continue;
             }
             //带 * @ 前缀的 信息项目
-            $ra = explode("@", $row);
-            if (!Is::nemstr($ra[1])) continue;
+            $ra = substr($row, 3);  //explode("@", $row);
+            if (!Is::nemstr($ra)) continue;
             //单个空格 分割
-            $ra = explode(" ", $ra[1]);
+            $ra = explode(" ", $ra);
             $ik = $ra[0];
             //@param, @return 项目不处理
             if (in_array(strtolower($ik), ["param","return"])) continue;

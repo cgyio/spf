@@ -1,14 +1,14 @@
 <?php
 /**
- * cgyio/resper 工具类
+ * 工具类
  * $_SERVER 工具
  */
 
-namespace Cgy\util;
+namespace Spf\util;
 
-use Cgy\Util;
-use Cgy\util\Is;
-use Cgy\util\Str;
+use Spf\Util;
+use Spf\util\Is;
+use Spf\util\Str;
 
 class Server extends Util 
 {

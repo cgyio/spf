@@ -1,6 +1,6 @@
 <?php
 /**
- * cgyio/spf 工具类
+ * 工具类
  * Arr 数组工具
  */
 
@@ -337,9 +337,20 @@ class Arr extends Util
     }
 
     /**
-     * 多维数组转为一维数组
+     * 多维数组转为 indexed 数组
+     * 例如：
+     *  [
+     *      [ "name" => "a", "children" => [ indexed_a ... ] ],
+     *      [ "name" => "b", "children" => [ indexed_b ... ] ],
+     *      ...
+     *  ] 转换后：
+     *  [
+     *      indexed_a ... ,
+     *      indexed_b ... ,
+     *      ...
+     *  ]
      * @param Array $arr
-     * @param String $key
+     * @param String $key 多维数组的每个层级中 需要被添加到 indexed 数组中的 键名，默认 children
      * @return Array
      */
     public static function indexed($arr=[], $key="children")
@@ -361,6 +372,53 @@ class Arr extends Util
             }
         }
         return $narr;
+    }
+
+    /**
+     * 将多维关联数组 转为 一维数组，各层级键名 使用 glup 连接符连接后 作为 一维数组 键名
+     * 例如：
+     *  [
+     *      "foo" => [
+     *          "bar" => [
+     *              "jaz" => 1,
+     *          ],
+     *          "tom" => 2,
+     *      ],
+     *      "bar" => 3,
+     *  ] 转换后：
+     *  [
+     *      "foo_bar_jaz" => 1,
+     *      "foo_tom" => 2,
+     *      "bar" => 3
+     *  ]
+     * @param Array $arr
+     * @param String $glup 键名的 连接符 默认 _
+     * @return Array
+     */
+    public static function flat($arr=[], $glup="_")
+    {
+        if (!Is::nemstr($glup)) $glup = "_";
+        if (!Is::associate($arr)) return [];
+        /**
+         * 因为是 递归，glup 可能是 foo_bar_ 形式
+         * 需要解析 pre 和 glup
+         * !! 用作 glup 连接字符的 strlen() 必须为 1
+         */
+        if (strlen($glup)>1) {
+            $pre = $glup;
+            $glup = substr($pre, -1);
+        } else {
+            $pre = "";
+        }
+        $rtn = [];
+        foreach ($arr as $k => $sub) {
+            if (Is::associate($sub)) {
+                $rtn = array_merge($rtn, self::flat($sub, $pre.$k.$glup));
+                continue;
+            }
+            $rtn[$pre.$k] = $sub;
+        }
+        return $rtn;
     }
 
     /**

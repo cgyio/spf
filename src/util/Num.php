@@ -1,13 +1,13 @@
 <?php
 /**
- * cgyio/resper 工具类
+ * 工具类
  * Num 数字处理
  * 精确处理浮点数
  */
 
-namespace Cgy\util;
+namespace Spf\util;
 
-use Cgy\Util;
+use Spf\Util;
 
 class Num extends Util 
 {

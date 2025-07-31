@@ -17,14 +17,16 @@ class Exception extends \Exception
      * !! spf 框架所有异常处理类，都继承自此类，必须在子类中 覆盖此静态属性
      */
     protected static $codePrefix = 0;   //相当于 000
+    //异常码(不带前缀) 的 位数，0 为 不指定位数
+    protected static $codeDigit = 0;
 
     /**
      * 当前类型的 异常处理类 中定义的 异常信息，定义格式为：
      *  [
      *      "key" => [
-     *          "错误标题", 
-     *          "错误信息模板 %{n}%", 
-     *          (int)错误代码 
+     *          "异常标题", 
+     *          "异常信息模板 %{n}%", 
+     *          (int)异常代码 不带前缀，在 throw 时 提供此 异常代码
      *      ],
      * 
      *      # 可以有更多层级，可通过 key-path 访问：foo/bar/jaz
@@ -48,32 +50,32 @@ class Exception extends \Exception
             
             //php error
             "php" => [
-                "warning"           => ["PHP Warning",          "%{1}%",    E_WARNING],
-                "notice"            => ["PHP Notice",           "%{1}%",    E_NOTICE],
+                "warning"           => ["PHP Warning",          "%{1}%",    E_WARNING], //2
+                "notice"            => ["PHP Notice",           "%{1}%",    E_NOTICE],  //8
                 "user" => [
-                    "error"         => ["User Error",           "%{1}%",    E_USER_ERROR],
-                    "warning"       => ["User Warning",         "%{1}%",    E_USER_WARNING],
-                    "notice"        => ["User Notice",          "%{1}%",    E_USER_NOTICE],
-                    "deprecated"    => ["User Deprecated",      "%{1}%",    E_USER_DEPRECATED],
+                    "error"         => ["User Error",           "%{1}%",    E_USER_ERROR],          //256
+                    "warning"       => ["User Warning",         "%{1}%",    E_USER_WARNING],        //512
+                    "notice"        => ["User Notice",          "%{1}%",    E_USER_NOTICE],         //1024
+                    "deprecated"    => ["User Deprecated",      "%{1}%",    E_USER_DEPRECATED],     //16384
                 ],
-                "strict"            => ["PHP Strict Notice",    "%{1}%",    E_STRICT],
-                "deprecated"        => ["PHP Deprecated",       "%{1}%",    E_DEPRECATED],
+                "strict"            => ["PHP Strict Notice",    "%{1}%",    E_STRICT],      //2048
+                "deprecated"        => ["PHP Deprecated",       "%{1}%",    E_DEPRECATED],  //8192
                 "recoverable" => [
-                    "error"         => ["Recoverable Error",    "%{1}%",    E_RECOVERABLE_ERROR]
+                    "error"         => ["Recoverable Error",    "%{1}%",    E_RECOVERABLE_ERROR],   //4096
                 ],
             ],
 
             //php fatal
             "fatal" => [
-                "error"             => ["Fatal Error",          "%{1}%",    E_ERROR],
-                "parse"             => ["Parse Error",          "%{1}%",    E_PARSE],
+                "error"             => ["Fatal Error",          "%{1}%",    E_ERROR],   //1
+                "parse"             => ["Parse Error",          "%{1}%",    E_PARSE],   //4
                 "core" => [
-                    "error"         => ["Core Error",           "%{1}%",    E_CORE_ERROR],
-                    "warning"       => ["Core Warning",         "%{1}%",    E_CORE_WARNING],
+                    "error"         => ["Core Error",           "%{1}%",    E_CORE_ERROR],      //16
+                    "warning"       => ["Core Warning",         "%{1}%",    E_CORE_WARNING],    //32
                 ],
                 "compile" => [
-                    "error"         => ["Compile Error",        "%{1}%",    E_COMPILE_ERROR],
-                    "warning"       => ["Compile Warning",      "%{1}%",    E_COMPILE_WARNING],
+                    "error"         => ["Compile Error",        "%{1}%",    E_COMPILE_ERROR],   //64
+                    "warning"       => ["Compile Warning",      "%{1}%",    E_COMPILE_WARNING], //128
                 ],
             ],
 
@@ -86,8 +88,8 @@ class Exception extends \Exception
      */
     public static $lang = "zh-CN";
 
-    //异常类实例化时，缓存 当前的 异常预设信息
-    public $conf = [
+    //异常类实例化时，缓存 当前的 异常信息
+    protected $context = [
         /*
         "title" => "标题",
         "message" => "经过字符串模板替换的 最终显示的 message",
@@ -98,43 +100,86 @@ class Exception extends \Exception
 
     /**
      * 覆盖构造函数
-     * @param String $msg 错误信息，可指定多条，英文逗号隔开 用于替换信息模板中的 %{1}% %{2}% ...
-     * @param Int|String $code 错误代码 4 --> '0000004'  或者  key-path：fatal/parse
-     * @param Array $args \Exception 类构造函数的 其他可选参数
+     * @param String $msg 异常信息，可指定多条，英文逗号隔开 用于替换信息模板中的 %{1}% %{2}% ...
+     * @param Int|String $code 异常代码(不带前缀) 4  或者  key-path：fatal/parse
+     * @param Array $extra 需要额外传入的 自定义异常信息，可以传入 file|line 等信息，替换掉异常类实例内部的属性
+     * @param Throwable|null $previous 异常链
      * @return void
      */
-    public function __construct($msg, $code, ...$args)
+    public function __construct($msg, $code, $extra=[], $previous=null)
     {
-        //根据 传入的 code( 异常码 或 key-path ) 查找预定义的 异常信息
+        //根据 传入的 code( 异常码(不带前缀) 或 key-path ) 查找预定义的 异常信息
         $exception = static::getException($code);
 
         if (!is_array($exception) || count($exception)<3) {
             //获取预定义的 异常信息 失败，直接使用 \Exception 的构造函数，创建实例
-            parent::__construct($msg, $code, ...$args);
+            parent::__construct($msg, $code, $previous);
             //返回
             return;
         }
 
-        //存在 预定义的 异常信息，处理 code 和 message
-        $real = $exception[2];
-        $code = static::getCodeWithPre($real, true);
+        //存在 预定义的 异常信息
+        //将 异常码(不带前缀) 转换为 完整的异常码(带前缀) string
+        $fullcode = static::addCodePre($code);
         //处理 预定义的 异常信息 字符串模板
-        $msg = static::fixMsgTemplate($exception[1], $msg);
-        //增加标题
-        $msg = $exception[0]."：".$msg;
-        
-        //调用父类构造函数，创建异常实例
-        parent::__construct($msg, $code, ...$args);
+        $fullmsg = static::fixMsgTemplate($exception[1], $msg);
+        //var_dump($fullcode);
+        //var_dump($fullmsg);
 
-        //缓存 当前异常的预设参数
-        $this->conf = [
+        //缓存 当前的异常信息
+        $this->context = array_merge([
+
             //输出的异常码 带前缀
-            "code" => $code,
+            "code" => $fullcode,
+            //不带前缀的 异常码
+            "code_no_pre" => (int)$code,
+
+            //预设异常参数
+            //异常标题
             "title" => $exception[0],
             //处理后的 已经替换模板字符的 msg
-            "message" => $msg,
-            //缓存 key-path
+            "message" => $fullmsg,
+            //缓存 key-path 当前异常 在预设的 exceptions 数组中的 xpath
             "xpath" => static::getKeyPath($code),
+
+        ], is_array($extra) ? $extra : []);
+        
+        //调用父类构造函数，创建异常实例
+        parent::__construct($fullmsg, $fullcode, $previous);
+
+        //检查传入的 额外异常信息中，是否包含 file|line 信息，如果有，则覆盖 
+        $ks = ["file","line"];
+        foreach ($ks as $ki) {
+            if (isset($this->context[$ki])) {
+                $this->$ki = $this->context[$ki];
+            }
+        }
+    }
+
+    /**
+     * 读取 $this->context 
+     * @param String $key 在 context 数组中的键名
+     * @return Mixed
+     */
+    public function ctx($key="")
+    {
+        if (!is_string($key) || $key=="") return $this->context;
+        if (!isset($this->context[$key])) return null;
+        return $this->context[$key];
+    }
+
+    /**
+     * 一次性完整输出 当前异常信息
+     * @return Array
+     */
+    public function getInfo()
+    {
+        return [
+            "code" => $this->getCode(),
+            "message" => $this->getMessage(),
+            "file" => $this->getFile(),
+            "line" => $this->getLine(),
+            "trace" => $this->getTrace(),
         ];
     }
 
@@ -149,12 +194,16 @@ class Exception extends \Exception
     public function handleException($exit=false)
     {
         //log
-        $this->logError();
-
-        //读取缓存的 异常信息
-        $conf = $this->conf;
+        $this->logError(
+            $this->getMessage(),
+            [
+                "file" => $this->getFile(),
+                "line" => $this->getLine()
+            ]
+        );
+        
         //key-path
-        $kp = $conf["xpath"] ?? "";
+        $kp = $this->ctx("xpath");
         
         if (is_string($kp) && $kp!="") {
             //查找 可能存在的 handler 方法
@@ -170,11 +219,7 @@ class Exception extends \Exception
         }
 
         //如果需要终止响应
-        if ($exit) {
-            //TODO: 调用 Response 类，创建输出内容，然后终止响应
-
-            exit;
-        }
+        if ($exit || $this->needExit()===true) return $this->exit();
 
         //不需要终止响应
         return $this;
@@ -190,7 +235,64 @@ class Exception extends \Exception
 
     }
 
+    /**
+     * 异常处理方法：终止响应，输出异常信息
+     * @return void
+     */
+    protected function exit()
+    {
+        $s = [];
+        $s[] = "";
+        $s[] = "----------PHP Error catched----------";
+        $s[] = "";
+        $s[] = "code: ".$this->ctx("code");
+        $s[] = $this->ctx("title");
+        $s[] = $this->ctx("message");
+        $s[] = "file: ".$this->getFile();
+        $s[] = "line: ".$this->getLine();
+        if (isset($this->context["trace"])) {
+            $s[] = "Stack trace";
+            $s = array_merge($s, $this->ctx("trace"));
+        }
+        $s[] = "";
+        $s[] = "----------PHP Error end----------";
+        $s[] = "";
+        echo implode("\n", $s);
+        //var_export(implode("\n", $s));
+        //var_export($this->getInfo());
 
+        //TODO: 调用 Response 响应类，创建异常响应，并输出
+        //...
+
+        exit;
+    }
+    
+    /**
+     * 判断当前异常是否需要终止响应
+     * !! 子类必须覆盖此方法，实现不同类型异常的 退出 判断
+     * @return Bool
+     */
+    public function needExit()
+    {
+        /**
+         * 此处判断 仅针对 php error/fatal error 
+         * 要判断其他类型的 异常是否需要退出，应在对应类型的 exception 子类中 覆盖此方法
+         */
+        $code = $this->ctx("code_no_pre");
+        $code = (int)$code;
+        $okErrors = [
+            //这些 php error 不需要终止
+            E_NOTICE, E_USER_NOTICE,
+        ];
+        return !in_array($code, $okErrors);
+    }
+
+
+
+    /**
+     * 全局处理 php 错误
+     * 相关 属性|方法
+     */
 
     /**
      * php 错误处理
@@ -198,10 +300,32 @@ class Exception extends \Exception
      */
     final public static function handlePhpError($code, $msg, $file, $line)
     {
-        //处理 code
-        $code = self::getCodeWithPre($code, true);
-        //抛出异常
-        throw new Exception($msg, $code, null, $file, $line);
+        //创建异常
+        $e = new Exception(
+            $msg, 
+            $code, 
+            [
+                //file、line 作为额外的 异常信息
+                "file" => $file,
+                "line" => $line 
+            ],
+            null
+        );
+
+        if ($e->needExit()) {
+            //如果 此 php error 需要终止响应
+            try {
+                //抛出异常
+                throw $e;
+            } catch (Exception $e) {
+                //处理异常
+                $e->handleException(true);
+            }
+        } else {
+            //如果不需要终止，则 只抛出异常，由调用者决定如何处理
+            throw $e;
+        }
+
     }
 
     /**
@@ -213,7 +337,7 @@ class Exception extends \Exception
         $lastError = error_get_last();
     
         // 检查是否有未处理的致命错误
-        if ($lastError !== null) {
+        if (!empty($lastError)) {
             $fatalErrors = [
                 //这些错误类型为 fatal error
                 E_ERROR, E_PARSE, 
@@ -221,16 +345,42 @@ class Exception extends \Exception
                 E_COMPILE_ERROR, E_COMPILE_WARNING
             ];
             if (in_array($lastError['type'], $fatalErrors)) {
+
+                /**
+                 * 解析 fatal error 的 message 得到 trace 序列
+                 */
+                $code = $lastError["type"] ?? 1;
+                $msg = $lastError['message'] ?? "";
+                $file = $lastError["file"] ?? "";
+                $line = $lastError['line'] ?? 0;
+                //var_dump($msg);
+                $msga = explode("\n", $msg);
+                $msgstr = array_shift($msga);
+                $msgstr = explode(" in ", $msgstr)[0];
+                //Stack trace
+                $trace = [];
+                foreach ($msga as $i => $msgi) {
+                    $msgi = trim($msgi);
+                    if (substr($msgi, 0, 1)!=="#") continue;
+                    //$msgi = preg_replace("/#\d+\s+/","",$msgi);
+                    $trace[] = $msgi;
+                }
+                
                 try {
-                    //获取错误信息
-                    $code = self::getCodeWithPre($lastError["type"], true);
-                    $msg = $lastError['message'];
-                    $file = $lastError['file'];
-                    $line = $lastError['line'];
                     //抛出异常
-                    throw new Exception($msg, $code, null, $file, $line);
+                    throw new Exception(
+                        $msgstr,
+                        $code,
+                        [
+                            //将 file、line、trace 作为额外异常信息
+                            "file" => $file,
+                            "line" => $line,
+                            "trace" => $trace
+                        ],
+                        null
+                    );
                 } catch (Exception $e) {
-                    //处理异常，终止响应
+                    //处理异常，fatal error 必须终止响应
                     $e->handleException(true);
                 }
             }
@@ -239,6 +389,7 @@ class Exception extends \Exception
 
     /**
      * 框架初始化阶段 注册 php 错误处理函数
+     * !! 此方法必须在框架启动流程之前执行
      * @return void
      */
     final public static function regist()
@@ -273,104 +424,6 @@ class Exception extends \Exception
     {
         if (!is_string($lang)) $lang = static::getLang();
         return static::$exceptions[$lang] ?? null;
-    }
-
-    /**
-     * 根据输入的 异常码 或 key-path 获取预定义的异常信息数组
-     * @param String|Int $code 异常码 或 key-path
-     * @return Array|null
-     */
-    final protected static function getException($code)
-    {
-        //获取 key-path
-        if (is_int($code) || is_numeric($code)) {
-            $kp = static::getKeyPath($code);
-        } else if (is_string($code) && strpos($code, "/")!==false) {
-            $kp = $code;
-        } else {
-            $kp = null;
-        }
-        if (!is_string($kp) || $kp=="") return null;
-
-        //所有已定义的 异常信息 一维数组，key-path 为键名
-        $defs = static::definedExceptions();
-        if (!is_array($defs) || empty($defs) || !isset($defs[$kp])) return null;
-
-        return $defs[$kp];
-    }
-
-    /**
-     * 从给出的 异常码，解析出此异常 在 当前异常类的 $exceptions 数组中的 key-path
-     * 例如：在 Exception 类中 错误代码：4 对应的 key-path 为：fatal/parse
-     * @param Numeric|Int $code 异常码
-     * @return String|null 找到的 异常信息的 key-path
-     */
-    final protected static function getKeyPath($code=null)
-    {
-        //异常码 转为 int
-        if (is_string($code) && is_numeric($code)) $code = (int)$code;
-        if (!is_int($code)) return null;
-
-        //所有已定义的 异常信息 一维数组，key-path 为键名
-        $defs = static::definedExceptions();
-        if (!is_array($defs) || empty($defs)) return null;
-        
-        //当前异常类的 异常码前缀 int
-        $cpre = static::$codePrefix;
-        if ($cpre<=0) {
-            //当前缀为 0 时，实际定义的异常码 就是 输入的 $code
-            $real = $code;
-        } else {
-            //前缀 和 输入的 code 都转为 string
-            $cstr = (string)$code;
-            $pstr = (string)$cpre;
-            $rstr = substr($cstr, strlen($pstr));
-            //得到实际定义的 异常码
-            $real = (int)$rstr;
-        }
-
-        //在所有已定义的 异常信息中 查找 实际定义的 异常码
-        foreach ($defs as $kp => $ec) {
-            if (!isset($ec[2]) || !is_int($ec[2])) continue;
-            if ($ec[2] === $real) return $kp;
-        }
-        
-        return null;
-    }
-
-    /**
-     * 根据 给出的 key-path 或 实际异常码 int 获得输出的 异常码(带前缀) string
-     * @param String $kp key-path
-     * @param Bool $int 是否将输出的 异常码 转为 int，默认 false
-     * @return String|null 用于输出的 异常码(带前缀)
-     */
-    final protected static function getCodeWithPre($kp=null, $int=false)
-    {
-        //前缀
-        $pre = static::$codePrefix;
-
-        //如果给出的是 实际异常码 int 直接添加 前缀 并 输出
-        if (is_int($kp) || is_numeric($kp)) {
-            $kp = $kp<1000 ? substr("0000".$kp, -4) : $kp;
-            $code = substr("000".$pre, -3).$kp;
-            if ($int) return (int)$code;
-        }
-
-        if (!is_string($kp) || strpos($kp, "/")===false) return null;
-
-        //所有已定义的 异常信息 一维数组，key-path 为键名
-        $defs = static::definedExceptions();
-        if (!is_array($defs) || empty($defs) || !isset($defs[$kp])) return null;
-        $exception = $defs[$kp];
-        if (!isset($exception[2]) || !is_int($exception[2])) return null;
-
-        //实际异常码
-        $real = $exception[2];
-        $real = $real<1000 ? substr("0000".$real, -4) : $real;
-        //输出字符串形式的 异常码(带 前缀)
-        $code = substr("000".$pre, -3).$real;
-        if ($int) return (int)$code;
-        return $code;
     }
 
     /**
@@ -412,6 +465,129 @@ class Exception extends \Exception
     }
 
     /**
+     * 根据输入的 异常码(不带前缀) 或 key-path 获取预定义的异常信息数组
+     * @param String|Int $code 异常码(不带前缀) 或 key-path
+     * @return Array|null
+     */
+    final protected static function getException($code)
+    {
+        //获取 key-path
+        if (is_int($code) || is_numeric($code)) {
+            $kp = static::getKeyPath($code);
+        } else if (is_string($code) && strpos($code, "/")!==false) {
+            $kp = $code;
+        } else {
+            $kp = null;
+        }
+        if (!is_string($kp) || $kp=="") return null;
+
+        //所有已定义的 异常信息 一维数组，key-path 为键名
+        $defs = static::definedExceptions();
+        if (!is_array($defs) || empty($defs) || !isset($defs[$kp])) return null;
+
+        return $defs[$kp];
+    }
+
+    /**
+     * 从给出的 异常码(不带前缀)，解析出此异常 在 当前异常类的 $exceptions 数组中的 key-path
+     * 例如：在 Exception 类中 错误代码：4 对应的 key-path 为：fatal/parse
+     * @param Numeric|Int $code 异常码
+     * @return String|null 找到的 异常信息的 key-path
+     */
+    final protected static function getKeyPath($code=null)
+    {
+        //异常码 转为 int
+        if (is_string($code) && is_numeric($code)) $code = (int)$code;
+        if (!is_int($code)) return null;
+
+        //所有已定义的 异常信息 一维数组，key-path 为键名
+        $defs = static::definedExceptions();
+        if (!is_array($defs) || empty($defs)) return null;
+
+        //在所有已定义的 异常信息中 查找 异常码(不带前缀)
+        foreach ($defs as $kp => $ec) {
+            if (!isset($ec[2]) || !is_int($ec[2])) continue;
+            if ($ec[2] === $code) return $kp;
+        }
+        
+        return null;
+    }
+
+    /**
+     * 将 异常码(不带前缀) int 添加 codePrefix 后输出为 异常码(带前缀) string
+     * 16  -->  0010016
+     * @param String|Int $code 异常码(不带前缀) 
+     * @param Bool $int 是否将输出的 异常码(带前缀) 转为 int，默认 false
+     * @return String|null 异常码(带前缀)
+     */
+    final protected static function addCodePre($code, $int=false)
+    {
+        //前缀
+        $pre = static::$codePrefix;
+        //参数错误
+        if (!is_int($code) && !is_numeric($code)) return null;
+
+        //将 异常码(不带前缀) 补齐到 codeDigit 指定位数
+        $code = static::padCode($code);
+        //添加前缀，前缀自动补齐到 3 位
+        $code = substr("000".$pre, -3).$code;
+        if ($int) return (int)$code;
+        return $code;
+    }
+
+    /**
+     * 将 异常码(带前缀) string 去除 codePrefix 后输出为 异常码(不带前缀) int
+     * 0010016  -->  $int=true: 16   $int=false: 0016
+     * @param String|Int $code 异常码(带前缀) 数字 或 numeric 形式
+     * @param Bool $int 是否输出 int 类型 异常码(不带前缀)，默认 true，false 时将输出经过 补齐位数的 异常码(不带前缀)
+     * @return String|null 异常码(不带前缀)
+     */
+    final protected static function stripCodePre($code, $int=true)
+    {
+        //前缀
+        $pre = static::$codePrefix;
+        //参数错误
+        if (!is_int($code) && !is_numeric($code)) return null;
+        //数字化
+        $code = (int)$code;
+        //字符化
+        $codestr = "".$code;
+        $prestr = "".$pre;
+        if (substr($codestr, 0, strlen($prestr)) !== $prestr) {
+            //异常码(带前缀) 左侧 没有找到 前缀，说明提供的 code 异常码不是 当前异常类型，不做处理
+            return null;
+        }
+        //左侧开始查找并去除 pre
+        $codestr = substr($codestr, strlen($prestr));
+        //得到 异常码(不带前缀) int
+        $codeint = (int)$codestr;
+        if ($int) return $codeint;
+        //补齐到 预设位数
+        return static::padCode($codeint);
+    }
+
+    /**
+     * 将不带前缀的 异常码 补齐到 static::$codeDigit 位数
+     * 16  -->  0016 (如果预设位数为 4)
+     * @param Int|String $code 异常码(不带前缀) 
+     * @return String 补齐到 $codeDigit 位数的 异常码(不带前缀)
+     */
+    final protected static function padCode($code=null)
+    {
+        if (!is_int($code) && !is_string($code)) return $code;
+        if (is_numeric($code)) $code = (int)$code;
+        if (!is_int($code)) return $code;
+        //异常码(不带前缀) 预设的位数
+        $dig = static::$codeDigit;
+        if ($dig<=0) {
+            //未预设位数，直接返回
+            return "".$code;
+        }
+        //左补零
+        return str_pad("".$code, $dig, "0", STR_PAD_LEFT);
+    }
+
+    /**
      * 替换异常信息中的 %{n}%
      * @param String $cmsg 预设参数中的 异常信息，带有 %{n}% 模板字符
      * @param String $msg 抛出异常时 提供的 msg 参数，多条使用英文逗号隔开
@@ -427,7 +603,7 @@ class Exception extends \Exception
         $msa = explode(",",$msg);
         $msa = array_map(function($mi){
             return trim($mi);
-        });
+        }, $msa);
         foreach ($msa as $i => $mi) {
             $cmsg = str_replace("%{".($i+1)."}%", $mi, $cmsg);
         }

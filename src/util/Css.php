@@ -1,15 +1,15 @@
 <?php
 /**
- * cgyio/resper 工具类
+ * 工具类
  * css工具函数，用于动态输出css文件内容
  */
 
-namespace Cgy\util;
+namespace Spf\util;
 
-use Cgy\Util;
-use Cgy\util\Is;
-use Cgy\util\Str;
-use Cgy\util\Conv;
+use Spf\Util;
+use Spf\util\Is;
+use Spf\util\Str;
+use Spf\util\Conv;
 
 class Css extends Util 
 {

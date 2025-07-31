@@ -1,13 +1,13 @@
 <?php
 /**
- * cgyio/resper 工具类
+ * 工具类
  * Is 类型判断
  */
 
-namespace Cgy\util;
+namespace Spf\util;
 
-use Cgy\Util;
-use Cgy\util\Conv;
+use Spf\Util;
+use Spf\util\Conv;
 
 class Is extends Util 
 {

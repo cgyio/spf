@@ -1,12 +1,12 @@
 <?php
 /**
- * cgyio/resper 工具类
+ * 工具类
  * $_SESSION 处理
  */
 
-namespace Cgy\util;
+namespace Spf\util;
 
-use Cgy\Util;
+use Spf\Util;
 
 class Session extends Util 
 {

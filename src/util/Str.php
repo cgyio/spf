@@ -1,15 +1,15 @@
 <?php
 /**
- * cgyio/resper 工具类
+ * 工具类
  * Str 字符串处理
  */
 
-namespace Cgy\util;
+namespace Spf\util;
 
-use Cgy\Util;
-use Cgy\util\Is;
-use Cgy\util\Arr;
-use Cgy\util\Conv;
+use Spf\Util;
+use Spf\util\Is;
+use Spf\util\Arr;
+use Spf\util\Conv;
 
 class Str extends Util 
 {

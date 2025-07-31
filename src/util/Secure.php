@@ -1,12 +1,13 @@
 <?php
 /**
- * cgyio/resper 对输入数据安全处理 工具类
+ * 工具类
+ * 对输入数据安全处理 
  */
 
-namespace Cgy\util;
+namespace Spf\util;
 
-use Cgy\Util;
-use Cgy\util\Is;
+use Spf\Util;
+use Spf\util\Is;
 
 class Secure extends Util 
 {
