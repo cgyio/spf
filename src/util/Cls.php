@@ -6,11 +6,6 @@
 
 namespace Spf\util;
 
-use Spf\Util;
-use Spf\util\Is;
-use Spf\util\Str;
-use Spf\util\Arr;
-
 class Cls extends Util 
 {
 

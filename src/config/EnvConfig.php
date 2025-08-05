@@ -6,11 +6,13 @@
 
 namespace Spf\config;
 
-use Spf\config\CoreConfig;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
+use Spf\util\Cls;
 use Spf\util\Path;
+use Spf\util\SpecialUtil;
+use Monolog\Logger;
 
 class EnvConfig extends CoreConfig 
 {
@@ -48,7 +50,9 @@ class EnvConfig extends CoreConfig
             //配置文件
             "conf" => ".json",
             //缓存文件
-            "cache" => ".json"
+            "cache" => ".json",
+            //日志文件
+            "log" => ".log",
         ],
 
         //路径分隔符，linux 下为 /   windows 下为 \
@@ -91,6 +95,8 @@ class EnvConfig extends CoreConfig
             "exception" => "library/exception",
             //runtime 整站的运行时 缓存路径
             "runtime"   => "runtime",
+            //log 整站日志文件路径
+            "log" => "log",
         ],
 
         //web 参数
@@ -107,23 +113,55 @@ class EnvConfig extends CoreConfig
             "domain"        => "",  //"systech.work",
             "ip"            => "",  //"124.223.97.67",
             "ajaxallowed"   => "",  //",systech.work",
-
-            //开关
-            //是否显示debug信息
-            "debug" => false,	
+            //语言
+            "lang"          => "zh-CN",
+            	
             //暂停网站
             "pause" => false,	
-            //日志开关
-            "log" => false,
-            //缓存开关，开启后 所有参数处理类 将优先使用缓存的数据
-            "cache" => true,
+
+            //是否显示debug信息
+            "debug" => false,
 
             //其他 web 参数
 
-            //阿里云参数
-            "ali" => [
-                //安装ssl证书，首次需要开启此验证，通过后即可关闭
-                "sslcheck" => false
+        ],
+
+        /**
+         * 框架 特殊工具
+         * 开关|初始化参数
+         */
+        "util" => [
+
+            //Event 事件 订阅|触发|销毁
+            "event" => [
+                //开关
+                "enable" => true,
+            ],
+
+            //Cache 运行时缓存工具
+            "cache" => [
+                //开关
+                "enable" => true,
+                //支持的 缓存文件格式
+                "exts" => ".json,.php", //TODO: .xml,.yml,...
+                //缓存文件内容中 时间戳的 键名
+                "time_key" => "__CACHE_TIME__",
+                //缓存数据应用到目标数据中时的 缓存标记 键名
+                "sign_key" => "__CACHE_SIGN__",
+                //缓存过期时间
+                "expire" => 60*60,
+            ],
+
+            //Log 日志工具
+            "log" => [
+                //开关
+                "enable" => true,
+                //支持的 Monolog 方法
+                "ms" => "debug,info,notice,warning,error,critical,alert,emergency",
+                //日志记录的 文本格式
+                "format" => "%datetime% | %channel% | %level_name% | %message% | %context% | %level%\n",
+                //日志记录的 其实等级，超过此等级的日志才会被记录，默认 Logger::DEBUG 为最低等级，表示记录所有日志
+                "lvl" => Logger::DEBUG,
             ],
 
         ],
@@ -136,6 +174,11 @@ class EnvConfig extends CoreConfig
 
     //经过处理后的 运行时参数
     protected $context = [];
+
+    //全局静态常量
+    protected $special = [
+        "ext", "ds", "ns",
+    ];
 
     /**
      * 在 应用用户设置后 执行 自定义的处理方法
@@ -152,17 +195,30 @@ class EnvConfig extends CoreConfig
         //php 环境参数
         $this->initPhpConf();
 
-        //定义环境常量
-        $this->initCnstConf();
+        //定义全局静态常量 ext|ds|ns
+        $this->initStaticCnst();
 
-        //初始化 路径常量
+        //初始化 WEB_*** | DIR_*** | ***_PATH 常量
         $this->initPathConf();
 
-        //php error test
-        //array_shift($foo);
-        //trigger_error("这是一个用户触发的错误信息", E_USER_ERROR);
+        //初始化 其他环境参数
+        $this->initConf();
 
         return $this;
+    }
+
+    /**
+     * 在初始化时，处理外部传入的 用户设置，例如：提取需要的部分，过滤 等
+     * !! 覆盖父类
+     * @param Array $opt 外部传入的 用户设置内容
+     * @return Array 处理后的 用户设置内容
+     */
+    protected function fixOpt($opt=[])
+    {
+        /**
+         * EnvConfig 只需要参数中的 $opt["env"] 部分 
+         */
+        return $opt["env"] ?? [];
     }
 
 
@@ -196,27 +252,22 @@ class EnvConfig extends CoreConfig
         return $this;
     }
 
-    //处理环境常量 constant 项下参数
-    protected function initCnstConf()
+    //定义全局静态常量 ext|ds|ns
+    protected function initStaticCnst()
     {
-        $ctx = $this->context;
-
-        foreach ($this->context as $key => $conf) {
-            //跳过 已处理过的参数项 php|
-            if (in_array($key, ["php"])) continue;
-
-            //处理 web 项
-            if ($key=="web") {
-                //从预定义的 webroot 路径获取当前 web 应用的 key foo_bar 形式
-                $conf["key"] = Str::snake(array_slice(explode("/",$conf["root"]), -1)[0], "_");
-            }
-
+        //特别的常量
+        $spe = $this->special;
+        foreach ($spe as $sk) {
+            if (!isset($this->context[$sk])) continue;
+            $sv = $this->context[$sk];
+            $ck = strtoupper($sk);
+            
             //定义为常量
-            if (Is::nemarr($conf) && Is::associate($conf)) {
-                self::def($conf, $key);
+            if (Is::nemarr($sv) && Is::associate($sv)) {
+                self::def($sv, $ck);
             } else {
-                if (!defined(strtoupper($key))) {
-                    define(strtoupper($key), $conf);
+                if (!defined($ck)) {
+                    define($ck, $sv);
                 }
             }
         }
@@ -227,14 +278,35 @@ class EnvConfig extends CoreConfig
         return $this;
     }
 
-    //处理框架 路径常量
+    //处理框架 WEB_*** | DIR_*** | ***_PATH 常量
     protected function initPathConf()
     {
+        //现有的 web 参数定义
+        $root = $this->ctx("web/root");
+        $wkey = $this->ctx("web/key");
+        $pre = $this->ctx("web/pre");
+        $dirs = $this->ctx("dir");
+
+        //检查是否定义了 webkey
+        if (!Is::nemstr($wkey)) {
+            $this->context["web"]["key"] = Str::snake(array_slice(explode("/",$root), -1)[0], "_");
+        }
+
         /**
-         * 定义 框架路径常量
+         * 定义 WEB_*** 常量
+         */
+        $webc = $this->ctx("web");
+        self::def($webc, "web");
+
+        /**
+         * 定义 DIR_*** 常量
+         */
+        self::def($dirs, "dir");
+
+        /**
+         * 定义 ***_PATH 路径常量
          */
         //检查是否定义了 pre 路径
-        $pre = $this->ctx("web/pre");
         if (!Is::nemstr($pre) || !is_dir($pre)) {
             //PRE_PATH 指代 vendor 目录的上一级
             $pre = __DIR__.DS."..".DS."..".DS."..".DS."..".DS."..";
@@ -263,7 +335,6 @@ class EnvConfig extends CoreConfig
          * 根据参数 web/root 定义 当前 webroot 路径参数
          * web/root 在配置参数中定义为 相对于 PRE_PATH 目录的 相对路径
          */
-        $root = $this->ctx("web/root");
         if (Is::nemstr($root)) {
             $root = str_replace("/", DS, trim($root, "/"));
         }
@@ -279,7 +350,6 @@ class EnvConfig extends CoreConfig
             "root_path"     => $root,
         ];
         //将 dir 项下所有 特殊路径 定义 ***_path
-        $dirs = $this->ctx("dir");
         if (Is::nemarr($dirs) && Is::associate($dirs)) {
             foreach ($dirs as $dk => $dv) {
                 if (!Is::nemstr($dv)) continue;
@@ -297,6 +367,51 @@ class EnvConfig extends CoreConfig
             $ps[$k] = $p;
         }
         $this->context["path"] = $ps;
+
+        return $this;
+    }
+
+    //处理环境常量 constant 项下参数
+    protected function initConf()
+    {
+        //不需要处理的 参数
+        $spe = array_merge(["php", "dir", "web"], $this->special);
+
+        foreach ($this->context as $key => $conf) {
+            //跳过 已处理过的参数项 
+            if (in_array($key, $spe)) continue;
+
+            //如果存在专门的 initFooConf 方法
+            $m = "init".Str::camel($key, true)."Conf";
+            if (method_exists($this, $m)) {
+                $this->$m($conf);
+                continue;
+            }
+
+            //不存在专门的 init 方法，则定义为常量
+            if (Is::nemarr($conf) && Is::associate($conf)) {
+                self::def($conf, $key);
+            } else {
+                if (!defined(strtoupper($key))) {
+                    define(strtoupper($key), $conf);
+                }
+            }
+        }
+
+        return $this;
+    }
+
+    //处理 util 框架特殊工具类 参数 开关 | 初始化参数
+    protected function initUtilConf($conf=[])
+    {
+        //依次处理 各特殊工具类的 参数
+        foreach ($conf as $util => $uc) {
+            //查找对应的 工具类
+            $ucls = Cls::find("util/$util", "Spf\\");
+            if (empty($ucls) || !class_exists($ucls) || !is_subclass_of($ucls, SpecialUtil::class)) continue;
+            //调用 工具类的 setInitConf 方法
+            $ucls::setInitConf($uc);
+        }
 
         return $this;
     }

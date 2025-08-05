@@ -3,9 +3,7 @@
  * 框架工具类 基类
  */
 
-namespace Spf;
-
-use Spf\util\Cls;
+namespace Spf\util;
 
 class Util 
 {

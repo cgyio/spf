@@ -7,10 +7,6 @@
 namespace Spf\util;
 
 use Spf\Env;
-use Spf\Util;
-use Spf\util\Is;
-use Spf\util\Arr;
-use Spf\util\Str;
 
 class Path extends Util 
 {
@@ -473,6 +469,23 @@ class Path extends Util
         }
         $path = array_merge(array_diff($path, [null,".."]), []);
         return str_replace("__empty__", "", implode($dv, $path));
+    }
+
+
+
+    /**
+     * 从文件路径 获取 后缀名，不检查文件是否存在
+     * 统一返回  .json|.php|... 形式 后缀名
+     * @param String $file 文件路径
+     * @return String|null 后缀名 全小写，带 .    .php|.json|... 形式
+     */
+    public static function ext($file)
+    {
+        if (!Is::nemstr($file)) return null;
+        $pi = pathinfo($file);
+        $ext = $pi["extension"];
+        if (!Is::nemstr($ext)) return null;
+        return ".".strtolower($ext);
     }
 
 

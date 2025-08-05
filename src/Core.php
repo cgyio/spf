@@ -18,9 +18,9 @@
 namespace Spf;
 
 use Spf\App;
-use Spf\Configer;
-use Spf\Exception;
+use Spf\config\Configer;
 use Spf\exception\CoreException;
+use Spf\util\Event;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -55,10 +55,16 @@ class Core
                 //实例化失败
                 throw new CoreException("核心类实例化失败", "singleton/instantiate");
             }
+            
+            //核心类实例化之后，立即执行
+            //订阅事件
+            Event::regist($ins);
+            
             //标记 已实例化
             static::$isInsed = true;
             //缓存 核心实例
             static::$current = $ins;
+            
         } catch (CoreException $e) {
             //核心类实例化失败，终止响应
             $e->handleException(true);

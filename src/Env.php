@@ -40,6 +40,15 @@ class Env extends Core
          */
         if ($key === "path") return (object)$this->config->path;
 
+        /**
+         * $this->fooBarEnabled  -->  FOO_BAR === true
+         */
+        if (substr($key, -7) === "Enabled") {
+            $ck = substr($key, 0, -7);
+            $cv = $this->config->$ck;
+            if (is_bool($cv)) return $cv;
+        }
+
 
         /**
          * 最后
@@ -49,5 +58,22 @@ class Env extends Core
         if (!is_null($rtn)) return $rtn;
 
         return null;
+    }
+
+    /**
+     * 快捷判断 WEB_*** 开关的 开启状态
+     */
+
+    /**
+     * event-handler
+     * @event test_evt
+     * @once true
+     * 
+     */
+    public function handleTestEvtEvent($triggerBy, ...$args)
+    {
+        var_dump("event test_evt handled by Env");
+        var_dump(get_class($triggerBy));
+        var_dump($args);
     }
 }

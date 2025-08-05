@@ -6,8 +6,6 @@
 
 namespace Spf\util;
 
-use Spf\Util;
-
 class Session extends Util 
 {
 

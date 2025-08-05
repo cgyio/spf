@@ -6,10 +6,6 @@
 
 namespace Spf\util;
 
-use Spf\Util;
-use Spf\util\Is;
-use Spf\util\Str;
-
 class Server extends Util 
 {
 

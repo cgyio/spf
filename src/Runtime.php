@@ -8,11 +8,13 @@
 namespace Spf;
 
 use Spf\Core;
-use Spf\Exception;
 use Spf\Env;
 use Spf\App;
 use Spf\app\Operation;
+use Spf\app\Route;
+use Spf\exception\BaseException;
 use Spf\util\Autoloader;
+use Spf\util\Event;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -70,13 +72,13 @@ class Runtime extends Core
         /**
          * step 0   全局错误处理
          */
-        Exception::regist();
+        BaseException::regist();
 
         /**
          * step 1   实例化 环境参数管理类
          * 定义 框架环境参数常量
          */
-        Runtime::$env = Env::current($opt["env"] ?? []);
+        Runtime::$env = Env::current($opt);
 
         /**
          * step 2   为 composer 的类自动加载方法 打补丁
@@ -85,10 +87,17 @@ class Runtime extends Core
          */
         Autoloader::patch();
 
-        Operation::initOprs();
+        /**
+         * step 3   路由表初始化，准备匹配 请求
+         */
+        Route::initRoutes($opt["route"] ?? []);
+        //Route::match();
         var_dump(Operation::defines());
+        var_dump(Operation::closures());
 
         //Path::mkfile("module/foo/bar.json", "{\"bar\":123}");
+
+        //var_dump(Path::find("runtime/goods/operation.json"));
 
         /*var_dump("Path::canChmod(module) ==");
         var_dump(Path::canChmod("module"));
@@ -161,6 +170,10 @@ class Runtime extends Core
          */
         Runtime::current();
 
+
+        //Event test
+        Event::trigger("test_evt", Runtime::$current, "foo","bar","jaz");
+
     }
 
 
@@ -170,17 +183,5 @@ class Runtime extends Core
 
 
 
-    /**
-     * runtime 运行时缓存相关
-     */
-    
-    //缓存数据中的 时间项
-    protected $rcTimeKey = "__CACHE_TIME__";
-    //缓存数据被读取到 context 中后，添加的 缓存使用标记
-    protected $rcSignKey = "__USE_CACHE__";
-    //缓存数据的 过期时间 1h
-    protected $rcExpired = 60*60;
-    //默认的 缓存文件后缀名
-    protected $rcExt = ".json";
 
 }

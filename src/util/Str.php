@@ -6,11 +6,6 @@
 
 namespace Spf\util;
 
-use Spf\Util;
-use Spf\util\Is;
-use Spf\util\Arr;
-use Spf\util\Conv;
-
 class Str extends Util 
 {
 

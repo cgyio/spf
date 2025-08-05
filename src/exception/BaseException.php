@@ -2,13 +2,13 @@
 /**
  * cgyio/spf 框架 异常处理类 基类
  * 
- * 通过 set_error_handler 和 regist_shutdown_function 将 php(fatal) error 通过 spf\Exception 处理
+ * 通过 set_error_handler 和 regist_shutdown_function 将 php(fatal) error 通过 spf\BaseException 处理
  * 框架中 其他类型的异常处理类 都 继承自此类
  */
 
-namespace Spf;
+namespace Spf\exception;
 
-class Exception extends \Exception 
+class BaseException extends \Exception 
 {
     /**
      * 当前类型的 异常处理类 异常代码 code 前缀
@@ -83,7 +83,7 @@ class Exception extends \Exception
     ];
 
     /**
-     * 默认 异常输出语言，SPF_EXPORT_LANG 常量优先级更高
+     * 默认 异常输出语言，WEB_LANG 常量优先级更高
      * !! 子类不要覆盖
      */
     public static $lang = "zh-CN";
@@ -301,7 +301,7 @@ class Exception extends \Exception
     final public static function handlePhpError($code, $msg, $file, $line)
     {
         //创建异常
-        $e = new Exception(
+        $e = new BaseException(
             $msg, 
             $code, 
             [
@@ -317,7 +317,7 @@ class Exception extends \Exception
             try {
                 //抛出异常
                 throw $e;
-            } catch (Exception $e) {
+            } catch (BaseException $e) {
                 //处理异常
                 $e->handleException(true);
             }
@@ -368,7 +368,7 @@ class Exception extends \Exception
                 
                 try {
                     //抛出异常
-                    throw new Exception(
+                    throw new BaseException(
                         $msgstr,
                         $code,
                         [
@@ -379,7 +379,7 @@ class Exception extends \Exception
                         ],
                         null
                     );
-                } catch (Exception $e) {
+                } catch (BaseException $e) {
                     //处理异常，fatal error 必须终止响应
                     $e->handleException(true);
                 }
@@ -407,17 +407,17 @@ class Exception extends \Exception
      */
 
     /**
-     * 获取 异常信息的 输出语言，使用 SPF_EXPORT_LANG | self::$lang
+     * 获取 异常信息的 输出语言，使用 WEB_LANG | self::$lang
      * @return String 输出语言 zh-CN | en | ...
      */
     final protected static function getLang()
     {
-        return defined("SPF_EXPORT_LANG") ? SPF_EXPORT_LANG : static::$lang;
+        return defined("WEB_LANG") ? WEB_LANG : static::$lang;
     }
 
     /**
      * 根据输出语言，获取预设的 异常参数
-     * @param String $lang 要获取参数的 语言，默认不指定，使用 SPF_EXPORT_LANG | self::$lang
+     * @param String $lang 要获取参数的 语言，默认不指定，使用 WEB_LANG | self::$lang
      * @return Array 预设的 异常参数
      */
     final protected static function getExceptions($lang=null)
@@ -609,9 +609,5 @@ class Exception extends \Exception
         }
         return $cmsg;
     }
-
-
-
-
 
 }

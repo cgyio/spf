@@ -3,7 +3,7 @@
  * 框架参数配置工具类 基类
  */
 
-namespace Spf;
+namespace Spf\config;
 
 use Spf\util\Is;
 use Spf\util\Str;
@@ -58,6 +58,9 @@ class Configer
      */
     public function __construct($opt = [])
     {
+        //处理外部传入的 用户设置
+        $opt = $this->fixOpt($opt);
+
         //保存用户设置原始值
         $this->opt = Arr::extend($this->opt, $opt);
 
@@ -164,12 +167,13 @@ class Configer
         if ($key=="ctx") return $this->context;
 
         /**
-         * $this->field  -->  $this->context[field]
+         * $this->origin  -->  $this->opt
+         * 访问传入的用户自定义参数
+         * 即 此类的构造函数的参数
+         * 保存在 $this->opt 中
          */
-        if (isset($this->context[$key])) {
-            $ctx = $this->context[$key];
-            //if (Is::associate($ctx)) return (object)$ctx;
-            return $ctx;
+        if ($key == "origin") {
+            if (!is_null($this->opt)) return $this->opt;
         }
 
         /**
@@ -181,16 +185,37 @@ class Configer
         }
 
         /**
-         * $this->origin  -->  $this->opt
-         * 访问传入的用户自定义参数
-         * 即 此类的构造函数的参数
-         * 保存在 $this->opt 中
+         * $this->field  -->  $this->context[field]
          */
-        if ($key == "origin") {
-            if (!is_null($this->opt)) return $this->opt;
+        if (isset($this->context[$key])) {
+            $ctx = $this->context[$key];
+            //if (Is::associate($ctx)) return (object)$ctx;
+            return $ctx;
+        }
+
+        /**
+         * $this->fooBarJaz  -->  $this->ctx("foo/bar/jaz")
+         */
+        $snake = Str::snake($key, "_");
+        if (strpos($snake, "_")!==false) {
+            $snake = str_replace("_","/",$snake);
+            return $this->ctx($snake);
         }
 
         return null;
+    }
+
+    /**
+     * 在初始化时，处理外部传入的 用户设置，例如：提取需要的部分，过滤 等
+     * !! 子类可覆盖此方法
+     * @param Array $opt 外部传入的 用户设置内容
+     * @return Array 处理后的 用户设置内容
+     */
+    protected function fixOpt($opt=[])
+    {
+        //默认 不做处理 直接返回
+        //有需要的子类，可实现各自的 特殊处理方法
+        return $opt;
     }
 
     /**

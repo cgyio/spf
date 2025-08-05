@@ -7,9 +7,7 @@
 
 namespace Spf\exception;
 
-use Spf\Exception;
-
-class CoreException extends Exception 
+class CoreException extends BaseException 
 {
     /**
      * 当前类型的 异常处理类 异常代码 code 前缀

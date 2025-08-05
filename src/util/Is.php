@@ -6,9 +6,6 @@
 
 namespace Spf\util;
 
-use Spf\Util;
-use Spf\util\Conv;
-
 class Is extends Util 
 {
 

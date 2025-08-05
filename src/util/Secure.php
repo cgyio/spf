@@ -6,9 +6,6 @@
 
 namespace Spf\util;
 
-use Spf\Util;
-use Spf\util\Is;
-
 class Secure extends Util 
 {
     //输入的数据

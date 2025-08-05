@@ -7,8 +7,6 @@
 
 namespace Spf\util;
 
-use Spf\Util;
-
 class Num extends Util 
 {
 

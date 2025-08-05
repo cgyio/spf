@@ -6,10 +6,6 @@
 
 namespace Spf\util;
 
-use Spf\Util;
-use Spf\util\Is;
-use Spf\util\Conv;
-
 class Arr extends Util 
 {
 
@@ -229,6 +225,39 @@ class Arr extends Util
             $idxs[$i] = $getFirst ? array_search($v, $arr) : array_keys($arr, $v);
         }
         return count($args) <= 1 ? $idxs[0] : $idxs;
+    }
+    
+    /**
+     * 从关联数组中 挑选任意项目，生成新的关联数组
+     * @param Array $arr 数据源 数组
+     * @param Array $args 要选取的 一个|多个 数组项 键名|key-path
+     * @return Array 生成新的 关联数组
+     */
+    public static function choose($arr=[], ...$args)
+    {
+        if (!Is::nemarr($arr) || !Is::associate($arr)) return [];
+        //未指定要选用的 配置项，则返回全部
+        if (!Is::nemarr($args)) return $arr;
+        //新数组
+        $narr = [];
+        foreach ($args as $ak) {
+            if (!Is::nemstr($ak)) continue;
+
+            //直接选取 $arr 子项
+            if (strpos($ak, "/")===false) {
+                if (isset($arr[$ak])) $narr[$ak] = $arr[$ak];
+                continue;
+            }
+
+            //需要通过 key-path 从 $arr 中查找
+            $ov = self::find($arr, $ak);
+            if (empty($ov)) continue;
+            //找到目标内容后，再以相同的 key-path 写入到新数组中
+            $ov = self::wrap($ak, $ov);
+            $narr = self::extend($narr, $ov);
+        }
+        //返回
+        return $narr;
     }
 
     /**

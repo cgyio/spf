@@ -6,8 +6,6 @@
 
 namespace Spf\config;
 
-use Spf\Configer;
-
 class CoreConfig extends Configer 
 {
     
