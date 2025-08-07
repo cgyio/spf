@@ -8,6 +8,8 @@
 
 namespace Spf\exception;
 
+use Spf\util\Log;
+
 class BaseException extends \Exception 
 {
     /**
@@ -120,7 +122,7 @@ class BaseException extends \Exception
 
         //存在 预定义的 异常信息
         //将 异常码(不带前缀) 转换为 完整的异常码(带前缀) string
-        $fullcode = static::addCodePre($code);
+        $fullcode = static::addCodePre(is_numeric($code) ? $code : $exception[2]);
         //处理 预定义的 异常信息 字符串模板
         $fullmsg = static::fixMsgTemplate($exception[1], $msg);
         //var_dump($fullcode);
@@ -226,13 +228,14 @@ class BaseException extends \Exception
     }
 
     /**
-     * TODO: log 错误日志
-     * 
+     * 错误日志 统一使用 Log::error 方法
+     * @param String $msg 日志信息内容
+     * @param Array $extra 日志中的额外记录
+     * @return Bool
      */
     protected function logError($msg, $extra=[])
     {
-        //todo:
-
+        return Log::error($msg, $extra);
     }
 
     /**

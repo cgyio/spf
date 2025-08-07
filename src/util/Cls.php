@@ -50,12 +50,40 @@ class Cls extends Util
      * 生成 类全称前缀
      * foo/bar  -->  NS\foo\bar\
      * @param String $path
+     * @param String $ns        namespace 前缀 默认使用常量 NS
      * @return String
      */
-    public static function pre($path = "")
+    public static function pre($path = "", $ns = null)
     {
         $path = trim($path, "/");
-        return NS . str_replace("/","\\", $path) . "\\";
+        $ns = !Is::nemstr($ns) ? (defined("NS") ? NS : "Spf\\") : $ns;
+        return $ns . str_replace("/","\\", $path) . "\\";
+    }
+
+    /**
+     * 从类全程中 去除可能存在的 NS 前缀
+     * @param String $cls 类全称
+     * @param String $ns        namespace 前缀 默认 null
+     * @return String 去除 NS 前缀后的 类路径 foo/bar_jaz/...，可以作为 self::find 方法的参数
+     */
+    public static function rela($cls, $ns=null)
+    {
+        if (!Is::nemstr($cls)) return null;
+        if (!Is::nemstr($ns)) {
+            //去除可能存在的 NS 头
+            if (defined("NS")) $cls = str_replace(NS,"", $cls);
+            //去除可能存在的 默认 NS 头
+            $cls = str_replace("Spf\\","", $cls);
+        } else {
+            //去除指定的 NS 头
+            $ns = trim($ns, "\\")."\\";
+            $cls = str_replace($ns,"", $cls);
+        }
+        $cla = explode("\\", $cls);
+        $cla = array_map(function($cli) {
+            return Str::snake($cli,"_");
+        }, $cla);
+        return implode("/",$cla);
     }
 
     /**
@@ -316,11 +344,11 @@ class Cls extends Util
     }
 
     /**
-     * 查找类中的特殊方法，区分方法的类型依据的是 在注释中存在指定的 字符，如： api|getter|resper|...
+     * 查找类中的特殊方法，区分方法的类型依据的是 在注释中存在指定的 字符，如： api|getter|view|...
      * 提取出这些方法，读取方法注释，获取方法信息，最终返回 [ method=> [信息], ... ]
      * @param String|Object $cls 类全称 或 类实例
      * @param String $filter 过滤方法，默认 null，形式例如：public,&!static,&final
-     * @param String $key 方法类型，api|getter|resper|... 表示方法注释中必须包含 * api|* getter|* resper|...
+     * @param String $key 方法类型，api|getter|view|... 表示方法注释中必须包含 * api|* getter|* view|...
      * @param Closure $condition 额外的条件判断函数，参数为 ReflectionMethod 实例，返回 Bool
      * @param Closure $process 额外的信息处理函数，
      *                  !! 参数为 ReflectionMethod 实例 和 已经解析出的方法信息数组，返回 新的方法信息数组
@@ -343,7 +371,7 @@ class Cls extends Util
         if (is_null($clsn)) return [];
 
         //key 转为 首字母大写形式
-        $ukey = ucfirst(strtolower($key));
+        $ukey = Str::camel($key, true); //ucfirst(strtolower($key));
         //是否 必须包含对应后缀，api|getter|proxy 类型的方法，方法名中必须包含 Api|Getter|Proxy 后缀
         $suffix = in_array(strtolower($key), ["api", "view", "getter", "proxy"]);
         //获取 $cls 类中 符合条件的 特殊方法

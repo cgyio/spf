@@ -207,20 +207,6 @@ class EnvConfig extends CoreConfig
         return $this;
     }
 
-    /**
-     * 在初始化时，处理外部传入的 用户设置，例如：提取需要的部分，过滤 等
-     * !! 覆盖父类
-     * @param Array $opt 外部传入的 用户设置内容
-     * @return Array 处理后的 用户设置内容
-     */
-    protected function fixOpt($opt=[])
-    {
-        /**
-         * EnvConfig 只需要参数中的 $opt["env"] 部分 
-         */
-        return $opt["env"] ?? [];
-    }
-
 
 
     /**

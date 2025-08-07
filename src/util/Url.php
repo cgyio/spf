@@ -6,7 +6,7 @@
 
 namespace Spf\util;
 
-class Url extends SpecialUitl
+class Url extends SpecialUtil
 {
     /**
      * 此工具 在启动参数中的 参数定义

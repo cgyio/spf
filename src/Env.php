@@ -7,6 +7,7 @@
 namespace Spf;
 
 use Spf\Core;
+use Spf\util\Autoloader;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -24,6 +25,20 @@ class Env extends Core
     public static $isInsed = false;
 
 
+
+    /**
+     * Env 环境参数类自有的 init 方法，执行以下操作：
+     *  0   patch Autoloader 将 webroot 路径下的 app|model|module|error 等目录 添加到 自动加载类的路径数组中
+     * !! 子类必须实现
+     * @return $this
+     */
+    public function initialize()
+    {
+        // 0 为 composer 的类自动加载方法 打补丁，将 webroot 路径下的 app|model|module|error 等目录 添加到 自动加载类的路径数组中
+        Autoloader::patch();
+
+        return $this;
+    }
 
     /**
      * 快捷访问 __get

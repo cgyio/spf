@@ -53,13 +53,62 @@ class Arr extends Util
     }
 
     /**
-     * 复制一个array
-     * @param Array $arr
+     * Array 深拷贝，内部的 Array 项执行递归拷贝，确保后续操作不会影响原数组
+     * @param Array|Mixed $arr 要拷贝的 对象，可以是 标量|Array|Object|...
      * @return Array
      */
     public static function copy($arr = [])
     {
-        return array_merge($arr, []);
+        //标量直接返回
+        if (is_scalar($arr) || is_null($arr)) return $arr;
+
+        //数组类型
+        if (is_array($arr)) {
+            //递归
+            $narr = [];
+            foreach ($arr as $k => $v) {
+                $narr[$k] = self::copy($v);
+            }
+            return $narr;
+        }
+
+        //对象类型：克隆并递归拷贝所有属性（包括私有/保护属性）
+        if (is_object($arr)) {
+            //特殊对象处理：Closure 无法深拷贝
+            if ($arr instanceof \Closure) {
+                //!! 不报错，直接返回原值
+                //throw new \InvalidArgumentException("不支持匿名函数（Closure）的深拷贝");
+                return $arr;
+            }
+
+            //克隆对象（浅拷贝）
+            $clone = clone $arr;
+
+            //反射获取所有属性（包括私有/保护）
+            $reflection = new \ReflectionObject($clone);
+            $properties = $reflection->getProperties();
+
+            foreach ($properties as $property) {
+                $property->setAccessible(true); //允许访问私有/保护属性
+                $value = $property->getValue($clone);
+                //深拷贝属性值并重新赋值
+                $property->setValue($clone, self::copy($value));
+            }
+
+            return $clone;
+        }
+
+        //资源类型：无法深拷贝
+        if (is_resource($arr)) {
+            //!! 不报错，直接返回原值
+            //throw new \InvalidArgumentException("不支持资源类型（resource）的深拷贝");
+            return $arr;
+        }
+
+        //其他未覆盖类型
+        //!! 不报错，直接返回原值
+        //throw new \InvalidArgumentException("不支持的类型：" . gettype($data));
+        return $arr;
     }
 
     /**
@@ -230,7 +279,7 @@ class Arr extends Util
     /**
      * 从关联数组中 挑选任意项目，生成新的关联数组
      * @param Array $arr 数据源 数组
-     * @param Array $args 要选取的 一个|多个 数组项 键名|key-path
+     * @param Array $args 要选取的 一个|多个 数组项 键名|key-path 如果在 $arr 中未找到，则不出现在新数组中
      * @return Array 生成新的 关联数组
      */
     public static function choose($arr=[], ...$args)
@@ -245,7 +294,9 @@ class Arr extends Util
 
             //直接选取 $arr 子项
             if (strpos($ak, "/")===false) {
-                if (isset($arr[$ak])) $narr[$ak] = $arr[$ak];
+                if (isset($arr[$ak])) {
+                    $narr[$ak] = $arr[$ak];
+                }
                 continue;
             }
 
@@ -325,14 +376,15 @@ class Arr extends Util
     {
         if (func_num_args()>2) {
             $args = func_get_args();
-            $old = $args[0];
+            $old = self::copy($args[0]);
             for ($i=1; $i<count($args); $i++) {
                 $old = self::extend($old, $args[$i]);
             }
             return $old;
         } else {
-            if (!Is::nemarr($new)) return $old;
-            if (!Is::nemarr($old)) return $new;
+            if (!Is::nemarr($new)) return self::copy($old);
+            if (!Is::nemarr($old)) return self::copy($new);
+            $old = self::copy($old);
             foreach ($old as $k => $v) {
                 if (!array_key_exists($k, $new)) continue;
                 if ($new[$k] === "__delete__") {
@@ -347,19 +399,20 @@ class Arr extends Util
                          * !! 当数组的值为{}时，去重报错
                          * !! 添加 SORT_REGULAR 参数，去重时不对数组值进行类型转换
                          */
-                        $old[$k] = array_unique(array_merge($v, $new[$k]), SORT_REGULAR);
+                        $nv = self::copy($new[$k]);
+                        $old[$k] = array_unique(array_merge($v, $nv), SORT_REGULAR);
                     } else {
-                        //递归extend
+                        //递归 extend
                         $old[$k] = self::extend($v, $new[$k]);
                     }
                 } else {
                     //新旧值不同时为 数组时，新值 覆盖 旧值
-                    $old[$k] = $new[$k];
+                    $old[$k] = self::copy($new[$k]);
                 }
             }
             foreach ($new as $k => $v) {
                 if (array_key_exists($k, $old) || $v === "__delete__") continue;
-                $old[$k] = $v;
+                $old[$k] = self::copy($v);
             }
             return $old;
         }

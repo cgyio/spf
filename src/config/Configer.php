@@ -19,37 +19,18 @@ class Configer
      */
     protected $init = [];
 
+    /**
+     * 可在多个配置类中通用的 设置参数默认值
+     * 如果设定了此值，则 $init 属性需要合并(覆盖)到此数组
+     * !! 如果需要，可以在某个配置类基类中定义此数组，然后在配置类子类中部分定义 $init 数组，即可实现 设置参数的继承和子类覆盖
+     */
+    protected $dftInit = [];
+
     //用户设置 需要覆盖 init 参数
     protected $opt = [];
 
     //经过处理后的 运行时参数
     protected $context = [];
-
-    //已定义的常量
-    //public static $cnsts = [];
-
-    /**
-     * runtimeCache trait 要求的属性
-     * 已在 trait 中定义
-     */
-    //public $runtimeCache = "";
-    //protected $rcTimeKey = "__CACHE_TIME__";
-    //protected $rcSignKey = "__USE_CACHE__";
-    //protected $rcExpired = 60*60;    //缓存更新的时间间隔，1h
-
-    /**
-     * 默认配置文件后缀名，默认 .json
-     * !! 子类可覆盖
-     * 可通过定义 XX_CONFEXT 形式的常量 来覆盖此参数
-     */
-    public static $confExt = ".json";
-    /**
-     * 支持的 配置文件后缀名
-     * !! 子类不要覆盖
-     */
-    public static $confExts = [
-        ".json", ".xml", ".yaml", ".yml",
-    ];
 
     /**
      * 构造
@@ -64,10 +45,13 @@ class Configer
         //保存用户设置原始值
         $this->opt = Arr::extend($this->opt, $opt);
 
-        //合并 用户设置 与 默认参数，保存到 context
-        $ctx = $this->context;
-        if (empty($ctx)) $ctx = Arr::copy($this->init);
-        $ctx = Arr::extend($ctx, $opt);
+        //预定义设置参数，合并默认设置
+        if (Is::nemarr($this->dftInit)) {
+            $this->init = Arr::extend($this->dftInit, $this->init);
+        }
+
+        //合并 用户设置 与 预定义参数，保存到 context
+        $ctx = Arr::extend($this->init, $opt);
 
         //处理设置值，支持格式：String, IndexedArray, Numeric, Bool, null,
         $this->context = $this->fixConfVal($ctx);

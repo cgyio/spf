@@ -12,7 +12,10 @@
 
 namespace Spf\app;
 
+use Spf\Core;
 use Spf\App;
+use Spf\Module;
+use Spf\app\Route;
 use Spf\exception\CoreException;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -28,7 +31,7 @@ final class Operation
      * 此列表可能在 框架运行过程中被修改，
      * !! 如果 运行时缓存 开启，此列表会被缓存
      */
-    protected static $all = [
+    protected static $context = [
         /*
         "应用名称(应用文件夹名)，全小写，下划线_ 格式：foo_bar" => [
 
@@ -86,17 +89,26 @@ final class Operation
     //标记 initOprs 已执行
     public static $isInited = false;
 
+    //默认的 某个应用的 操作列表数据格式
+    protected static $dftOprs = [
+        "apis" => [],
+        "views" => [],
+    ];
+
     /**
      * 可用操作的收集与汇总
      * !! 应在 环境变量初始化后，路由解析之前 执行此方法
-     * @param Array $opt 框架启动参数中的 route 路由参数，通常是手动定义的 全局路由操作
+     * @param Array $opt 框架启动参数
      * @return Bool
      */
     public static function initOprs($opt=[])
     {
+        //根据启动参数，配置缓存文件位置
+        self::setCacheFile($opt);
+
         //首先尝试缓存文件
         if (true === self::readCache()) {
-            //缓存读取成功，且已写入 $all|$closure
+            //缓存读取成功，且已写入 $context|$closure
             //inited 标记
             self::$isInited = true;
             return true;
@@ -107,11 +119,11 @@ final class Operation
          * 开始 收集 操作列表
          */
         //收集 全局路由 操作
-        $initrut = self::initRoutes($opt);
+        $initrut = self::initRoutes($opt["route"] ?? []);
         //收集 所有应用的 可用操作
         $initapp = self::initAppOprs();
-        //收集 所有模块的 可用操作
-        $initmod = self::initModuleOprs();
+        //收集 所有全局启用模块的 可用操作
+        $initmod = self::initModuleOprs($opt["module"] ?? []);
 
         //错误收集
         if ($initrut && $initapp && $initmod) {
@@ -126,19 +138,38 @@ final class Operation
     }
 
     /**
-     * 读取缓存文件，写入 $all|$closure
+     * 使用框架启动参数中 可能存在的 缓存文件路径 参数，覆盖当前类中定义的
+     * @param Array $opt 框架启动参数
+     * @return Bool
+     */
+    protected static function setCacheFile($opt=[])
+    {
+        if (!Is::nemarr($opt)) return false;
+        //获取 $opt["operation"] 参数
+        $oprc = $opt["operation"] ?? [];
+        $cfs = $oprc["cache"] ?? [];
+        $cf = $cfs["operation"] ?? null;
+        $ccf = $cfs["closure"] ?? null;
+        //配置 缓存文件位置
+        if (Is::nemstr($cf)) self::$cacheFile = $cf;
+        if (Is::nemstr($ccf)) self::$cacheClosureFile = $ccf;
+        return true;
+    }
+
+    /**
+     * 读取缓存文件，写入 $context|$closure
      * @return Bool 是否读取并写入成功
      */
-    protected static function readCache()
+    public static function readCache()
     {
         //读取预设的 缓存文件
         $cf = self::$cacheFile;
         $ccf = self::$cacheClosureFile;
-        $all = Cache::read($cf);
+        $ctx = Cache::read($cf);
         $closure = Cache::read($ccf);
         //写入 静态属性
-        if (Is::nemarr($all)) {
-            self::$all = $all;
+        if (Is::nemarr($ctx)) {
+            self::$context = $ctx;
             if (Is::nemarr($closure)) self::$closure = $closure;
             return true;
         }
@@ -146,15 +177,24 @@ final class Operation
     }
 
     /**
-     * 将解析得到的 $all|$closure 数据写入缓存
+     * 将解析得到的 $context|$closure 数据写入缓存
      * @return Bool 
      */
-    protected static function saveCache()
+    public static function saveCache()
     {
         //写入缓存
-        Cache::save(self::$cacheFile, self::$all);
+        Cache::save(self::$cacheFile, self::$context);
         if (Is::nemarr(self::$closure)) Cache::saveClosure(self::$cacheClosureFile, self::$closure);
         return true;
+    }
+
+    /**
+     * 判断当前的 操作列表 是否来自 缓存
+     * @return Bool
+     */
+    public static function isCached()
+    {
+        return Cache::isCached(self::$context);
     }
 
     /**
@@ -196,17 +236,14 @@ final class Operation
             $route = $oprc["route"];
             $appk = $clsn::clsk();
 
-            if (isset(self::$all[$appk]) && isset(self::$all[$appk][$oprn])) {
+            if (isset(self::$context[$appk]) && isset(self::$context[$appk][$oprn])) {
                 //此路由操作 已在 应用的 操作列表中，仅修订 操作信息
-                self::$all[$appk][$oprn]["route"] = $route;
+                self::$context[$appk][$oprn]["route"] = $route;
                 continue;
             }
 
             //操作写入对应的 应用操作列表
-            $oprs = [
-                "apis" => [],
-                "views" => [],
-            ];
+            $oprs = Arr::copy(self::$dftOprs);
             $oprs[$expt."s"] = [ Str::snake($name, "_") ];
             $oprs[$oprn] = $oprc;
             //写入对应 app 的操作列表中
@@ -245,14 +282,11 @@ final class Operation
                 $appcls = null;
             }
             //检查应用类是否存在
-            if (Is::nemstr($appcls) && class_exists($appcls)) {
+            if (Is::nemstr($appcls) && class_exists($appcls) && is_subclass_of($appcls, App::class)) {
                 //应用名称 全小写下划线_ 形式
                 $appk = Str::snake($appn,"_");
                 //此应用的 所有可用操作
-                $aoprs = [
-                    "apis" => [],
-                    "views" => [],
-                ];
+                $aoprs = Arr::copy(self::$dftOprs);
 
                 //收集 应用类中定义的 可用操作
                 $aoprs = self::getAppOprs($appcls, $aoprs);
@@ -260,9 +294,8 @@ final class Operation
                 $aoprs = self::getAppRouteOprs($appcls, $aoprs);
                 if (empty($aoprs["apis"]) && empty($aoprs["views"])) continue;
 
-                //合并到 self::$all[$appk]
+                //合并到 self::$context[$appk]
                 self::setAppOprs($appk, $aoprs);
-                //self::$all[$appk] = Arr::extend(self::$all[$appk],$aoprs);
             }
         }
         closedir($ph);
@@ -271,14 +304,56 @@ final class Operation
     }
 
     /**
-     * TODO:
      * init 方法
-     * 收集 所有模块的 可用操作
+     * 收集 模块的 可用操作
+     * @param String|Array $mod 类全称  或  模块名  FooBar 或 foo_bar 形式，或者 类名数组，默认 null 
      * @return Bool
      */
-    protected static function initModuleOprs()
+    protected static function initModuleOprs($mod=null)
     {
-        //TODO:
+        //未指定要收集的 模块，直接返回 true
+        if (empty($mod)) return true;
+
+        //批量收集多个模块，通常是在框架启动时，处理 全局启用的模块
+        if (Is::nemarr($mod)) {
+            if (Is::associate($mod)) {
+                $mods = array_keys($mod);
+            } else {
+                $mods = $mod;
+            }
+            $flag = true;
+            //批量收集操作列表
+            foreach ($mods as $mod) {
+                $flag = $flag && self::initModuleOprs($mod);
+            }
+            return $flag;
+        }
+
+        //获取模块 类全称
+        $modcls = Module::has($mod);
+        if ($modcls === false) return false;
+
+        //收集 类中定义的 特殊操作
+        $apis = self::getClsOprs($modcls, "api");
+        $views = self::getClsOprs($modcls, "view");
+        $oprs = Arr::extend($apis, $views);
+        
+        //如果 App 已经实例化，则将所有 操作 都添加到 当前 App 名下
+        if (App::$isInsed === true) {
+            $appk = App::$current::clsk();
+            //写入
+            self::setAppOprs($appk, $oprs);
+            return true;
+        }
+
+        //App 还未实例化，则将操作列表写入 所有 App 名下
+        //写入
+        $appks = array_keys(self::$context);
+        foreach ($appks as $appk) {
+            if (App::has($appk)!==false) {
+                self::setAppOprs($appk, $oprs);
+            }
+        }
 
         return true;
     }
@@ -300,10 +375,7 @@ final class Operation
     {
         //规范输出的数据
         if (!Is::nemarr($oprs)) {
-            $oprs = [
-                "apis" => [],
-                "views" => [],
-            ];
+            $oprs = Arr::copy(self::$dftOprs);
         }
         
         //应用类 必须存在
@@ -318,7 +390,14 @@ final class Operation
 
         //遍历 类中定义的 特定方法
         //api 方法
-        $apis = Cls::specific(
+        $apis = self::getClsOprs($appcls, "api", "public,&!static", $appk, $appintr);
+        //view 方法
+        $views = self::getClsOprs($appcls, "view", "public,&!static", $appk, $appintr);
+        //合并
+        $oprs = Arr::extend($oprs, $apis, $views);
+        //返回
+        return $oprs;
+        /*$apis = Cls::specific(
             $appcls,
             "public,&!static",
             "api",
@@ -359,7 +438,7 @@ final class Operation
             $oprs["views"][] = $fn;
             $oprs[$fc["oprn"]] = $fc;
         }
-        return $oprs;
+        return $oprs;*/
     }
 
     /**
@@ -379,10 +458,7 @@ final class Operation
     {
         //规范输出的数据
         if (!Is::nemarr($oprs)) {
-            $oprs = [
-                "apis" => [],
-                "views" => [],
-            ];
+            $oprs = Arr::copy(self::$dftOprs);
         }
 
         //应用类 必须存在
@@ -463,10 +539,10 @@ final class Operation
     }
 
     /**
-     * 将收集到的 应用操作列表 合并到 self::$all[$appk]
+     * 将收集到的 应用操作列表 合并到 self::$context[$appk]
      * @param String $app 应用名称 foo_bar 或 FooBar 形式
      * @param Array $oprs 当前收集到的 操作列表 [ "apis"=>[], "views"=>[], "操作标识"=>[操作信息], ... ] 
-     * @return Array 合并后的 self::$all[$appk] 数组
+     * @return Array 合并后的 self::$context[$appk] 数组
      */
     public static function setAppOprs($app, $oprs=[])
     {
@@ -474,26 +550,22 @@ final class Operation
         //确保 app 为 foo_bar 形式
         $appk = Str::snake($app,"_");
         //当前已保存的 应用操作列表
-        $aoprs = self::$all[$appk] ?? [];
+        $aoprs = self::$context[$appk] ?? [];
 
         //如果未指定要合并的 数据，直接返回已保存的 操作列表
         if (!Is::nemarr($oprs)) return $aoprs;
         if (!Is::nemarr($aoprs)) {
             //如果当前没有已保存的 操作列表，直接写入
-            self::$all[$appk] = $oprs;
+            self::$context[$appk] = $oprs;
             return $oprs;
         }
 
         //合并 
         //标准 操作列表格式
-        $doprs = [
-            "apis" => [],
-            "views" => [],
-        ];
-        $oprs = Arr::extend($doprs, $oprs);
-        self::$all[$appk] = Arr::extend($aoprs, $oprs);
+        $oprs = Arr::extend(self::$dftOprs, $oprs);
+        self::$context[$appk] = Arr::extend($aoprs, $oprs);
 
-        return self::$all[$appk];
+        return self::$context[$appk];
     }
 
     /**
@@ -507,11 +579,11 @@ final class Operation
     public static function defines()
     {
         //Operation 类必须已初始化
-        if (self::$isInited!==true || !Is::nemarr(self::$all)) return [];
+        if (self::$isInited!==true || !Is::nemarr(self::$context)) return [];
 
-        $all = self::$all;
+        $ctx = self::$context;
         $defs = [];
-        foreach ($all as $appk => $opsc) {
+        foreach ($ctx as $appk => $opsc) {
             if (!Is::nemarr($opsc)) continue;
             foreach ($opsc as $k => $c) {
                 if (!Is::nemarr($c) || !isset($c["oprn"])) continue;
@@ -526,14 +598,14 @@ final class Operation
      * 可输出为 静态路由表
      * @return Array
      *  [
-     *      "路由正则" => [ 操作信息 ... ],
+     *      "/路由正则/" => [ 操作信息 ... ],
      *      ...
      *  ]
      */
     public static function routes()
     {
         //Operation 类必须已初始化
-        if (self::$isInited!==true || !Is::nemarr(self::$all)) return [];
+        if (self::$isInited!==true || !Is::nemarr(self::$context)) return [];
 
         //获取全部 可用的 操作列表
         $defs = self::defines();
@@ -549,6 +621,9 @@ final class Operation
                 $routes[$pattern] = $oprc;
             }
         }
+
+        //写入 Route::$context
+        Route::ctx($routes);
 
         return $routes;
     }
@@ -657,6 +732,83 @@ final class Operation
         return $oprc;
     }
 
+    /**
+     * 解析某个类中定义的 api|view 方法，生成操作信息数组
+     * @param String $cls 类全称
+     * @param String $type 筛选方法类型 api|view 默认 api
+     * @param String $filter 筛选类中方法时，指定筛选方法 默认 public,&!static 
+     * @param String $pre 操作标识 前缀，默认不指定，从 $cls 解析得到
+     * @param String $intr 操作说明字符串 前缀，默认不指定，从 $cls 解析得到
+     * @return Array 标准的 操作列表数据格式，与 self::$dftOprs 格式一致
+     */
+    protected static function getClsOprs($cls, $type="api", $filter="public,&!static", $pre=null, $intr=null)
+    {
+        //准备标准的 操作列表输出数据
+        $oprs = Arr::copy(self::$dftOprs);
+        //传入的类 不存在
+        if (!class_exists($cls)) return $oprs;
+
+        //参数默认值
+        if (!Is::nemstr($type)) $type = "api";
+        if (!Is::nemstr($filter)) $filter = "public,&!static";
+        if (!Is::nemstr($pre)) {
+            //从 $cls 类全称 解析 操作标识前缀
+            if (is_subclass_of($cls, Core::class) === true) {
+                //这是 核心类
+                $clsk = $cls::clsk();
+                if (is_subclass_of($cls, App::class) === true) {
+                    //针对 应用类
+                    $pre = $clsk;
+                } else if (is_subclass_of($cls, Module::class) === true) {
+                    //针对 模块类
+                    $pre = "module/$clsk";
+                } else {
+                    //针对其他核心类
+                    $pre = $clsk;
+                }
+            } else {
+                //其他类 使用 类全称路径形式，作为 操作标识前缀
+                $clsarr = explode("\\", trim($cls, "\\"));
+                $clsarr = array_map(function($cli) {
+                    return Str::snake($cli, "_");
+                }, $clsarr);
+                $pre = implode("/", $clsarr);
+            }
+        }
+        $pre = "$type/$pre";
+        if (!Is::nemstr($intr)) {
+            //从 $cls 类解析 操作说明前缀
+            $clsps = Cls::ref($cls)->getDefaultProperties();
+            $intr = $clsps["intr"] ?? Cls::name($cls);
+        }
+
+        //遍历 类中定义的 特定方法
+        $ms = Cls::specific(
+            $cls,
+            $filter,
+            $type,
+            null,
+            function($mi, $conf) use ($type, $pre, $intr) {
+                //附加 uac 信息到 操作信息数组
+                //!! 将生成操作标识
+                $conf = Cls::parseMethodInfoWithUac($mi, $conf, $pre, $intr);
+                //附加 export 参数
+                $conf["export"] = $type;
+                return $conf;
+            }
+        );
+
+        //收集到的 操作列表 格式化
+        foreach ($ms as $fn => $fc) {
+            if (!isset($fc["oprn"]) || !Is::nemstr($fc["oprn"])) continue;
+            $oprs[$type."s"][] = $fn;
+            $oprs[$fc["oprn"]] = $fc;
+        }
+
+        //返回 操作列表
+        return $oprs;
+    }
+
 
 
     /**
@@ -667,7 +819,7 @@ final class Operation
     public $app = null;
 
     //此 App 的所有可用操作
-    protected $context = [
+    protected $oprs = [
         /*
         "操作标识" => [操作信息 ...],
         ...
@@ -698,17 +850,17 @@ final class Operation
             throw new CoreExcetpion("无法创建应用操作实例", "singleton/instantiate");
         }
         $this->app = $app;
-        //从 Operation::$all 中读取对应 app 的相关操作
+        //从 Operation::$context 中读取对应 app 的相关操作
         $appk = $app::clsk();
-        $all = self::$all;
-        if (isset($all[$appk])) {
+        $ctx = self::$context;
+        if (isset($ctx[$appk])) {
             //存在 此 App 相关的 操作列表，填充到 操作类实例中
-            $oprs = $all[$appk];
+            $oprs = $ctx[$appk];
             $this->apis = $oprs["apis"] ?? [];
             $this->views = $oprs["views"] ?? [];
             foreach ($oprs as $k => $v) {
                 if (in_array($k, ["apis","views"])) continue;
-                $this->context[$v["name"]] = $v;
+                $this->oprs[$v["name"]] = $v;
             }
         }
 

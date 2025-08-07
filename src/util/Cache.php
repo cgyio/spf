@@ -286,6 +286,16 @@ class Cache extends SpecialUtil
         return defined($cnst) ? constant($cnst) : self::$ext;
     }
 
+    /**
+     * 判断传入的数据 是否从缓存读取的，存在 self::$signKey 项 且 ==true
+     * @param Array $data 要判断的数据
+     * @return Bool
+     */
+    public static function isCached($data=[])
+    {
+        return Is::nemarr($data) && isset($data[self::$signKey]) && $data[self::$signKey] === true;
+    }
+
 
 
     /**

@@ -179,8 +179,8 @@ class Str extends Util
      */
     public static function snake($str, $glup="-")
     {
-        $snakeCase = strtolower(preg_replace('/([a-z])([A-Z])/', '$1'.$glup.'$2', $str));
-        return $snakeCase;
+        $snakeCase = preg_replace('/([a-z])([A-Z])/', '$1'.$glup.'$2', $str);
+        return strtolower($snakeCase);
     }
 
     /**
@@ -276,6 +276,25 @@ class Str extends Util
         $len = strlen($var);
         if ($len>strlen($str)) return false;
         return substr($str, strlen($str) - $len) == $var;
+    }
+
+    /**
+     * 判断 开头|结尾
+     * @param String $str
+     * @param String $start 开头字符
+     * @param String $end 结尾字符
+     * @return String|false 不满足则返回 false，满足则返回 中间的字符串
+     */
+    public static function between($str, $start, $end)
+    {
+        if (!Is::nemstr($str) || !Is::nemstr($start) || !Is::nemstr($end)) return false;
+        $sln = strlen($start);
+        $eln = strlen($end);
+        $len = strlen($str);
+        if ($len>$sln+$eln && substr($str, 0,$sln)===$start && substr($str, $eln*-1)===$end) {
+            return substr($str, $sln, $eln*-1);
+        }
+        return false;
     }
 
     /**
