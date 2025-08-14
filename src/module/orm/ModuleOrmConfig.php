@@ -49,6 +49,22 @@ class ModuleOrmConfig extends ModuleConfig
         "required" => [
             //"db_foo",
         ],
+
+        //此模块必须的 中间件
+        "middleware" => [
+            //入站
+            "in" => [
+                "middleware/orm_foo",
+            ],
+            //出站
+            "out" => [],
+            //中间件配置参数
+            //...
+            "middleware/orm_foo" => [
+                "orm_foo_fooo" => 123,
+                "orm_foo_barr" => 456
+            ],
+        ],
     ];
 
     
@@ -60,8 +76,7 @@ class ModuleOrmConfig extends ModuleConfig
      */
     public function processConf()
     {
-        var_dump("---- ModuleOrmConfig processConf ----");
-        var_dump($this->context);
+        
     }
 
 }

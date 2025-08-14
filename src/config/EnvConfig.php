@@ -132,6 +132,16 @@ class EnvConfig extends CoreConfig
          */
         "util" => [
 
+            //Operation 可用操作管理
+            "operation" => [
+                //开关
+                "enable" => true,
+                //可用操作类型
+                "types" => [
+                    "api", "view", "src",
+                ],
+            ],
+
             //Event 事件 订阅|触发|销毁
             "event" => [
                 //开关

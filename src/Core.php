@@ -17,8 +17,8 @@
 
 namespace Spf;
 
-use Spf\App;
 use Spf\config\Configer;
+use Spf\exception\BaseException;
 use Spf\exception\CoreException;
 use Spf\util\Event;
 use Spf\util\Is;
@@ -41,112 +41,133 @@ abstract class Core
     public static $current = null;
     //此核心类已经实例化 标记
     public static $isInsed = false;
+    //标记 是否可以同时实例化多个 此核心类的子类
+    public static $multiSubInsed = false;
 
     //核心类 对应的参数配置类 实例
     public $config = null;
     //外部传入的启动参数 即 核心配置类的构造参数，在核心配置类实例化后，此属性将被释放
-    public $opt = [];
+    //public $opt = [];
 
 
 
     /**
      * 单例实例化方法
+     * CoreClass::current( [] )                 实例化核心类 NS\CoreClass
+     * App::current( [], "app/foo_app", ... )   实例化应用类 NS\app\FooApp
+     * Module::current( [], "module/orm", ... ) 实例化模块类 NS\module\Orm
      * !! 子类不要覆盖
+     * @param Array $opt 框架启动参数，通过 Runtime::start([...]) 传入
+     * @param String $cls 实际 实例化的 核心类全称，不指定则实例化当前类，默认 null
      * @param Array $args 核心类构造参数
      * @return Core 核心类实例
      */
-    final public static function current(...$args)
+    final public static function current($opt=[], $cls=null, ...$args)
     {
-        //检查是否已经 实例化
-        if (static::$isInsed === true) return static::$current;
         //核心类 实例化 流程
         try {
+
+            //标记 实例化的类 是否是此类的子类
+            $issub = false; 
+
+            //确认 要实例化的 核心类类全称，必须是此类 或 此类的子类
+            if (!Is::nemstr($cls)) {
+                //未指定 实际要实例化的核心类，则实例化此类
+                $cls = static::class;
+            } else {
+                //指定了 实际要实例化的 核心类，必须是 此类的子类
+                $ocls = $cls;
+                $cls = Cls::find($cls);
+                if (!class_exists($cls) || !is_subclass_of($cls, static::class)) {
+                    //实例化失败
+                    throw new CoreException("指定的核心类 $ocls 不存在", "initialize/core");
+                }
+                $issub = true;
+            }
+
+            //检查是否已经 实例化
+            if ($cls::$isInsed === true) return $cls::$current;
+            //类名 FooBar
+            $clsn = $cls::clsn();
+
             //创建实例
-            $cls = static::class;
             $ins = new $cls(...$args);
             if (!$ins instanceof $cls) {
                 //实例化失败
-                throw new CoreException("核心类实例化失败", "singleton/instantiate");
+                throw new CoreException("核心类 $clsn 实例化失败", "initialize/core");
             }
-            //标记 已实例化
-            static::$isInsed = true;
-            //缓存 核心实例
-            static::$current = $ins;
-            
-            //核心类实例化之后，立即执行：
-            //实例化 核心类对应的 config 参数配置类
-            $ins->initConfig();
 
-            //核心类自定义的 init 方法
+            //标记 已实例化
+            $cls::$isInsed = true;
+            //缓存 核心实例
+            $cls::$current = $ins;
+
+            /**
+             * 如果实例化的 是 此核心类的子类，例如：某个具体的 应用类|模块类 ，还需要将 此核心父类 设置为 isInsed
+             * 例如：App::current([], "app/foo") 执行后：
+             *      NS\app\Foo::$isInsed === true
+             *      NS\App::$isInsed === true
+             *      NS\app\Foo::$current === NS\App::$current === $fooInstance
+             * 
+             * !! 如果此核心父类定义了 $multiSubInsed === true 则不需要设置 isInsed
+             */
+            if ($issub && static::$multiSubInsed !== true) {
+                //标记 已实例化
+                static::$isInsed = true;
+                //缓存 核心实例
+                static::$current = $ins;
+            }
+
+            //核心类实例化之后，立即执行：
+            // 0 实例化 核心类对应的 config 参数配置类
+            $ins->initConfig($opt);
+            if (empty($ins->config) || !$ins->config instanceof Configer) {
+                //实例化失败
+                throw new CoreException($clsn."Config 类实例化失败", "iniaialize/config");
+            }
+
+            // 1 核心类自定义的 init 方法
             $ins->initialize();
-            //订阅事件
+
+            // 2 订阅事件
             Event::regist($ins);
             
-        } catch (CoreException $e) {
+        } catch (BaseException $e) {
             //核心类实例化失败，终止响应
             $e->handleException(true);
         }
 
         //返回 核心实例
-        return static::$current;
+        return $issub ? $cls::$current : static::$current;
     }
 
     /**
      * 核心类构造方法，protected 不能通过 new 方式创建 核心类 实例
      * !! 子类可覆盖此方法，必须在内部调用父类构造函数
-     * @param Array $opt 框架启动参数中关于此核心类的 参数
      * @param Array $args 实例化参数
      * @return void
      */
-    protected function __construct($opt=[], ...$args)
+    protected function __construct(...$args)
     {
-        //从 外部传入的框架启动参数中，选取 核心类启动参数
-        $opt = $this->fixOpt($opt);
-        //缓存 核心类启动参数
-        $this->opt = Is::nemarr($opt) ? $opt : [];
-        
-    }
-
-    /**
-     * 从传入的 $opt 数组中选取部分作为 核心类的 启动参数
-     * !! 子类可覆盖此方法
-     * @param Array $opt 传入的框架启动参数，通过 核心类的 current 方法传入的
-     * @return Array 选取后的 此核心类的 启动参数
-     */
-    protected function fixOpt($opt=[])
-    {
-        if (!Is::nemarr($opt)) return [];
-        //核心类 类名 路径形式 foo_bar
-        $clsk = static::clsk();
-        //核心类 类型
-        $type = Str::snake(static::is(), "_");
-        //依次查找
-        $conf = Arr::find($opt, "$type/$clsk");
-        if (!Is::nemarr($conf)) $conf = Arr::find($opt, $clsk);
-        if (!Is::nemarr($conf)) $conf = $opt;
-
-        return $conf;
+        //子类覆盖 ...
     }
 
     /**
      * 实例化 参数配置类
      * !! 子类可覆盖此方法
-     * @param Array $args 核心类参数配置类的 实例化参数，通常是 框架启动参数中 关于此核心类的 参数
+     * @param Array $opt 框架启动参数
      * @return Configer 实例
      */
-    public function initConfig()
+    public function initConfig($opt=[])
     {
         //查找 参数配置类的 类全称
         $cfgcls = $this->getConfigCls();
 
-        //外部传入的 核心类启动参数
-        $opt = Is::nemarr($this->opt) ? $this->opt : [];
         //实例化 配置类
-        $cfger = new $cfgcls($opt);
-        //释放 $this->opt
-        $this->opt = null;
+        $cfger = new $cfgcls($opt, $this);
         //缓存 配置类实例
         $this->config = $cfger;
+
         //返回 实例化的 配置类
         return $cfger;
     }
@@ -154,7 +175,7 @@ abstract class Core
     /**
      * 获取此核心类 对应的 config 配置类 类全称
      * !! 子类可覆盖此方法
-     * @return String|null 类全称
+     * @return String 类全称
      */
     protected function getConfigCls()
     {
@@ -180,7 +201,11 @@ abstract class Core
             //默认路径下，也没有此核心类的 配置类，则使用 CoreConfig 类，此类一定存在
             $cfgcls = Cls::find("config/CoreConfig", "Spf\\");
         }
-        return (!empty($cfgcls) && class_exists($cfgcls)) ? $cfgcls : null;
+        if (empty($cfgcls) || !class_exists($cfgcls)) {
+            //未找到配置类，报错
+            throw new CoreException("未找到 $cfgn 配置类", "initialize/config");
+        }
+        return $cfgcls;
     }
 
     /**
@@ -217,7 +242,23 @@ abstract class Core
      */
     public static function __callStatic($key, $args)
     {
-
+        /**
+         * static::foo()            -->  static::$current->foo
+         * static::foo(...args)     -->  static::$current->foo(...args)
+         * 以 静态方法 形式 调用 单例的 属性|方法
+         * !! 核心类单例必须已经创建
+         */
+        if (static::$isInsed === true) {
+            //核心类 单例
+            $ins = static::$current;
+            if (!Is::nemarr($args)) {
+                //访问 单例的 属性 或 __get($key)
+                $rtn = $ins->$key;
+                if (!is_null($rtn)) return $rtn;
+            }
+            //尝试访问 单例的 方法
+            if (method_exists($ins, $key)) return call_user_func_array([$ins, $key], $args);
+        }
 
         //调用 BaseTrait::__callStatic
         return static::operationTraitCallStatic($key, $args);
@@ -229,40 +270,6 @@ abstract class Core
     /**
      * 静态工具
      * !! 子类不要覆盖
-     */
-
-    /**
-     * 判断核心类 是什么类型 app|module|... 不是任何类型 == core
-     * @param String $type 要判断的 类型 app|module|...|core 默认 null 返回所属类型 字符
-     * @return Bool|String 传入 $type 则返回 bool 不传入则返回 类型字符
-     */
-    final public static function isA($type=null)
-    {
-        $cls = static::class;
-        //去除可能存在的 NS 头
-        if (defined("NS")) $cls = str_replace(NS,"", $cls);
-        //去除可能存在的 默认 NS 头
-        $cls = str_replace("Spf\\","", $cls);
-        //类名数组
-        $clsarr = explode("\\", trim($cls, "\\"));
-        //可能的 type
-        $tpcls = Cls::find($clsarr[0], "Spf\\");
-        if (!empty($tpcls)) {
-            $tp = $clsarr[0];
-        } else {
-            $tp = "core";
-        }
-        //类型转为 FooBar 形式
-        $tp = Str::camel($tp, true);
-
-        if (Is::nemstr($type)) {
-            return Str::camel($type, true) === $tp;
-        }
-        return $tp;
-    }
-
-    /**
-     * 筛选 核心类的 特殊方法 api|view|...
      */
     
 }

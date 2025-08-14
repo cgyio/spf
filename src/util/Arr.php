@@ -280,6 +280,7 @@ class Arr extends Util
      * 从关联数组中 挑选任意项目，生成新的关联数组
      * @param Array $arr 数据源 数组
      * @param Array $args 要选取的 一个|多个 数组项 键名|key-path 如果在 $arr 中未找到，则不出现在新数组中
+     *              如果最后一个参数是 关联数组，则将其作为默认值，与生成的关联数组合并
      * @return Array 生成新的 关联数组
      */
     public static function choose($arr=[], ...$args)
@@ -287,6 +288,15 @@ class Arr extends Util
         if (!Is::nemarr($arr) || !Is::associate($arr)) return [];
         //未指定要选用的 配置项，则返回全部
         if (!Is::nemarr($args)) return $arr;
+
+        //是否指定了 默认值
+        $dft = array_slice($args, -1)[0];
+        if (Is::nemarr($dft) && Is::associate($dft)) {
+            $args = array_slice($args, 0, -1);
+        } else {
+            $dft = null;
+        }
+
         //新数组
         $narr = [];
         foreach ($args as $ak) {
@@ -307,6 +317,12 @@ class Arr extends Util
             $ov = self::wrap($ak, $ov);
             $narr = self::extend($narr, $ov);
         }
+
+        //如果定义了 默认值，则合并
+        if (Is::nemarr($dft)) {
+            $narr = self::extend($dft, $narr);
+        }
+        
         //返回
         return $narr;
     }

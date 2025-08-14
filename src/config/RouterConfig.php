@@ -30,7 +30,7 @@ class RouterConfig extends Configer
         //定义 标准的 操作列表 数据格式
         "oprs" => [
             "apis" => [],
-            "views" => []
+            "views" => [],
         ],
 
         //全局启用的 模块名 列表 foo_bar 形式，用于收集这些模块的 可用操作列表

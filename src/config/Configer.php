@@ -5,6 +5,7 @@
 
 namespace Spf\config;
 
+use Spf\Core;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -32,18 +33,83 @@ class Configer
     //经过处理后的 运行时参数
     protected $context = [];
 
+    //关联的 类实例，通常为 核心类实例
+    public $coreIns = null;
+
     /**
      * 构造
      * @param Array $opt 输入的设置参数
+     * @param Core $ins 关联到此配置类的 实例，即 $ins->config === $this
      * @return void
      */
-    public function __construct($opt = [])
+    public function __construct($opt=[], $ins=null)
     {
+        //缓存 类实例
+        if (!is_null($ins) && is_object($ins)) {
+            $this->coreIns = $ins;
+        }
+
         //处理外部传入的 用户设置
         $opt = $this->fixOpt($opt);
 
         //保存用户设置原始值
         $this->opt = Arr::extend($this->opt, $opt);
+
+        /**
+         * 合并参数，覆盖方向： $opt --> $init --> $dftInit
+         * !! 子类可覆盖这个 合并方法
+         */
+        $this->extendConf();
+
+        //处理设置值，支持格式：String, IndexedArray, Numeric, Bool, null,
+        $this->context = $this->fixConfVal($this->context);
+
+        //处理这些参数
+        return $this->processConf();
+    }
+
+    /**
+     * 在初始化时，处理外部传入的 用户设置，例如：提取需要的部分，过滤 等
+     * !! 子类可覆盖此方法
+     * @param Array $opt 外部传入的 用户设置内容
+     * @return Array 处理后的 用户设置内容
+     */
+    protected function fixOpt($opt=[])
+    {
+        if (!Is::nemarr($opt)) return [];
+
+        //根据关联的 核心类实例的 类型，从 $opt 中选取对应的 配置参数
+        $ins = $this->coreIns;
+        if ($ins instanceof Core) {
+            //获取 核心类的 类型  app|module|env|request|response ...
+            $type = $ins::is();
+            //核心类 类名 路径形式 foo_bar
+            $clsk = $ins::clsk();
+            if (Is::nemstr($type)) {
+                if ($type===$clsk) {
+                    //env|request|response ... 类型 
+                    return $opt[$type] ?? [];
+                } else {
+                    //app|module|middleware ... 拥有子类的 核心类型
+                    //依次查找
+                    $conf = Arr::find($opt, "$type/$clsk");
+                    if (!Is::nemarr($conf)) $conf = Arr::find($opt, $clsk);
+                    if (!Is::nemarr($conf)) $conf = $opt;
+                    return $conf;
+                }
+            }
+        }
+
+        return $opt;
+    }
+
+    /**
+     * 定义 配置参数 合并方法 默认使用 Arr::extend 覆盖方向： $opt --> $init --> $dftInit
+     * !! 子类可覆盖
+     * @return $this
+     */
+    public function extendConf()
+    {
 
         //预定义设置参数，合并默认设置
         if (Is::nemarr($this->dftInit)) {
@@ -51,13 +117,9 @@ class Configer
         }
 
         //合并 用户设置 与 预定义参数，保存到 context
-        $ctx = Arr::extend($this->init, $opt);
+        $this->context = Arr::extend($this->init, $this->opt);
 
-        //处理设置值，支持格式：String, IndexedArray, Numeric, Bool, null,
-        $this->context = $this->fixConfVal($ctx);
-
-        //处理这些参数
-        return $this->processConf();
+        return $this;
     }
 
     /**
@@ -190,34 +252,27 @@ class Configer
     }
 
     /**
-     * 在初始化时，处理外部传入的 用户设置，例如：提取需要的部分，过滤 等
-     * !! 子类可覆盖此方法
-     * @param Array $opt 外部传入的 用户设置内容
-     * @return Array 处理后的 用户设置内容
-     */
-    protected function fixOpt($opt=[])
-    {
-        //默认 不做处理 直接返回
-        //有需要的子类，可实现各自的 特殊处理方法
-        return $opt;
-    }
-
-    /**
      * 处理设置值
      * 设置值支持格式：String, IndexedArray, Numeric, Bool, null
      * @param Mixed $val 要处理的设置值
+     * @param Closure $callback 对设置值进行自定义处理的方法，参数为 原始设置值，返回处理后的设置值
      * @return Mixed 处理后的设置值，不支持的格式 返回 null
      */
-    public function fixConfVal($val = null)
+    public function fixConfVal($val = null, $callback = null)
     {
         if (Is::associate($val)) {
             $vn = [];
             foreach ($val as $k => $v) {
-                $vn[$k] = $this->fixConfVal($v);
+                $vn[$k] = $this->fixConfVal($v, $callback);
             }
             return $vn;
         }
 
+        //如果 指定了 处理函数，直接调用处理函数
+        if ($callback instanceof \Closure) {
+            return $callback($val);
+        }
+        
         if (Is::ntf($val)) {
             //"null true false"
             eval("\$val = ".$val.";");

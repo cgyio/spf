@@ -5,14 +5,13 @@
  * 
  * 模块独立于应用，每个应用都可以选择启用某些模块，为应用添加相应的功能
  * 可以全局启用一些模块，这样每个应用都会同时拥有这些模块的功能
+ * 
+ * 模块类可以同时实例化多个 模块子类（每个子类都是单例模式）
  */
 
 namespace Spf;
 
-use Spf\Core;
-use Spf\Runtime;
-use Spf\App;
-use Spf\runtime\Operation;
+use Spf\exception\CoreException;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -28,6 +27,8 @@ abstract class Module extends Core
     public static $current = null;
     //此核心类已经实例化 标记
     public static $isInsed = false;
+    //标记 是否可以同时实例化多个 此核心类的子类
+    public static $multiSubInsed = true;
 
     /**
      * 当前会话 启用的 所有模块
@@ -47,12 +48,6 @@ abstract class Module extends Core
     public $intr = "";
     //模块的名称 类名 FooBar 形式
     public $name = "";
-
-    /**
-     * 依赖项
-     */
-    //当前请求的 应用类实例
-    public $app = null;
 
     
 
@@ -87,43 +82,49 @@ abstract class Module extends Core
             //默认路径下，也没有此模块的 配置类，则使用 ModuleConfig 类，此类一定存在
             $cfgcls = Cls::find("config/ModuleConfig", "Spf\\");
         }
-        return (!empty($cfgcls) && class_exists($cfgcls)) ? $cfgcls : null;
+        if (empty($cfgcls) || !class_exists($cfgcls)) {
+            //未找到配置类，报错
+            throw new CoreException("未找到 $cfgn 配置类", "initialize/config");
+        }
+        return $cfgcls;
     }
     
     /**
      * 此模块类自有的 init 方法，执行以下操作：
-     *  0   将当前的 应用实例 关联到 $mod->app 
-     *  1   为应用实例增加 新的响应方法，将这些新的响应方法 添加到 Operation::$context[app_name] 并更新 路由表
-     *  2   为应用实例增加 新的中间件，这些新的中间件 
-     *  3   执行模块自定义的 init 方法
-     *  4   将当前的 模块实例，缓存到 Module::$modules[module_name]
+     *  0   为应用实例增加 新的响应方法，将这些新的响应方法 添加到 App::$current->operation->context[] 并更新 路由表
+     *  1   为应用实例增加 新的中间件，这些新的中间件 
+     *  2   执行模块自定义的 init 方法
+     *  3   将当前的 模块实例，缓存到 Module::$modules[module_name]
      * !! Core 子类必须实现的，Module 子类不要覆盖
      * @return $this
      */
     final public function initialize()
     {
-        if (App::$isInsed === true) {
-
-            // 0 关联 应用实例
-            $this->app = App::$current;
-
-            // 1 为应用实例增加 新的响应方法，修改 操作列表 | 路由表
-            $this->injectOprs();
-
+        //模块初始化时，App 应用必须已经实例化
+        if (App::$isInsed !== true) {
+            throw new CoreException("模块初始化时，应用实例还未创建", "initialize/init");
         }
 
-
-        
-
-
-        
-        // 0 模块实例缓存到 $modules
+        //模块类名 FooBar
+        $modn = $this::clsn();
         //模块类名 路径形式 foo_bar
-        $clsk = $this::clsk();
-        //模块实例缓存到 $modules
-        Module::$modules[$clsk] = $this;
-        var_dump("---- module initialize ----");
-        var_dump(self::$modules);
+        $modk = $this::clsk();
+
+        // 0 为应用实例增加 新的响应方法，修改 操作列表 | 路由表
+        $oprsInjected = $this->injectOprs();
+
+        // 1 为应用实例增加 新的中间件
+        $midsInjected = $this->injectMiddleware();
+
+        // 2 执行模块自定义的 init 方法
+        $modInited = $this->initModule();
+
+        if (true !== ($oprsInjected && $midsInjected && $modInited)) {
+            throw new CoreException("未能正确初始化模块 $modn", "initialize/init");
+        }
+
+        // 3 将当前的 模块实例，缓存到 Module::$modules[module_name]
+        Module::$modules[$modk] = $this;
 
         return $this;
     }
@@ -135,18 +136,19 @@ abstract class Module extends Core
      */
     protected function injectOprs()
     {
-        //!! 如果 操作列表是从 缓存中获取的 则不执行此操作，因为所有操作都已被缓存过
-        if (Operation::isCached() === true) return false;
-
         //当前应用必须已经实例化
         if (App::$isInsed !== true) return false;
+        $app = App::$current;
+        //操作列表管理类实例
+        $operation = $app->operation;
 
-        //调用 Operation::initModuleOprs 方法
-        $inject = Operation::initModuleOprs(static::class);
-        if ($inject !== true) return false;
+        //!! 如果 操作列表是从 缓存中获取的 则不执行此操作，因为所有操作都已被缓存过
+        if ($operation->isCached() === true) return true;
 
-        //更新路由表
-        Operation::routes();
+        //调用 Module::getOprs() 方法，定义在 traits/Operation 中，某些模块会覆盖这个方法
+        $oprs = static::getOprs();
+        //模块的 操作列表 写入 当前应用的 操作列表
+        $operation->ctx($oprs);
 
         return true;
     }
@@ -158,6 +160,29 @@ abstract class Module extends Core
      */
     protected function injectMiddleware()
     {
+        //当前应用的 中间件
+        $appmids = App::$current->config->middleware;
+        if (!Is::nemarr($appmids)) $appmids = [];
+        //此模块必须的 中间件
+        $mids = $this->config->middleware;
+        
+        //将 模块中定义的 中间件，添加到 应用中
+        if (Is::nemarr($mids)) {
+            $appmids = Middleware::extend($appmids, $mids);
+            //写入 应用 config
+            App::$current->config->ctx("middleware", $appmids);
+        }
+
+        return true;
+    }
+
+    /**
+     * 模块启用后，将在实例化后，立即执行此 初始化操作
+     * !! 需要自定义初始化动作的 模块 必须覆盖这个方法
+     * @return Bool
+     */
+    protected function initModule()
+    {
 
         return true;
     }
@@ -167,34 +192,6 @@ abstract class Module extends Core
     /**
      * 静态方法
      */
-
-    /**
-     * 将 某个启用的 模块 写入 Module::$modules []
-     * @param String $modk 模块名 路径形式 foo_bar
-     * @param Array $modc 模块启动参数，与原有参数 合并
-     * @return Bool
-     */
-    public static function enable($modk, $modc=[])
-    {
-        //先判断 $modk 是否存在的 模块
-        $modk = Str::snake($modk, "_");
-        if (self::has($modk) === false) return false;
-
-        $mods = self::$modules;
-        if (!isset($mods[$modk])) $mods[$modk] = [];
-        $mod = $mods[$modk];
-        
-        //如果此模块已经实例化
-        if ($mod instanceof Module) {
-            //TODO：调用 核心类实例的 运行时写入参数 方法
-
-            return true;
-        }
-
-        //模块还未实例化，合并参数
-        self::$modules[$modk] = Arr::extend($mod, $modc);
-        return true;
-    }
 
     /**
      * 判断模块 $mod 是否存在

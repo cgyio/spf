@@ -8,6 +8,7 @@
 
 namespace Spf\exception;
 
+use Spf\Response;
 use Spf\util\Log;
 
 class BaseException extends \Exception 
@@ -195,6 +196,11 @@ class BaseException extends \Exception
      */
     public function handleException($exit=false)
     {
+        //将当前异常实例 push 到 Response::$current 实例中
+        if (Response::$isInsed === true) {
+            Response::$current->setException($this);
+        }
+
         //log
         $this->logError(
             $this->getMessage(),
@@ -244,6 +250,19 @@ class BaseException extends \Exception
      */
     protected function exit()
     {
+        //如果 Response 响应实例 还未创建，则 创建 响应实例，写入 当前异常实例
+        if (Response::$isInsed !== true) {
+            $response = Response::current();
+            //写入 异常实例
+            $response->setException($this);
+        } else {
+            //使用已创建的 响应实例
+            $response = Response::$current;
+        }
+
+        //调用 响应实例的 异常输出 方法
+        //$response->exportException();
+
         $s = [];
         $s[] = "";
         $s[] = "----------PHP Error catched----------";

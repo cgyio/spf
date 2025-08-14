@@ -8,6 +8,7 @@
 namespace Spf;
 
 use Spf\exception\BaseException;
+use Spf\exception\CoreException;
 use Spf\util\Event;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -24,18 +25,18 @@ class Runtime extends Core
     public static $current = null;
     //此核心类已经实例化 标记
     public static $isInsed = false;
+    //标记 是否可以同时实例化多个 此核心类的子类
+    public static $multiSubInsed = false;
 
     /**
      * 核心类 单例的挂载点
      */
     //环境参数
     public static $env = null;
-    //路由管理
-    public static $router = null;
-    //应用实例
-    public static $app = null;
     //请求实例
     public static $request = null;
+    //应用实例
+    public static $app = null;
     //响应实例
     public static $response = null;
     //本次会话 启动的 模块实例 []
@@ -76,17 +77,41 @@ class Runtime extends Core
          * 处理框架启动参数中的 env 参数项
          */
         Runtime::$env = Env::current($opt);
+
+        /**
+         * step 2   实例化 Request 请求，请求类将在实例化后执行下列操作：
+         *  0   创建当前请求的 Url 实例，获取相应的 请求参数
+         *  1   创建请求头 RequestHeader 实例，获取相应的 请求参数
+         *  2   创建 Ajax 请求处理实例，获取相应的 参数
+         *  3   创建所有传入的 数据对象实例 $_GET | $_POST | $_FILES | php://input
+         *  4   解析当前请求的 Url 得到 目标 App 应用类
+         * 处理框架启动参数中的 request 参数项
+         */
+        Runtime::$request = Request::current($opt);
+
+        /**
+         * step 3   实例化 App 应用类，当前请求的应用类 实例化后，将执行下列操作：
+         *  0   生成(并缓存)此应用的 全部操作列表，同时生成 路由表
+         *  1   实例化参数中的所有 启用的模块
+         *  2   调用 Request::$current->getOprc 方法，查找请求的 响应方法
+         *  3   执行 此应用类 自定义的 初始化方法
+         * 处理框架启动参数中的 app|route|module|middleware 参数项
+         */
+        $appcls = Runtime::$request->getApp();
+        Runtime::$app = App::current($opt, $appcls);
+
+        /**
+         * 框架初始化完成，开始执行 标准响应流程
+         */
         
         /**
-         * step 2   Router 路由类实例化，路由类 将在实例化后 执行下列操作：
-         *  0   生成(并缓存) 整站  全局路由|所有应用|全局启用模块  的 可用操作列表，同时生成 路由表
-         *  1   根据 生成的 路由表 匹配得到 当前请求的 App 应用类
-         * 处理框架启动参数中的 route|module 参数项
+         * step 4   依次 实例化并执行 入站中间件 过滤
          */
-        Runtime::$router = Router::current($opt);
-        var_dump(Router::defines());
-        var_dump(Router::routes());
-        var_dump(Router::closures());
+        Middleware::process("in");
+        //Runtime::$router = Router::current($opt);
+        //var_dump(Router::defines("goods"));
+        //var_dump(Router::routes());
+        //var_dump(Router::closures());
 
         /**
          * step 3   初始化整站所有 App 应用参数
@@ -133,20 +158,6 @@ class Runtime extends Core
      */
 
     /**
-     * 从传入的 $opt 数组中选取部分作为 核心类的 启动参数
-     * 运行时类 启动参数：route|operation|app|module|middleware
-     * !! 子类可覆盖此方法
-     * @param Array $opt 传入的框架启动参数，通过 核心类的 current 方法传入的
-     * @return Array 选取后的 此核心类的 启动参数
-     */
-    protected function fixOpt($opt=[])
-    {
-        //获取 框架启动参数中的 参数项
-        $opt = Arr::choose($opt, "route", "operation", "app", "module", "middleware");
-        return $opt;
-    }
-
-    /**
      * Runtime 运行时类自有的 init 方法，执行以下操作：
      *  0   生成(并缓存) 整站所有  应用|全局启用模块  的 可用操作列表，同时生成 路由表
      *  1   初始化所有 全局启用中间件 的参数，并覆盖中间件的 静态属性
@@ -155,21 +166,7 @@ class Runtime extends Core
      */
     final public function initialize()
     {
-        // 0 初始化 Operation 可用操作列表 以及 路由表数据
-        $opt = Arr::choose($this->ctx, "route", "operation","module");
-        if (Operation::$isInited !== true) Operation::initOprs($opt);
-        //将生成的 路由表数据，写入 Route::$context
-        Operation::routes();
-
-        // 1 将所有全局启用的 模块，添加到 Module::$modules 数组，准备在 App 应用实例化后，实例化这些模块
-        $mods = $this->module;
-        foreach ($mods as $modk => $modc) {
-            //在此阶段，模块还未实例化，仅保存模块参数
-            Module::enable($modk, $modc);
-        }
-
-
-        // 1 初始化所有 全局启用中间件 的参数，并覆盖中间件的 静态属性
+        
 
         return $this;
     }

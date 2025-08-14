@@ -30,10 +30,14 @@ class CoreException extends BaseException
         //zh-CN
         "zh-CN" => [
 
-            //单例模式
-            "singleton"  => [
-                //实例化错误
-                "instantiate"       => ["单例实例化失败", "核心单例无法创建，可能的原因：%{1}%",  1],     //code = 0010001
+            //初始化错误
+            "initialize" => [
+                //核心类实例化失败
+                "core"              => ["核心类实例化失败", "%{1}%",  1],     //code = 0010001
+                //核心配置类实例化失败
+                "config"            => ["核心配置类实例化失败", "%{1}%",  2],     //code = 0010002
+                //核心类初始化
+                "init"              => ["核心类初始化失败", "%{1}%",  3],     //code = 0010003
             ],
             
             
@@ -42,4 +46,17 @@ class CoreException extends BaseException
 
         ],
     ];
+    
+
+
+    /**
+     * 判断当前异常是否需要终止响应
+     * !! 子类必须覆盖此方法，实现不同类型异常的 退出 判断
+     * @return Bool
+     */
+    public function needExit()
+    {
+        //!! 所有 核心类异常 都必须终止响应
+        return true;
+    }
 }

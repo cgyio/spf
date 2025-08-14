@@ -6,7 +6,7 @@
 
 namespace Spf;
 
-use Spf\Core;
+use Spf\exception\CoreException;
 use Spf\util\Autoloader;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -23,6 +23,8 @@ class Env extends Core
     public static $current = null;
     //此核心类已经实例化 标记
     public static $isInsed = false;
+    //标记 是否可以同时实例化多个 此核心类的子类
+    public static $multiSubInsed = false;
 
 
 
@@ -80,6 +82,7 @@ class Env extends Core
      */
 
     /**
+     * forDev
      * event-handler
      * @event test_evt
      * @once true

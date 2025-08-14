@@ -1,21 +1,21 @@
 <?php
 /**
- * 框架模块配置类
- * Resource 资源处理模块
+ * 框架核心配置类
+ * 相应处理 配置类
  */
 
-namespace Spf\module\orm;
+namespace Spf\config;
 
-use Spf\config\ModuleConfig;
+use Spf\util\Is;
+use Spf\util\Str;
 
-class ModuleResourceConfig extends ModuleConfig 
+class ResponseConfig extends Configer 
 {
     /**
      * 预设的设置参数
      * !! 子类自定义
      */
     protected $init = [
-        
         
     ];
 
@@ -28,8 +28,8 @@ class ModuleResourceConfig extends ModuleConfig
      */
     public function processConf()
     {
-        var_dump("---- ModuleOrmConfig processConf ----");
-        var_dump($this->context);
-    }
+        
 
+        return $this;
+    }
 }

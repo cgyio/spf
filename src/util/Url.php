@@ -6,6 +6,8 @@
 
 namespace Spf\util;
 
+use Spf\App;
+
 class Url extends SpecialUtil
 {
     /**
@@ -28,6 +30,11 @@ class Url extends SpecialUtil
     
     //当前会话请求的 url 实例
     public static $current = null;
+
+    //支持的 Url 请求形式
+    public static $requestTypes = [
+        "method", "oprn", "pattern",
+    ];
 
     /**
      * URL参数
@@ -62,6 +69,11 @@ class Url extends SpecialUtil
         //path 路径数组
         $path = $ud["path"] ?? "/";
         $this->path = $path=="/" ? [] : explode("/", substr($path, 1));
+        //path 路径中 所有字符串都必须是 foo_bar 形式
+        /*$this->path = array_map(function($pi) {
+            if (is_numeric($pi) || !Is::nemstr($pi)) return $pi;
+            return Str::snake($pi, "_");
+        }, $this->path);*/
 
         //query 参数数组
         $query = $ud["query"] ?? "";

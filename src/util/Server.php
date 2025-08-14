@@ -74,5 +74,48 @@ class Server extends Util
         $key = strtoupper($key);
         return $key;
     }
+
+    /**
+     * 获取请求的 来源 网址
+     * @return String 未找到 返回 ""
+     */
+    public static function referer()
+    {
+        $referer = $_SERVER['HTTP_REFERER'] ?? "";
+    
+        // 简单验证：检查是否为合法URL格式（减少伪造的明显错误值）
+        if ($referer && filter_var($referer, FILTER_VALIDATE_URL)) {
+            return $referer;
+        }
+        return "";
+    }
+
+    /**
+     * 获取请求的 来源 IP
+     * @return String 请求来源 IP (客户端IP) 默认返回服务器IP（通常为127.0.0.1）
+     */
+    public static function ip() {
+        // 可能存储真实IP的字段（按优先级排序）
+        $ipHeaders = [
+            'HTTP_X_FORWARDED_FOR',  // 代理链中的所有IP（第一个为真实IP）
+            'HTTP_CLIENT_IP',        // 代理客户端的IP
+            'HTTP_X_REAL_IP',        // Nginx等服务器常用的真实IP字段
+            'REMOTE_ADDR'            // 最后一个代理服务器的IP（最可靠但可能非真实）
+        ];
+        
+        foreach ($ipHeaders as $header) {
+            if (!empty($_SERVER[$header])) {
+                // 处理多个IP的情况（如X-Forwarded-For可能包含多个IP，用逗号分隔）
+                $ip = trim(explode(',', $_SERVER[$header])[0]);
+                // 验证IP格式
+                if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                    return $ip;
+                }
+            }
+        }
+        
+        // 所有字段都获取失败时，返回默认IP
+        return $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    }
     
 }

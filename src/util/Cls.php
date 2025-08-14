@@ -19,16 +19,29 @@ class Cls extends Util
     public static function find($path = "", $ns = null)
     {
         if (!Is::nemstr($path) && !Is::nemarr($path)) return null;
-        $ns = !Is::nemstr($ns) ? (defined("NS") ? NS : "Spf\\") : $ns;
+        //默认 NS 前缀
+        $dftns = "Spf\\";
+        //是否指定了 $ns 前缀
+        $hasns = true;
+        if (!Is::nemstr($ns)) {
+            //shifouzhiding
+            $hasns = false;
+            $ns = defined("NS") ? NS : $dftns;
+        }
+        $ns = substr($ns, -1)!=="\\" ? $ns."\\" : $ns;
+        //查询的 类名路径 转为数组  foo/bar,jaz/tom  -->  [ foo/bar, jaz/tom ]
         $ps = Is::nemstr($path) ? explode(",", $path) : $path;
+        //查找 类
         $cl = null;
         for ($i=0; $i<count($ps); $i++) {
             //先判断一下
             if (class_exists($ps[$i])) {
+                //返回第一个找到的 类
                 $cl = $ps[$i];
                 break;
             }
 
+            //查找 附加了 $ns 后的 类
             $pi = trim($ps[$i], "/");
             $pia = explode("/", $pi);
             $pin = array_pop($pia);
@@ -39,8 +52,19 @@ class Cls extends Util
             $cls = $ns . implode("\\", $pia);
             //var_dump($cls);
             if (class_exists($cls)) {
+                //返回第一个找到的 类
                 $cl = $cls;
                 break;
+            }
+            
+            if ($hasns!==false) {
+                //如果未指定 $ns 前缀，则再查找一次 使用 默认前缀的 类
+                $cls = $dftns . implode("\\", $pia);
+                if (class_exists($cls)) {
+                    //返回第一个找到的 类
+                    $cl = $cls;
+                    break;
+                }
             }
         }
         return $cl;
@@ -108,6 +132,31 @@ class Cls extends Util
             }
         }
         return null;
+    }
+
+    /**
+     * 获取 类的类型  NS\foo_bar\jaz\Tom  -->  foo_bar | FooBar
+     * @param String $cls 类全称 或 可被 self::find 识别的 类名
+     * @param Bool $camel 是否输出 FooBar 形式的 类型名
+     * @return String|null
+     */
+    public static function is($cls, $camel=false)
+    {
+        //处理输入的 类名
+        if (!Is::nemstr($cls)) return null;
+        $fcls = self::find($cls);
+        if (empty($fcls)) $fcls = self::find($cls, "Spf\\");
+        if (!class_exists($fcls)) return null;
+        $cls = $fcls;
+
+        //去除类全称的 NS 头
+        $clsp = self::rela($cls);
+        if (!Is::nemstr($clsp)) return null;
+        $clsp = explode("/", trim($clsp,"/"));
+        if (count($clsp)<=0) return null;
+        $isk = Str::snake($clsp[0],"_");
+        if ($camel) return Str::camel($isk, true);
+        return $isk;
     }
     
     /**
@@ -344,7 +393,7 @@ class Cls extends Util
     }
 
     /**
-     * 查找类中的特殊方法，区分方法的类型依据的是 在注释中存在指定的 字符，如： api|getter|view|...
+     * 查找类中的特殊方法，区分方法的类型依据的是 在注释中存在指定的 字符，如： api|getter|view|src|proxy...
      * 提取出这些方法，读取方法注释，获取方法信息，最终返回 [ method=> [信息], ... ]
      * @param String|Object $cls 类全称 或 类实例
      * @param String $filter 过滤方法，默认 null，形式例如：public,&!static,&final
@@ -370,19 +419,15 @@ class Cls extends Util
         $clsn = is_object($cls) ? get_class($cls) : (Is::nemstr($cls) ? $cls : null);
         if (is_null($clsn)) return [];
 
-        //key 转为 首字母大写形式
-        $ukey = Str::camel($key, true); //ucfirst(strtolower($key));
-        //是否 必须包含对应后缀，api|getter|proxy 类型的方法，方法名中必须包含 Api|Getter|Proxy 后缀
-        $suffix = in_array(strtolower($key), ["api", "view", "getter", "proxy"]);
+        //key 转为 FooBar 形式
+        $ukey = Str::camel($key, true);
         //获取 $cls 类中 符合条件的 特殊方法
-        $ms = self::methods($cls, $filter, function($mi) use ($key, $ukey, $suffix, $condition) {
-            if ($suffix) {
-                //必须包含后缀
-                if (substr($mi->name, strlen($key)*-1)!==$ukey) return false;
-            }
+        $ms = self::methods($cls, $filter, function($mi) use ($key, $ukey, $condition) {
+            //方法名 必须包含对应的后缀  foo_bar 方法 必须包含 -FooBar 后缀
+            if (substr($mi->name, strlen($key)*-1)!==$ukey) return false;
             //获取方法注释
             $doc = $mi->getDocComment();
-            //方法必须包含 注释 * $key
+            //方法必须包含 注释 * $key 或 * $ukey   * foo_bar 或 * FooBar
             if (strpos($doc, "* ".$key)===false && strpos($doc, "* ".$ukey)===false) return false;
             //使用自定义的 额外筛选条件
             if (is_callable($condition)) return $condition($mi);
@@ -399,22 +444,25 @@ class Cls extends Util
                 if (!Is::nemstr($name)) {
                     $name = $mi->name;
                     //去除方法名后缀
-                    if ($suffix) $name = str_replace($ukey,"",$name);
-                    $conf["name"] = $name;
+                    $name = substr($name, 0, strlen($ukey)*-1);     //str_replace($ukey,"",$name);
                 }
-                $mk = Str::snake($name, "_");   //驼峰形式 方法名 转为 全小写，下划线_ 形式的 键名
+                //驼峰形式 方法名 转为 全小写，下划线_ 形式的 键名
+                $mk = Str::snake($name, "_");   
                 //键名保存到 方法信息中
                 $conf["name"] = $mk;
                 //保存完整的方法名
                 $conf["method"] = $mi->name;
                 //保存完整的 类全称
                 $conf["class"] = $clsn;
+                //保存此方法所属的方法类型 api|view|src|getter ...
+                $conf["export"] = Str::snake($key, "_");
+
                 //使用自定义处理方法 处理方法信息数组
                 if (is_callable($process)) {
                     $conf = $process($mi, $conf);
                 }
                 //保存到 info 中
-                $info[$conf["name"]] = $conf;
+                $info[$mk] = $conf;
             }
         }
         //返回获取到的 方法信息数组

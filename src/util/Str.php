@@ -179,7 +179,11 @@ class Str extends Util
      */
     public static function snake($str, $glup="-")
     {
+        //如果存在 连接字符 - _ / , \ 空格，统一 转为 $glup
+        $str = preg_replace("/\_|\-|\/|\,|\\|\s+/", $glup, $str);
+        //再将 aB 转为 a-b
         $snakeCase = preg_replace('/([a-z])([A-Z])/', '$1'.$glup.'$2', $str);
+        //返回全小写
         return strtolower($snakeCase);
     }
 
