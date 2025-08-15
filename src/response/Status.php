@@ -119,4 +119,13 @@ class Status
         return true;
     }
 
+    /**
+     * 响应状态码 是否错误
+     * @return Bool
+     */
+    public function isError()
+    {
+        return $this->code !== 200;
+    }
+
 }

@@ -8,6 +8,7 @@
 namespace Spf\response\exporter;
 
 use Spf\response\Exporter;
+use Spf\exception\BaseException;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -36,37 +37,7 @@ class Api extends Exporter
         "data" => [],
     ];
 
-    //最终输出的内容 与 stdData 格式一致
-    protected $content = [];
 
-
-
-    /**
-     * 核心方法 输出响应数据，不同的响应类型，使用不同的输出方法
-     * !! 覆盖父类
-     * @return void
-     */
-    public function export()
-    {
-        //准备数据
-        $this->prepare();
-
-        //content 内容转为 json
-        $cnt = Conv::a2j($this->content);
-
-        //如果 响应状态码 不是 200
-        if ($this->statusError === true) {
-            http_response_code($this->response->status->code);
-        }
-
-        //响应头
-        $this->response->header->sent();
-
-        //echo
-        echo $cnt;
-
-        exit;
-    }
 
     /**
      * 为 Response 响应实例 提供各响应类型的 setData 方法
@@ -76,46 +47,108 @@ class Api extends Exporter
      */
     public function setResponseData($data)
     {
-        //子类必须覆盖
-
-        $this->response->data = $data;
+        //api 响应类型 输出的数据 必须是 Array
+        if (!Is::nemarr($data)) $data = [];
+        if (!Is::nemarr($this->response->data)) {
+            $this->response->data = [];
+        }
+        //合并
+        $this->response->data = Arr::extend($this->response->data, $data);
         return true;
     }
 
+
+
     /**
-     * 将要输出的 数据写入 content
-     * !! 覆盖父类
-     * @param Mixed $data
-     * @return $this
+     * export 输出方法
      */
-    protected function setContent($data=[])
+
+    /**
+     * WEB_PAUSE == true 中断响应，输出数据
+     * !! 覆盖父类
+     * @return exit
+     */
+    public function exportPause()
     {
-        //如果 输出异常
-        if ($this->exportException === true || $this->statusError === true) {
-            $data = [
-                "error" => true,
-                "data" => $data
-            ];
-            if ($this->statusError !== true) {
-                //将状态码设为 500
-                $this->response->setCode(500);
-                $this->statusError = true;
-            }
-        } else {
-            $data = [
-                "data" => $data
-            ];
-        }
-        //写入 content
-         $this->content = Arr::extend($this->stdData, $data);
-        return $this;
+        $pd = Conv::a2j([
+            "error" => false,
+            "data" => [
+                "pause" => true
+            ]
+        ]);
+        $this->setContentType();
+        $this->response->header->sent();
+        echo $pd;
+        exit;
     }
 
-    
-
-    public function exportException()
+    /**
+     * 响应状态码 !== 200 输出数据
+     * !! 覆盖父类
+     * @return exit
+     */
+    public function exportCode()
     {
-        $exception = $this->response->exceptions[0];
-        $excepinfo = $exception->getInfo();
+        $stu = $this->response->status;
+        $pd = Conv::a2j([
+            "error" => false,
+            "data" => [
+                "code" => $stu->code,
+                "info" => $stu->info
+            ]
+        ]);
+        $this->setContentType();
+        //输出 响应状态码
+        http_response_code($stu->code);
+        $this->response->header->sent();
+        echo $pd;
+        exit;
+    }
+
+    /**
+     * 当前响应包含 必须输出的 异常信息
+     * !! 覆盖父类
+     * @param BaseException $ecp 异常实例
+     * @return exit
+     */
+    public function exportException($ecp)
+    {
+        if (!$ecp instanceof BaseException) exit;
+        
+        $pd = Conv::a2j([
+            "error" => true,
+            "data" => $ecp->getInfo()
+        ]);
+        $this->setContentType();
+        //输出 响应状态码
+        //if ($ecp->isInnerException()===true) http_response_code(500);
+        $this->response->header->sent();
+        echo $pd;
+        exit;
+    }
+
+    /**
+     * 核心方法 输出响应数据，不同的响应类型，使用不同的输出方法
+     * !! 覆盖父类
+     * @return exit
+     */
+    public function export()
+    {
+        //responseData
+        $rd = $this->response->data;
+        //格式化 输出的 数据
+        $pd = Arr::extend($this->stdData, [
+            "data" => $rd
+        ]);
+        //转为 json
+        $pd = Conv::a2j($pd);
+        //写入 Content-Type
+        $this->setContentType();
+        //响应头
+        $this->response->header->sent();
+        //echo
+        echo $pd;
+
+        exit;
     }
 }

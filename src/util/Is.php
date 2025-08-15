@@ -266,6 +266,23 @@ class Is extends Util
     }
 
     /**
+     * 是否 合法的 html 字符串
+     * @param Mixed $var
+     * @return Bool
+     */
+    public static function html($var = null)
+    {
+        if (self::nemstr($var) !== true) return false;
+        libxml_use_internal_errors(true);
+        $dom = new DOMDocument();
+        $dom->loadHTML($var);
+        libxml_clear_errors();
+        
+        // 检查是否解析出至少一个元素节点（排除文本节点）
+        return $dom->documentElement->childNodes->length > 0;
+    }
+
+    /**
      * 是否 合法的远程资源 url
      * @param Mixed $var 
      * @return Bool

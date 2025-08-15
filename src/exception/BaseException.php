@@ -10,6 +10,7 @@ namespace Spf\exception;
 
 use Spf\Response;
 use Spf\util\Log;
+use Spf\util\Cls;
 
 class BaseException extends \Exception 
 {
@@ -178,12 +179,24 @@ class BaseException extends \Exception
     public function getInfo()
     {
         return [
-            "code" => $this->getCode(),
+            "code" => $this->ctx("code"), //$this->getCode(),
+            "title" => $this->ctx("title"),
             "message" => $this->getMessage(),
             "file" => $this->getFile(),
             "line" => $this->getLine(),
-            "trace" => $this->getTrace(),
+            "trace" => empty($this->ctx("trace")) ? $this->getTrace() : $this->ctx("trace"),
         ];
+    }
+
+    /**
+     * 判断当前异常 是 框架内部异常 还是 
+     * 如果是 框架内部异常，在输出异常信息时，需要同时输出 500 状态码
+     * 应用层异常，不需要在输出时 同时输出 500 错误
+     * @return Bool true 表示 框架内部异常 false 表示 应用层异常
+     */
+    public function isInnerException()
+    {
+        return static::$codePrefix < 100;
     }
 
     /**
@@ -260,9 +273,11 @@ class BaseException extends \Exception
             $response = Response::$current;
         }
 
-        //调用 响应实例的 异常输出 方法
-        //$response->exportException();
+        //调用 响应实例 输出异常信息
+        $response->export();
+        exit;
 
+        /* bak 20250815
         $s = [];
         $s[] = "";
         $s[] = "----------PHP Error catched----------";
@@ -286,7 +301,7 @@ class BaseException extends \Exception
         //TODO: 调用 Response 响应类，创建异常响应，并输出
         //...
 
-        exit;
+        exit;*/
     }
     
     /**

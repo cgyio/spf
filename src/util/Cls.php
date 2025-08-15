@@ -50,14 +50,13 @@ class Cls extends Util
             $pia[] = $pin;
             //拼接 类全称
             $cls = $ns . implode("\\", $pia);
-            //var_dump($cls);
             if (class_exists($cls)) {
                 //返回第一个找到的 类
                 $cl = $cls;
                 break;
             }
             
-            if ($hasns!==false) {
+            if ($hasns!==true) {
                 //如果未指定 $ns 前缀，则再查找一次 使用 默认前缀的 类
                 $cls = $dftns . implode("\\", $pia);
                 if (class_exists($cls)) {

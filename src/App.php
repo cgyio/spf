@@ -103,13 +103,9 @@ abstract class App extends Core
             //实例化 模块
             Module::current($modc, $modcls);
         }
-        var_dump($this->operation->defines());
 
         // 2 查找此次请求的 实际 操作信息
         $oprc = Request::$current->getOprc();
-        var_dump(Request::request());
-        var_dump(Request::gets());
-        throw new AppException(Request::request()->oprc["oprn"], "route/missoprc");
 
         // 3 执行 此应用类 自定义的 初始化方法
         $appInited = $this->initApp();

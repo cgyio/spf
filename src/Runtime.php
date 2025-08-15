@@ -98,7 +98,7 @@ class Runtime extends Core
          * 处理框架启动参数中的 app|route|module|middleware 参数项
          */
         $appcls = Runtime::$request->getApp();
-        Runtime::$app = App::current($opt, $appcls);
+        Runtime::$app = App::current($opt, $app);
 
         /**
          * 框架初始化完成，开始执行 标准响应流程
@@ -106,20 +106,21 @@ class Runtime extends Core
         
         /**
          * step 4   依次 实例化并执行 入站中间件 过滤
+         * 如果有 中间件过滤不通过，将终止响应
          */
         Middleware::process("in");
-        //Runtime::$router = Router::current($opt);
-        //var_dump(Router::defines("goods"));
-        //var_dump(Router::routes());
-        //var_dump(Router::closures());
 
         /**
-         * step 3   初始化整站所有 App 应用参数
-         *  0   生成(并缓存) 整站所有 App 应用的 所有可用操作列表
-         *  1   生成 整站 路由表数据
-         * 处理框架启动参数中的 route|operation|app|module|middleware 参数项
+         * step 5   创建 Response 响应类实例，当前 响应类 实例化后，将执行下列操作：
+         *  0   创建响应头 ResponseHeader 实例
+         *  1   创建响应码管理实例 创建时 默认状态码 200
+         *  2   收集必须的 响应参数
+         *  3   创建 Exporter 类实例
+         *  4   如果 WEB_PAUSE==true 尝试中断响应
+         * 处理框架启动参数中的 response 参数项
          */
-        //App::prepare($opt);
+        Runtime::$response = Response::current($opt);
+        var_dump(Response::$current);
 
         /**
          * step 4   路由匹配，查找本次请求对应的 App 应用类

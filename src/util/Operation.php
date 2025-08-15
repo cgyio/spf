@@ -18,6 +18,7 @@ namespace Spf\util;
 
 use Spf\App;
 use Spf\Module;
+use Spf\Response;
 use Spf\exception\CoreException;
 use Spf\config\Configer;
 
@@ -46,7 +47,8 @@ class Operation extends SpecialUtil
      * 不同的操作类型，将 返回不同类型的 Response 响应实例
      */
     public static $types = [
-        "api", "view", "src",
+        //通过 Response::support() 方法获取
+        //"api", "view", "src",
     ];
 
     /**
@@ -659,6 +661,9 @@ class Operation extends SpecialUtil
 
         //首先尝试读取缓存，如果读取成功，则不再执行后续操作
         if (true === $this->readCache()) return;
+
+        //获取所有预定义的 操作(输出)类型，即 定义了 Spf\response\exporter\Foo 类
+        self::$types = Response::support();
 
         //未读取到缓存，或者未启用缓存，开始初始化当前应用的 操作列表
         // 0 查找并读取 全局|应用 路由表文件

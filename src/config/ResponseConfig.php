@@ -16,7 +16,15 @@ class ResponseConfig extends Configer
      * !! 子类自定义
      */
     protected $init = [
-        
+        //定义默认的 view 视图页面路径
+        "view" => [
+            //输出异常 视图页面
+            "exception" => "spf/view/exception.php",
+            //响应状态码 视图页面
+            "code" => "spf/view/http_code.php",
+            //WEB_PAUSE 输出视图页面
+            "pause" => "spf/view/pause.php",
+        ],
     ];
 
     

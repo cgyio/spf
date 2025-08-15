@@ -8,7 +8,9 @@
 namespace Spf\response\exporter;
 
 use Spf\response\Exporter;
+use Spf\exception\BaseException;
 use Spf\module\src\Resource;
+use Spf\View as View;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -32,20 +34,7 @@ class Src extends Exporter
      */
     public $stdData = null;
 
-    //最终输出的内容 与 stdData 格式一致
-    protected $content = null;
 
-
-
-    /**
-     * 核心方法 输出响应数据，不同的响应类型，使用不同的输出方法
-     * !! 覆盖父类
-     * @return void
-     */
-    public function export()
-    {
-
-    }
 
     /**
      * 为 Response 响应实例 提供各响应类型的 setData 方法
@@ -55,38 +44,88 @@ class Src extends Exporter
      */
     public function setResponseData($data)
     {
-        //子类必须覆盖
-
+        //src 响应类型 输出的数据 必须是 有效的 Resource 资源类实例
+        if (!$data instanceof Resource) {
+            $this->response->data = null;
+            return false;
+        }
+        //写入
         $this->response->data = $data;
         return true;
     }
 
+
+
     /**
-     * 将要输出的 数据写入 content
-     * !! 覆盖父类
-     * @param Mixed $data
-     * @return $this
+     * export 输出方法
      */
-    protected function setContent($data)
+
+    /**
+     * WEB_PAUSE == true 中断响应，输出数据
+     * !! 覆盖父类
+     * @return exit
+     */
+    public function exportPause()
     {
-        //如果 输出异常 或者 
-        if ($this->exportException === true || $data) {
-            //设置 响应状态码为 404
-            $this->response->setCode(500);
-            $this->content = $data;
-            $this->statusError = true;
-        } else if ($this->statusError === true){
-            //响应状态码 错误
-            $this->content = $data;
-        } else if (!$data instanceof Resource) {
-            //要输出的数据 不是 Resource 资源实例
-            $this->response->setCode(404);
-            $this->content = null;
-            $this->statusError = true;
-        } else {
-            //保存要输出的 资源实例
-            $this->content = $data;
+        //输出资源时，如果中断输出，直接返回 404
+        http_response_code(404);
+        exit;
+    }
+
+    /**
+     * 响应状态码 !== 200 输出数据
+     * !! 覆盖父类
+     * @return exit
+     */
+    public function exportCode()
+    {
+        //输出 响应状态码
+        http_response_code($this->response->status->code);
+        exit;
+    }
+
+    /**
+     * 当前响应包含 必须输出的 异常信息
+     * !! 覆盖父类
+     * @param BaseException $ecp 异常实例
+     * @return exit
+     */
+    public function exportException($ecp)
+    {
+        //输出资源时，发生异常，则转为输出 view 视图
+        if (!$ecp instanceof BaseException) exit;
+        //从 Response 响应配置类中 获取对应的 默认 视图文件
+        $view = $this->response->config->ctx("view/exception");
+        $html = View::page(
+            $view,
+            $ecp->getInfo()
+        );
+        $this->setContentType("text/html; charset=utf-8");
+        //输出 响应状态码
+        if ($ecp->isInnerException()===true) http_response_code(500);
+        $this->response->header->sent();
+        echo $html;
+        exit;
+    }
+
+    /**
+     * 核心方法 输出响应数据，不同的响应类型，使用不同的输出方法
+     * !! 覆盖父类
+     * @return exit
+     */
+    public function export()
+    {
+        //responseData
+        $rd = $this->response->data;
+        //如果 不包含 Resource 资源实例
+        if (!$rd instanceof Resource) {
+            //404
+            http_response_code(404);
+            exit;
         }
-        return $this;
+        //调用资源实例的 输出方法
+        $rd->export();
+
+        exit;
     }
 }

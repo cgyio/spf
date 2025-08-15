@@ -11,7 +11,6 @@ use Spf\response\Exporter;
 use Spf\exception\BaseException;
 use Spf\exception\AppException;
 use Spf\util\ResponseHeader;
-use Spf\util\Operation;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -38,7 +37,7 @@ class Response extends Core
     public $paused = false;
     //响应状态码 实例 默认 200
     public $status = null;
-    //响应类型 在 Operation::$types 中定义，默认 view
+    //响应类型 定义了 Spf\response\exporter\Type 类，默认 view
     public $type = "view";
     //响应类型 对应的 Exporter 类实例
     public $exporter = null;
@@ -62,6 +61,7 @@ class Response extends Core
      *  1   创建响应码管理实例 创建时 默认状态码 200
      *  2   收集必须的 响应参数
      *  3   创建 Exporter 类实例
+     *  4   如果 WEB_PAUSE==true 尝试中断响应
      * !! Core 子类必须实现的
      * @return $this
      */
@@ -91,7 +91,7 @@ class Response extends Core
 
         // 2 收集必须的 响应参数
         if (defined("WEB_PAUSE")) $this->pause = WEB_PAUSE;
-        if (Is::nemstr($expt) && in_array($expt, Operation::$types)) {
+        if (Is::nemstr($expt) && self::support($expt)) {
             //操作方法 类型可用
             $this->type = $expt;
         }
@@ -100,6 +100,11 @@ class Response extends Core
         $expcls = $this->getExporter();
         //创建 Exporter 实例
         $this->exporter = new $expcls($this);
+
+        // 4 如果 WEB_PAUSE==true 尝试中断响应
+        if ($this->pause === true) {
+            $this->pauseExport();
+        }
 
         return $this;
     }
@@ -111,18 +116,26 @@ class Response extends Core
     final public function export()
     {
         try {
-            //获取 Exporter 类
-            $expcls = $this->getExporter();
-            //创建 Exporter 实例
-            $exper = new $expcls($this);
 
-            //异常输出的情况
+            //Exporter 实例
+            $exper = $this->exporter;
+            if (!$exper instanceof Exporter) {
+                throw new AppException($this->getExporter(), "response/exporter");
+            }
+            
+            //针对特殊情况的输出
+            if (false !== ($exception = $this->needThrow())) {
+                //当前响应实例 包含必须输出的 异常信息
+                return $exper->exportException($exception);
+            }
+            if ($this->status->isError() === true) {
+                //当前的响应状态码 不是 200
+                return $exper->exportCode();
+            }
 
-
-            //输出数据，完成本次响应
-            $exper->export();
-            //完成
-            exit;
+            //正常输出数据，完成本次响应
+            return $exper->export();
+            
         } catch (BaseException $e) {
             //处理异常
             $e->handleException();
@@ -160,7 +173,8 @@ class Response extends Core
         if ($type === $this->type) return true;
 
         try {
-            if (!Is::nemstr($type) || !in_array($type, Operation::$types)) {
+            //生成 对应的 Exporter 实例
+            if (!Is::nemstr($type) || self::support($type)!==true) {
                 //新类型 不被支持
                 throw new AppException($type, "response/unsupport");
             }
@@ -237,6 +251,60 @@ class Response extends Core
         return $ecls;
     }
 
+    /**
+     * 判断当前响应 是否包含必须输出的 异常信息
+     * @return BaseException|false 返回找到的异常实例，未找到则返回 false
+     */
+    public function needThrow()
+    {
+        $ecps = $this->exceptions;
+        if (!Is::nemarr($ecps)) return false;
+        //依次检查 异常列表
+        foreach ($ecps as $ecp) {
+            if (!$ecp instanceof BaseException) continue;
+            if (true === $ecp->needExit()) {
+                //此异常需要输出
+                return $ecp;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * WEB_PAUSE == true 的情况下，输出内容
+     * !! 此方法仅针对 Request|App 实例已创建，响应方法 oprc 以获取的情况
+     * @return void
+     */
+    public function pauseExport()
+    {
+        if ($this->pause !== true) return;
+
+        /**
+         * 仅针对 Request|App 实例已创建，响应方法 oprc 以获取的情况
+         * 其他情况下 WEB_PAUSE 不生效，比如：在 框架初始化阶段 输出异常信息
+         */
+        if (
+            Request::$isInsed!==true || App::$isInsed!==true || 
+            Request::$current->oprcMatched!==true
+        ) { return; }
+
+        //请求的 操作方法信息
+        $oprc = Request::$current->getOprc();
+        //操作方法是否 不受 WEB_PAUSE 影响
+        if (isset($oprc["pause"]) && $oprc["pause"]===false) {
+            //当前请求的 操作方法 不受 WEB_PAUSE 影响，将继续执行 响应
+            return;
+        }
+
+        //终止当前响应，直接输出结果
+        $exper = $this->exporter;
+        if (!$exper instanceof Exporter) {
+            throw new AppException($this->getExporter(), "response/exporter");
+        }
+        return $exper->exportPause();
+        
+    }
+
 
 
     /**
@@ -244,6 +312,34 @@ class Response extends Core
      */
 
     /**
-     * 非常规状态下 创建响应实例
+     * 判断支持的 响应类型
+     * @param String $type 指定要判断是否支持的 响应类型，不指定则返回所有支持的响应类型
+     * @return Bool|Array
      */
+    public static function support($type=null)
+    {
+        //获取所有 支持的响应类型 存在 Spf\response\exporter\Foo 类
+        $dir = Path::find("spf/response/exporter", Path::FIND_DIR);
+        if (!is_dir($dir)) {
+            return Is::nemstr($type) ? false : [];
+        }
+        $types = [];
+        $dh = opendir($dir);
+        while (false !== ($fn = readdir($dh))) {
+            if (in_array($fn, [".",".."])) continue;
+            if (is_dir($dir.DS.$fn)) continue;
+            if (substr($fn, strlen(EXT_CLASS)*-1)!==EXT_CLASS) continue;
+            $clsk = Str::snake(substr($fn, 0, strlen(EXT_CLASS)*-1), "_");
+            $cls = Cls::find("response/exporter/$clsk");
+            if (empty($cls) || !class_exists($cls)) continue;
+            $types[] = $clsk;
+        }
+
+        //返回
+        if (Is::nemstr($type)) {
+            $type = Str::snake($type, "_");
+            return in_array($type, $types);
+        }
+        return $types;
+    }
 }
