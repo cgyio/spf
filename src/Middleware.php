@@ -99,11 +99,19 @@ abstract class Middleware extends Core
         if (App::$isInsed !== true) {
             throw new CoreException("中间件初始化时，应用实例还未创建", "initialize/init");
         }
+
+        //中间件类名
+        $midn = $this::clsn();
+
+        //确认 只能在开发环境中启用的 中间件，不会在生产环境中被启用
+        if (Env::$current->dev !== true && $this->config->dev === true) {
+            throw new CoreException("中间件 $midn 不能在当前环境下启用", "initialize/init");
+        }
         
-        //执行 handle
+        // 0 执行 handle
         $res = $this->handle();
 
-        //触发 终止响应
+        // 1 触发 终止响应
         if ($res===false) $this->exit();
 
         return $this;

@@ -16,7 +16,11 @@ class RequestConfig extends Configer
      * !! 子类自定义
      */
     protected $init = [
-        
+        //可通过 $_GET 传入的 开关标记  ?foo=yes|no
+        "switches" => [
+            //是否通过 dump 方式输出数据 默认 no
+            "dump" => "no",
+        ],
     ];
 
     

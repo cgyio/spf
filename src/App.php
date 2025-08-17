@@ -10,6 +10,7 @@
 
 namespace Spf;
 
+use Spf\exception\BaseException;
 use Spf\exception\CoreException;
 use Spf\exception\AppException;
 use Spf\util\Operation;
@@ -79,8 +80,7 @@ abstract class App extends Core
      * 此 App 应用类自有的 init 方法，执行以下操作：
      *  0   生成(并缓存)此应用的 全部操作列表，同时生成 路由表
      *  1   实例化参数中的所有 启用的模块
-     *  2   调用 Request::$current->getOprc 方法，查找请求的 响应方法
-     *  3   执行 此应用类 自定义的 初始化方法
+     *  2   执行 此应用类 自定义的 初始化方法
      * !! Core 子类必须实现的，App 子类不要覆盖
      * @return $this
      */
@@ -104,10 +104,7 @@ abstract class App extends Core
             Module::current($modc, $modcls);
         }
 
-        // 2 查找此次请求的 实际 操作信息
-        $oprc = Request::$current->getOprc();
-
-        // 3 执行 此应用类 自定义的 初始化方法
+        // 2 执行 此应用类 自定义的 初始化方法
         $appInited = $this->initApp();
         if (true !== $appInited) {
             throw new CoreException("未能正确初始化应用 $appn", "initialize/init");
@@ -125,6 +122,98 @@ abstract class App extends Core
     {
 
         return true;
+    }
+
+    /**
+     * 当前的 App 应用实例，执行匹配到的 响应操作，操作的主体类可能是 当前应用实例|某个模块的实例
+     * !! 当前应用 响应 Request 请求的 核心入口方法，子类不要覆盖
+     * @return Bool
+     */
+    final public function response()
+    {
+        try {
+
+            //!! Request|Response 实例 都必须存在，响应方法 oprc 必须已匹配到
+            if (
+                Request::$isInsed !== true || Response::$isInsed !== true ||
+                Request::$current->oprcMatched !== true
+            ) {
+                //报错
+                throw new AppException("请求实例或响应实例还未创建，或者未能匹配到有效的响应方法", "app/response");
+            }
+
+            //匹配到的响应方法
+            $oprc = Request::$current->getOprc();
+            //方法指向的 类全称
+            $oprcls = $oprc["class"] ?? null;
+            $oprcls = Cls::find($oprcls);
+            if (!Is::nemstr($oprcls) || !class_exists($oprcls) || !is_subclass_of($oprcls, Core::class)) {
+                //操作信息指向的 类 有误
+                throw new AppException("响应方法指向了一个不存在的类 $oprcls", "app/response");
+            }
+            //操作指向的 类名
+            $oprclsn = $oprcls::clsn();
+
+            //获取 响应方法的调用者 应为 $oprcls::$current
+            if (!isset($oprcls::$current) || !($oprcls::$current instanceof $oprcls)) {
+                //如果操作指向的 核心类 还未实例化
+                throw new AppException("响应方法指向了一个不存在的模块或应用 $oprclsn", "app/response");
+            }
+            $caller = $oprcls::$current;
+
+            //调用响应方法
+
+            //方法参数
+            $args = Request::$current->getUris();
+            if (!Is::nemarr($args)) $args = [];
+
+            //方法名
+            $m = $oprc["method"] ?? null;
+            if ($m === "__closure__") {
+                //针对 匿名函数 形式的 响应方法
+
+                //操作标识
+                $oprn = $oprc["oprn"];
+                //所有匿名函数
+                $clos = $this->operation->closures();
+                //找到当前操作的 匿名函数
+                $fc = $clos[$oprn] ?? null;
+                if (!$fc instanceof \Closure) {
+                    //不是有效的 匿名函数
+                    throw new AppException("当前响应方法不是有效的 Closure", "app/response");
+                }
+
+                //绑定匿名函数中的 $this === $caller 允许在函数体没 访问 $caller 的所有属性和方法 private|protected|public
+                $fc = \Closure::bind($fc, $caller, get_class($caller));
+
+                //执行这个匿名函数
+                $result = $fc(...$args);
+            } else {
+                //普通方法
+                if (!Is::nemstr($m) || !method_exists($caller, $m)) {
+                    //响应方法 不存在于 调用者实例中
+                    throw new AppException("响应方法 $m 不在调用者 $oprclsn 中", "app/response");
+                }
+    
+                //执行方法
+                $result = $caller->$m(...$args);
+            }
+
+            //将响应方法 返回的结果 存入 Response::$current->data
+            $setres = Response::$current->setData($result);
+            if ($setres !== true) {
+                //保存结果出错
+                throw new AppException("响应结果保存到响应实例出错", "app/response");
+            }
+
+            //完成
+            return true;
+
+        } catch (BaseException $e) {
+            //响应方法执行错误，终止响应
+            $e->handleException(true);
+        }
+
     }
 
 

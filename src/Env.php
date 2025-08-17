@@ -58,6 +58,15 @@ class Env extends Core
         if ($key === "path") return (object)$this->config->path;
 
         /**
+         * $this->dev  --> $this->config->ctx("web/dev")
+         * 判断 开发环境|生产环境
+         */
+        if ($key === "dev") {
+            $dev = $this->config->ctx("web/dev");
+            return is_bool($dev) && $dev === true;
+        }
+
+        /**
          * $this->fooBarEnabled  -->  FOO_BAR === true
          */
         if (substr($key, -7) === "Enabled") {

@@ -41,6 +41,8 @@ class Response extends Core
     public $type = "view";
     //响应类型 对应的 Exporter 类实例
     public $exporter = null;
+    //影响到 最终输出形式的 一些 $_GET 传入的 开关
+    public $switch = null;
 
     //TODO: 支持标准的 psr7 响应
     //public $psr7 = true;
@@ -272,12 +274,17 @@ class Response extends Core
 
     /**
      * WEB_PAUSE == true 的情况下，输出内容
-     * !! 此方法仅针对 Request|App 实例已创建，响应方法 oprc 以获取的情况
+     * !! 此方法仅针对 Request|App 实例已创建，响应方法 oprc 已获取的情况
      * @return void
      */
     public function pauseExport()
     {
         if ($this->pause !== true) return;
+
+        /**
+         * !! 开发环境中 WEB_PAUSE 不生效 
+         */
+        if (Env::$current->dev === true) return;
 
         /**
          * 仅针对 Request|App 实例已创建，响应方法 oprc 以获取的情况

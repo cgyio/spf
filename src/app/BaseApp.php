@@ -8,6 +8,7 @@
 namespace Spf\app;
 
 use Spf\App;
+use Spf\exception\AppException;
 
 class BaseApp extends App 
 {
@@ -30,12 +31,12 @@ class BaseApp extends App
 
     /**
      * default
-     * @export api
+     * @export view
      * @param Array $args url 参数
-     * @return Mixed
+     * @return Array
      */
     public function default(...$args)
     {
-        
+        throw new AppException("响应方法错误测试", "app/response");
     }
 }

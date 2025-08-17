@@ -17,17 +17,17 @@ body {
     background-color: #f2f2f2;
 }
 #error_main {
-    min-width: 640px; min-height: 256px; padding: 32px 0; margin: 0 0 25vh 0;
+    min-width: 640px; min-height: 128px; padding: 48px 0; margin: 0 0 25vh 0;
     display: flex; flex-direction: column;
     box-sizing: border-box;
-    border: #ededed solid 2px; border-radius: 16px;
+    border: #ededed solid 3px; border-radius: 32px;
     font-size: 14px; 
     font-family: monospace, 'PingFang SC', 'Microsoft Yahei', '微软雅黑', sans-serif;
     color: #888;
     background-color: #fff;
 }
 .error-row {
-    width: 100%; height: 28px; padding: 0 32px; margin: 0;
+    width: 100%; height: 28px; padding: 0 48px; margin: 0;
     display: flex; align-items: center;
 }
 .error-row-sub {
@@ -35,7 +35,7 @@ body {
     font-size: 12px;
 }
 .error-row-title {
-    height: 48px;
+    min-height: 28px;
     font-size: 22px; font-weight: bold; color: #ff0000;
 }
 .error-row-msg {
@@ -67,17 +67,25 @@ body {
         <div class="error-row error-row-title error-row-gap-bottom">
             Error <?=$code?> : <?=$title?>
         </div>
-        <div class="error-row error-row-msg error-row-gap-bottom"><?=$message?></div>
+        <div class="error-row error-row-msg <?php if (isset($file)) echo "error-row-gap-bottom"; ?>"><?=$message?></div>
+        <?php
+            if (isset($file)) {
+        ?>
         <div class="error-row">
             <span class="strong">文件</span>
             <span><?=$file?></span>
         </div>
+        <?php
+            }
+            if (isset($file)) {
+        ?>
         <div class="error-row">
             <span class="strong">行号</span>
             <span><?=$line?></span>
         </div>
         <?php
-            if (is_array($trace) && !empty($trace)) {
+            }
+            if (isset($trace) && is_array($trace) && !empty($trace)) {
         ?>
         <div class="error-row error-row-gap-top"><span class="strong">调用</span></div>
         <?php

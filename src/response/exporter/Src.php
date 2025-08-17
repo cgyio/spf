@@ -10,7 +10,7 @@ namespace Spf\response\exporter;
 use Spf\response\Exporter;
 use Spf\exception\BaseException;
 use Spf\module\src\Resource;
-use Spf\View as View;
+use Spf\Env;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -93,18 +93,10 @@ class Src extends Exporter
     public function exportException($ecp)
     {
         //输出资源时，发生异常，则转为输出 view 视图
-        if (!$ecp instanceof BaseException) exit;
-        //从 Response 响应配置类中 获取对应的 默认 视图文件
-        $view = $this->response->config->ctx("view/exception");
-        $html = View::page(
-            $view,
-            $ecp->getInfo()
-        );
-        $this->setContentType("text/html; charset=utf-8");
-        //输出 响应状态码
-        if ($ecp->isInnerException()===true) http_response_code(500);
-        $this->response->header->sent();
-        echo $html;
+
+        //直接调用 View Exporter 类的 exportException 方法
+        $exper = new View($this->response);
+        $exper->exportException($ecp);
         exit;
     }
 
@@ -115,17 +107,46 @@ class Src extends Exporter
      */
     public function export()
     {
-        //responseData
-        $rd = $this->response->data;
+        //eko
+        $this->eko($this->response->data);
+
+        exit;
+    }
+
+    /**
+     * echo 步骤，将要输出的内容 echo 到响应体
+     * !! 覆盖父类
+     * @param Mixed $eData 可以是 json | html | Resource实例
+     * @param Int $code 响应状态码 默认 200
+     * @param Mixed $oData 转换前的数据 默认为 $this->response->data
+     * @return exit
+     */
+    protected function eko($eData, $code=200, $oData=null)
+    {
+        //原始数据
+        if (is_null($oData)) $oData = $this->response->data;
+
+        //根据 影响最终输出的 开关数据，决定怎样输出
+        $sw = $this->response->switch;
+
+        //开发环境确认
+        $forDev = Env::$current->dev === true;
+
+        //输出 ?dump=yes
+        if ($forDev && $sw->dump) {
+            var_dump($oData);
+            exit;
+        }
+
+        //正常输出
         //如果 不包含 Resource 资源实例
-        if (!$rd instanceof Resource) {
+        if (!$eData instanceof Resource) {
             //404
             http_response_code(404);
             exit;
         }
         //调用资源实例的 输出方法
-        $rd->export();
-
+        $eData->export();
         exit;
     }
 }

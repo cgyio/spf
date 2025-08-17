@@ -389,6 +389,9 @@ class Operation extends SpecialUtil
         if (Is::nemstr($ocls)) $ocls = Cls::find($ocls);
         if (!Is::nemstr($ocls) || !class_exists($ocls)) {
             $ocls = $appcls;
+        } else {
+            //路由指向的 是其他的 应用类的 返回 null
+            if (is_subclass_of($ocls, App::class) && $ocls !== $appcls) return null;
         }
         $oprc["class"] = $ocls;
 

@@ -54,13 +54,13 @@ class View extends Core
      * 输出 page 页面
      * @param String $page 输出页面路径
      * @param Array $params 要传入页面内的 数据
-     * @return String html
+     * @return String|null html
      */
     public static function page($page, $params=[])
     {
-        if (!Is::nemstr($page)) return;
+        if (!Is::nemstr($page)) return null;
         $page = Path::find($page, Path::FIND_FILE);
-        if (!file_exists($page)) return;
+        if (!file_exists($page)) return null;
         //将 params 中 项目转为 定义的 变量
         if (!Is::nemarr($params)) $params = [];
         foreach ($params as $k => $v) {

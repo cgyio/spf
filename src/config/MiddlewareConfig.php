@@ -23,7 +23,8 @@ class MiddlewareConfig extends Configer
      * !! 如果需要，可以在某个配置类基类中定义此数组，然后在配置类子类中部分定义 $init 数组，即可实现 设置参数的继承和子类覆盖
      */
     protected $dftInit = [
-
+        //此中间件是否 仅 开发环境下 可用
+        "dev" => false,
     ];
 
 

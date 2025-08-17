@@ -119,8 +119,8 @@ class EnvConfig extends CoreConfig
             //暂停网站
             "pause" => false,	
 
-            //是否显示debug信息
-            "debug" => false,
+            //开发环境|生产环境 切换
+            "dev" => false,
 
             //其他 web 参数
 

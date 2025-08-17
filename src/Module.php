@@ -110,6 +110,11 @@ abstract class Module extends Core
         //模块类名 路径形式 foo_bar
         $modk = $this::clsk();
 
+        //确认 只能在开发环境下启用的模块，不会在生产环境中被启用
+        if (Env::$current->dev !== true && $this->config->dev === true) {
+            throw new CoreException("模块 $modn 不能在当前环境下启用", "initialize/init");
+        }
+
         // 0 为应用实例增加 新的响应方法，修改 操作列表 | 路由表
         $oprsInjected = $this->injectOprs();
 

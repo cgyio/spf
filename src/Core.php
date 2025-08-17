@@ -46,8 +46,6 @@ abstract class Core
 
     //核心类 对应的参数配置类 实例
     public $config = null;
-    //外部传入的启动参数 即 核心配置类的构造参数，在核心配置类实例化后，此属性将被释放
-    //public $opt = [];
 
 
 
@@ -55,7 +53,9 @@ abstract class Core
      * 单例实例化方法
      * CoreClass::current( [] )                 实例化核心类 NS\CoreClass
      * App::current( [], "app/foo_app", ... )   实例化应用类 NS\app\FooApp
+     * NS\app\FooApp::current( [] )
      * Module::current( [], "module/orm", ... ) 实例化模块类 NS\module\Orm
+     * NS\module\Orm::current( [] )
      * !! 子类不要覆盖
      * @param Array $opt 框架启动参数，通过 Runtime::start([...]) 传入
      * @param String $cls 实际 实例化的 核心类全称，不指定则实例化当前类，默认 null
@@ -67,26 +67,40 @@ abstract class Core
         //核心类 实例化 流程
         try {
 
-            //标记 实例化的类 是否是此类的子类
-            $issub = false; 
-
-            //确认 要实例化的 核心类类全称，必须是此类 或 此类的子类
+            //确认 要实例化的 核心类类全称，必须是 核心类 或 核心类的子类
             if (!Is::nemstr($cls)) {
                 //未指定 实际要实例化的核心类，则实例化此类
                 $cls = static::class;
             } else {
-                //指定了 实际要实例化的 核心类，必须是 此类的子类
+                //指定了 实际要实例化的 核心类，必须是 核心类的子类
                 $ocls = $cls;
                 $cls = Cls::find($cls);
                 if (!class_exists($cls) || !is_subclass_of($cls, static::class)) {
                     //实例化失败
                     throw new CoreException("指定的核心类 $ocls 不存在", "initialize/core");
                 }
+            }
+
+            //判断要实例化的 类 是 核心类 还是 核心类的子类
+            $ctp = $cls::is();
+            //尝试查找 父类
+            $fcls = Cls::find($ctp);
+            if (class_exists($fcls) && $fcls !== $cls) {
+                //当前要实例化的是 核心类的子类 如：某个具体的 App|Module 类
                 $issub = true;
+                //var_dump("is sub");var_dump($fcls);
+            } else {
+                //当前要实例化的 是 核心类
+                $issub = false;
+                $fcls = $cls;
+                //var_dump("is not sub");var_dump($cls);
             }
 
             //检查是否已经 实例化
             if ($cls::$isInsed === true) return $cls::$current;
+            //如果要实例化的是 核心类的子类，且核心父类不允许同时实例化多个子类，且核心父类已经标记 $isInsed，则返回核心父类的 $current
+            if ($issub && $fcls::$multiSubInsed!==true && $fcls::$isInsed===true) return $fcls::$current;
+
             //类名 FooBar
             $clsn = $cls::clsn();
 
@@ -111,14 +125,15 @@ abstract class Core
              * 
              * !! 如果此核心父类定义了 $multiSubInsed === true 则不需要设置 isInsed
              */
-            if ($issub && static::$multiSubInsed !== true) {
+            if ($issub && $fcls::$multiSubInsed !== true) {
                 //标记 已实例化
-                static::$isInsed = true;
+                $fcls::$isInsed = true;
                 //缓存 核心实例
-                static::$current = $ins;
+                $fcls::$current = $ins;
             }
 
             //核心类实例化之后，立即执行：
+
             // 0 实例化 核心类对应的 config 参数配置类
             $ins->initConfig($opt);
             if (empty($ins->config) || !$ins->config instanceof Configer) {
@@ -131,14 +146,31 @@ abstract class Core
 
             // 2 订阅事件
             Event::regist($ins);
+
+            // 3 触发 created 事件
+            $evn = "";
+            if ($issub && $fcls::$multiSubInsed!==true) {
+                /**
+                 * 如果实例化的 是核心类的子类，且此核心父类不允许同时实例化多个子类，则 created 事件名为 核心父类clsk_created
+                 * 例如：实例化 NS\app\FooApp 则 created 事件名为 app_created，因为 App 类不允许同时实例化多个子类
+                 */
+                $evn = $fcls::clsk();
+            } else {
+                //其他情况，以当前实例化的类的 clsk_created 作为事件名
+                $evn = $ins::clsk();
+            }
+            //!! 根据 Runtime::start() 中的响应流程，先实例化的核心类，能够监听到后实例化的核心类的 created 事件
+            Event::trigger($evn."_created", $ins);
             
         } catch (BaseException $e) {
             //核心类实例化失败，终止响应
             $e->handleException(true);
         }
 
+        //触发 核心类实例化事件
+
         //返回 核心实例
-        return $issub ? $cls::$current : static::$current;
+        return $ins;
     }
 
     /**

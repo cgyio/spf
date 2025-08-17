@@ -16,7 +16,7 @@ use Spf\util\Arr;
 use Spf\util\Cls;
 use Spf\util\Path;
 
-class Runtime extends Core 
+final class Runtime extends Core 
 {
     /**
      * 单例模式
@@ -39,12 +39,6 @@ class Runtime extends Core
     public static $app = null;
     //响应实例
     public static $response = null;
-    //本次会话 启动的 模块实例 []
-    //public static $modules = [
-        /*
-        "FooBar" => 模块实例,
-        */
-    //];
 
     /**
      * cgyio/spf 框架启动入口
@@ -79,7 +73,16 @@ class Runtime extends Core
         Runtime::$env = Env::current($opt);
 
         /**
-         * step 2   实例化 Request 请求，请求类将在实例化后执行下列操作：
+         * step 2   Runtime 实例化
+         */
+        Runtime::current();
+
+        /**
+         * 框架环境准备完成，开始执行 标准响应流程
+         */
+
+        /**
+         * step 3   实例化 Request 请求，请求类将在实例化后执行下列操作：
          *  0   创建当前请求的 Url 实例，获取相应的 请求参数
          *  1   创建请求头 RequestHeader 实例，获取相应的 请求参数
          *  2   创建 Ajax 请求处理实例，获取相应的 参数
@@ -90,28 +93,23 @@ class Runtime extends Core
         Runtime::$request = Request::current($opt);
 
         /**
-         * step 3   实例化 App 应用类，当前请求的应用类 实例化后，将执行下列操作：
+         * step 4   实例化 App 应用类，当前请求的应用类 实例化后，将执行下列操作：
          *  0   生成(并缓存)此应用的 全部操作列表，同时生成 路由表
          *  1   实例化参数中的所有 启用的模块
-         *  2   调用 Request::$current->getOprc 方法，查找请求的 响应方法
-         *  3   执行 此应用类 自定义的 初始化方法
+         *  2   执行 此应用类 自定义的 初始化方法
          * 处理框架启动参数中的 app|route|module|middleware 参数项
          */
         $appcls = Runtime::$request->getApp();
-        Runtime::$app = App::current($opt, $app);
-
-        /**
-         * 框架初始化完成，开始执行 标准响应流程
-         */
+        Runtime::$app = App::current($opt, $appcls);
         
         /**
-         * step 4   依次 实例化并执行 入站中间件 过滤
+         * step 5   依次 实例化并执行 入站中间件 过滤
          * 如果有 中间件过滤不通过，将终止响应
          */
         Middleware::process("in");
 
         /**
-         * step 5   创建 Response 响应类实例，当前 响应类 实例化后，将执行下列操作：
+         * step 6   创建 Response 响应类实例，当前 响应类 实例化后，将执行下列操作：
          *  0   创建响应头 ResponseHeader 实例
          *  1   创建响应码管理实例 创建时 默认状态码 200
          *  2   收集必须的 响应参数
@@ -120,35 +118,21 @@ class Runtime extends Core
          * 处理框架启动参数中的 response 参数项
          */
         Runtime::$response = Response::current($opt);
-        var_dump(Response::$current);
 
         /**
-         * step 4   路由匹配，查找本次请求对应的 App 应用类
-         * 匹配得到的 结果，保存在 App::$runtime 数组中
+         * step 7   执行响应方法，将方法返回的数据结果，存入 Response 响应实例的 data 属性
          */
-        //$appcls = App::find();
-        //var_dump(Runtime::is());
+        Runtime::$app->response();
 
         /**
-         * step 5   实例化 本次请求对应的 App 应用类
+         * step 8   依次 实例化并执行 出站中间件 对 Response 实例进行操作和修改
          */
-        //Runtime::$app = $appcls::current($opt);
-        
-
-        
-
-
-
-
+        Middleware::process("out");
 
         /**
-         * step 1   Runtime 实例化
+         * step 9   输出最终的响应结果，完成本次会话
          */
-        //Runtime::current();
-
-
-        //Event test
-        //Event::trigger("test_evt", Runtime::$current, "foo","bar","jaz");
+        Runtime::$response->export();
 
     }
 
@@ -160,8 +144,7 @@ class Runtime extends Core
 
     /**
      * Runtime 运行时类自有的 init 方法，执行以下操作：
-     *  0   生成(并缓存) 整站所有  应用|全局启用模块  的 可用操作列表，同时生成 路由表
-     *  1   初始化所有 全局启用中间件 的参数，并覆盖中间件的 静态属性
+     * 
      * !! 子类必须实现
      * @return $this
      */
@@ -180,26 +163,11 @@ class Runtime extends Core
      */
     public function __get($key)
     {
-        /**
-         * 
-         */
-        /**
-         * Runtime::$current->ModuleName  --> Runtime::$modules[ModuleName]
-         * Runtime::$current->Orm  -->  Runtime::$modules["Orm"]  -->  Orm::$current
-         */
-        $modn = Str::camel($key, true);
-        if (isset(self::$modules[$modn])) {
-            return self::$modules[$modn];
-        }
 
         /**
-         * 最后
-         * 调用父类 __get 方法
+         * 最后 调用父类 __get 方法
          */
-        $rtn = parent::__get($key);
-        if (!is_null($rtn)) return $rtn;
-
-        return null;
+        return parent::__get($key);
     }
 
 

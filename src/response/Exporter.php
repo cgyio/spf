@@ -12,6 +12,7 @@ namespace Spf\response;
 use Spf\Response;
 use Spf\exception\BaseException;
 use Spf\exception\AppException;
+use Spf\Env;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -115,6 +116,43 @@ class Exporter
     public function export()
     {
 
+        exit;
+    }
+
+    /**
+     * echo 步骤，将要输出的内容 echo 到响应体
+     * !! 子类应根据需要，覆盖此方法
+     * @param Mixed $eData 可以是 json | html | Resource实例
+     * @param Int $code 响应状态码 默认 200
+     * @param Mixed $oData 转换前的数据 默认为 $this->response->data
+     * @return exit
+     */
+    protected function eko($eData, $code=200, $oData=null)
+    {
+        //原始数据
+        if (is_null($oData)) $oData = $this->response->data;
+
+        //根据 影响最终输出的 开关数据，决定怎样输出
+        $sw = $this->response->switch;
+
+        //开发环境确认
+        $forDev = Env::$current->dev === true;
+
+        //输出 ?dump=yes  需要 开发环境
+        if ($forDev && $sw->dump) {
+            var_dump($oData);
+            exit;
+        }
+
+        //TODO: 响应其他 开关的 输出方式
+        //...
+
+        //正常输出
+        $this->setContentType();
+        //输出 响应状态码
+        if ($code!==200) http_response_code($code);
+        $this->response->header->sent();
+        echo $eData;
         exit;
     }
 

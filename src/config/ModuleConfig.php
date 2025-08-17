@@ -34,6 +34,9 @@ class ModuleConfig extends Configer
         //此模块是否受 WEB_PAUSE 影响，默认 true，此模块下的操作方法可自行在 注释中覆盖此参数
         "pause" => true,
 
+        //此模块是否 仅 开发环境下 可用
+        "dev" => false,
+
         //此模块必须的 中间件，要删除 全局|应用中 定义的某个中间件，可在 类名路径前增加 __delete__ 标记
         "middleware" => [
             //入站

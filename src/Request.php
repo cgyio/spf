@@ -86,6 +86,9 @@ class Request extends Core
     public $files = null;
     public $inputs = null;
 
+    //预定义的 开关参数，可通过 $_GET 传入的，在 $request->config->switches 数组中定义
+    public $switch = null;
+
     /**
      * Url 解析得到的 响应 应用类|方法|操作信息 参数
      */
@@ -109,7 +112,7 @@ class Request extends Core
      *  0   创建当前请求的 Url 实例，获取相应的 请求参数
      *  1   创建请求头 RequestHeader 实例，获取相应的 请求参数
      *  2   创建 Ajax 请求处理实例，获取相应的 参数
-     *  3   创建所有传入的 数据对象实例 $_GET | $_POST | $_FILES | php://input
+     *  3   创建所有传入的 数据对象实例 $_GET | $_POST | $_FILES | php://input | switch
      *  4   解析当前请求的 Url 得到 目标 App 应用类
      * !! Core 子类必须实现的
      * @return $this
@@ -131,11 +134,20 @@ class Request extends Core
             $this->responseHeaders = Arr::extend($this->responseHeaders, $this->ajax->responseHeaders);
         }
 
-        // 3 创建所有传入的 数据对象实例 $_GET | $_POST | $_FILE | php://input
+        // 3 创建所有传入的 数据对象实例 $_GET | $_POST | $_FILE | php://input | switch
         $this->gets = new Gets($_GET);
         $this->posts = new Posts($_POST);
         $this->inputs = new Inputs();
         $this->files = new Files();
+        //预定义的 开关，可通过 $_GET 传入的
+        $sw = $this->config->switches;
+        $sws = [];
+        foreach($sw as $k => $dv) {
+            //检查是否通过 $_GET 传入了这些开关的 值
+            $kv = $this->gets->$k($dv);
+            $sws[$k] = strtolower($kv) === "yes";
+        }
+        $this->switch = (object)$sws;
 
         // 4 解析当前请求的 Url 得到 目标 App 应用类
         $this->getApp();
@@ -159,7 +171,8 @@ class Request extends Core
         //判断 $path[0] 是否 App 应用名
         if (Is::nemarr($path)) {
             $appk = $path[0];
-            if (false !== ($appcls = Cls::find("app/$appk"))) {
+            $appcls = Cls::find("app/$appk");
+            if (!empty($appcls)) {
                 //$path[0] 是某个存在的 App 应用名
                 $this->app = $appcls;
                 //缓存剩余的 URI 数组，用于继续分析并查找 响应方法
@@ -172,7 +185,8 @@ class Request extends Core
         //其他情况，都指向 index 应用 或 base_app 默认应用
         $this->uris = $path;
         //检查是否存在 index 应用
-        if (false !== ($appcls = Cls::find("app/index"))) {
+        $appcls = Cls::find("app/index");
+        if (!empty($appcls)) {
             //存在 index 应用
             $app = $appcls;
         } else {
@@ -267,6 +281,42 @@ class Request extends Core
 
 
 
+    /**
+     * 事件处理
+     */
+
+    /**
+     * event-handler
+     * @event app_created
+     * @once true
+     * @param Object $triggerBy 事件触发者，当前的 应用实例
+     * @return void
+     */
+    public function handleAppCreatedEvent($triggerBy=null)
+    {
+        if (!$triggerBy instanceof App) return;
+
+        //应用实例化完成后，立即通过 getOprc 方法，匹配请求的 操作信息
+        $this->getOprc();
+    }
+
+    /**
+     * event-handler
+     * @event response_created
+     * @once true
+     * @param Object $triggerBy 事件触发者，Response 实例
+     * @return void
+     */
+    public function handleResponseCreatedEvent($triggerBy=null)
+    {
+        if (!$triggerBy instanceof Response) return;
+        
+        //将通过 $_GET 传入的 switch 开关，附加到 Response 响应实例
+        $triggerBy->switch = $this->switch;
+    }
+
+
+
     
 
     /**
@@ -306,140 +356,6 @@ class Request extends Core
         $aud["audience"] = $audience;
 
         return $aud;
-    }
-
-
-
-    /**
-     * !! 已废弃
-     * 使用 路由表 匹配当前请求的 URI 获取请求的 操作信息
-     */
-    public function __getOprc()
-    {
-        //如果已有 缓存的 响应方法 信息数据
-        if (Is::nemarr($this->oprc)) return $this->oprc;
-
-        //应用必须已经实例化
-        if (App::$isInsed !== true) return null;
-        $app = App::$current;
-        //剩余的 URI 路径 []
-        $uris = $this->uris;
-
-        //首先尝试 匹配路由表
-        $routes = $app->operation->routes();
-        $uri = implode("/", $uris);
-        //依次匹配路由
-        foreach ($routes as $pattern => $oprc) {
-            //使用 正则 匹配 $uri 字符串
-            try {
-                $mt = preg_match($pattern, $uri, $matches);
-                //未匹配成功，继续下一个
-                if ($mt !== 1) continue;
-
-                //匹配成功，将 匹配结果 作为 响应方法参数 返回
-                $mcs = array_slice($matches, 1);
-                $msc = array_map(function($mci) {
-                    return trim($mci, "/");
-                }, $mcs);
-                $mcstr = implode("/", $mcs);
-                $mcs = explode("/", $mcstr);
-
-                //检查是否还有剩余的 uri 路径
-                $uarr = [];
-                if (strpos($uri, $mcstr)!==false) {
-                    $uriarr = explode($mcstr, $uri);
-                    if (count($uriarr)>1 && $uriarr[1]!="") {
-                        $uarr = explode("/", trim($uriarr[1], "/"));
-                    }
-                }
-                //缓存 匹配结果数组 和 剩余的 URI 路径，合并后得到 作为响应方法参数 的数组
-                $this->uris = array_merge($mcs, $uarr);
-
-                //缓存匹配的 结果
-                $this->oprc = $oprc;
-
-                //返回匹配结果
-                return $oprc;
-
-            } catch (\Exception $e) {
-                //正则匹配出错 跳过
-                continue;
-            }
-        }
-
-        //未匹配到
-
-        //然后尝试在 操作列表中查找
-        if (empty($uris)) {
-            //空 URI 指向 当前应用的 default 方法
-            //TODO：实现 应用类中的 通用的 default 方法
-
-        }
-
-        //获取 检查项
-        $mthk = $uris[0];
-        if (in_array($mthk, Operation::$types)) {
-            //如果是 预定义的 特殊操作类型 api|view|src ... 
-            $mthk = $uris[1] ?? null;
-            if (!Is::nemstr($mthk)) {
-                //未指定请求方法，使用 default 方法
-                //TODO：
-
-            }
-            //生成 method 完整方法名 fooBarApi
-            $mthn = Str::camel($mthk, false).Str::camel($uris[0], true);
-            //查找 方法名
-            $find = $app->operation->search(function($oprc) use ($mthn){
-                return isset($oprc["method"]) && $oprc["method"]===$mthn;
-            });
-            if ($find !== false) {
-                //找到方法
-                //缓存剩余的 URI
-                $this->uris = array_slice($uris, 2);
-                //缓存 oprc
-                $this->oprc = $find;
-                return $find;
-            }
-        } else if (false !== ($mod = Module::has($mthk))) {
-            //指向某个模块
-            //$modn = $mod::clsn();
-            //继续查找
-            $mthk = $uris[1] ?? null;
-            if (!Is::nemstr($mthk)) {
-                //未指定 模块的 方法，指向 模块的 default 方法
-                //TODO:
-
-            } else if (in_array($mthk, Operation::$types)) {
-                //如果是 预定义的 特殊操作类型 api|view|src ... 
-                $mthk = $uris[2] ?? null;
-                if (!Is::nemstr($mthk)) {
-                    //未指定请求方法，使用 模块的 default 方法
-                    //TODO：
-
-                }
-                //生成 模块内的 method 方法名
-                $mthn = Str::camel($mthk, false).Str::camel($uris[1], true);
-                //查找 方法名
-                $find = $app->operation->search(function($oprc) use ($mod, $mthn){
-                    return (
-                        isset($oprc["class"]) && $oprc["class"]===$mod &&
-                        isset($oprc["method"]) && $oprc["method"]===$mthn
-                    );
-                });
-                if ($find !== false) {
-                    //找到方法
-                    //缓存剩余的 URI
-                    $this->uris = array_slice($uris, 3);
-                    //缓存 oprc
-                    $this->oprc = $find;
-                    return $find;
-                }
-            }
-        }
-
-        //未找到任何对应的 操作方法 直接使用当前应用的 default 方法
-        //TODO:
-
     }
 
 }

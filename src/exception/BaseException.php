@@ -8,8 +8,11 @@
 
 namespace Spf\exception;
 
+use Spf\Env;
 use Spf\Response;
 use Spf\util\Log;
+use Spf\util\Is;
+use Spf\util\Arr;
 use Spf\util\Cls;
 
 class BaseException extends \Exception 
@@ -103,6 +106,31 @@ class BaseException extends \Exception
     ];
 
     /**
+     * 不同的 异常类型 有不同级别的 异常(错误)
+     * !! 子类可以覆盖这些 异常(错误)码 不带前缀的 int
+     */
+    //不需要终止响应的 异常(错误)码
+    protected static $okErrors = [
+        //这些 php error 不需要终止
+        E_NOTICE, E_USER_NOTICE,
+    ];
+    //!! php fatal errors 仅针对 BaseException
+    private static $fatalErrors = [
+        //这些错误类型为 fatal error
+        E_ERROR, E_PARSE, 
+        E_CORE_ERROR, E_CORE_WARNING, 
+        E_COMPILE_ERROR, E_COMPILE_WARNING,
+    ];
+
+    /**
+     * 已创建过的 异常实例的 唯一 ekey 数组，避免重复处理同一个异常
+     * !! 子类不要覆盖
+     */
+    public static $ekeys = [
+        // "ekey_1", "ekey_2", ...
+    ];
+
+    /**
      * 覆盖构造函数
      * @param String $msg 异常信息，可指定多条，英文逗号隔开 用于替换信息模板中的 %{1}% %{2}% ...
      * @param Int|String $code 异常代码(不带前缀) 4  或者  key-path：fatal/parse
@@ -146,6 +174,9 @@ class BaseException extends \Exception
             //缓存 key-path 当前异常 在预设的 exceptions 数组中的 xpath
             "xpath" => static::getKeyPath($code),
 
+            //已处理 标记
+            "handled" => false,
+
         ], is_array($extra) ? $extra : []);
         
         //调用父类构造函数，创建异常实例
@@ -157,6 +188,26 @@ class BaseException extends \Exception
             if (isset($this->context[$ki])) {
                 $this->$ki = $this->context[$ki];
             }
+        }
+
+        //将可能存在的 trace 存入 context
+        if (!isset($this->context["trace"])) {
+            $trace = $this->splitTrace();
+            if (Is::nemarr($trace)) {
+                $this->context["trace"] = $trace;
+            } else {
+                $this->context["trace"] = [];
+            }
+        }
+
+        //创建 此异常实例的 唯一 key，避免重复处理异常
+        $ekey = $this->getEkey();
+        if (in_array($ekey, self::$ekeys)) {
+            //存在 ekey 表示 此异常实例已创建过 handled 标记为 true
+            $this->context["handled"] = true;
+        } else {
+            //缓存 ekey
+            self::$ekeys[] = $ekey;
         }
     }
 
@@ -174,18 +225,82 @@ class BaseException extends \Exception
 
     /**
      * 一次性完整输出 当前异常信息
+     * @param Bool $full 强制显示全部错误信息，默认 false
      * @return Array
      */
-    public function getInfo()
+    public function getInfo($full=false)
     {
-        return [
+        //简易 错误信息
+        $info_s = [
             "code" => $this->ctx("code"), //$this->getCode(),
             "title" => $this->ctx("title"),
             "message" => $this->getMessage(),
-            "file" => $this->getFile(),
-            "line" => $this->getLine(),
-            "trace" => empty($this->ctx("trace")) ? $this->getTrace() : $this->ctx("trace"),
         ];
+
+        //开发环境下 或 $full === true 返回全部信息
+        if (
+            (Env::$isInsed === true && Env::$current->dev === true) || 
+            $full === true
+        ) {
+            //详细 错误信息
+            $info_d = [
+                "ekey" => $this->getEkey(),
+                "file" => $this->getFile(),
+                "line" => $this->getLine(),
+                //"trace" => empty($this->ctx("trace")) ? $this->getTrace() : $this->ctx("trace"),
+                "trace" => $this->ctx("trace"),
+            ];
+            return array_merge($info_s, $info_d);
+        }
+
+        //生产环境下 或 $full !== true 返回简易信息
+        return $info_s;
+    }
+
+    /**
+     * 获取当前异常实例的 唯一 key，避免重复处理 同一个异常
+     * key 格式：md5(file.line.xpath)
+     * @return String 
+     */
+    public function getEkey()
+    {
+        //是否已创建
+        $ekey = $this->ctx("ekey");
+        if (Is::nemstr($ekey)) return $ekey;
+        //创建
+        $file = $this->getFile();
+        $line = $this->getLine();
+        $xpath = $this->ctx("xpath");
+        $ekey = md5("$file.$line.$xpath");
+        //缓存
+        $this->context["ekey"] = $ekey;
+        //返回
+        return $ekey;
+    }
+
+    /**
+     * 将 $e->getTraceAsString() 得到的字符串，拆分为数组，存放到 context["trace"] 中，方便展示
+     * @param String $trace 字符串，如果不指定，则使用 $this->getTraceAsString() 方法返回的内容
+     * @return Array trace 字符串拆分成的 index 数组
+     */
+    public function splitTrace($trace=null)
+    {
+        if (!Is::nemstr($trace)) {
+            $trace = $this->getTraceAsString();
+        }
+        if (!Is::nemstr($trace)) return [];
+
+        //开始拆分
+        $tarr = explode("\n", $trace);
+        $trace = [];
+        foreach ($tarr as $i => $msgi) {
+            $msgi = trim($msgi);
+            if (substr($msgi, 0, 1)!=="#") continue;
+            //$msgi = preg_replace("/#\d+\s+/","",$msgi);
+            $trace[] = $msgi;
+        }
+
+        return $trace;
     }
 
     /**
@@ -200,28 +315,36 @@ class BaseException extends \Exception
     }
 
     /**
+     * 判断当前异常 是否 已被处理过
+     * @return Bool
+     */
+    public function isHandled()
+    {
+        $handled = $this->ctx("handled");
+        if (is_bool($handled) && $handled === true) return true;
+        return false;
+    }
+
+    /**
      * 针对不同的 异常 code 执行可能定义的 handler
      * key-path 为 foo/bar 对应的 handler 方法为 fooBarHandler 方法，如果有，则调用
      * 任意异常类实例的 handler 方法 必须 public 且 返回 $this
      * !! 子类可覆盖此方法
      * @param Bool $exit 是否立即终止响应，输出错误信息
-     * @return $this
+     * @return void
      */
     public function handleException($exit=false)
     {
+        //检查 此异常是否 已被处理过
+        if ($this->isHandled() === true) return;
+        
         //将当前异常实例 push 到 Response::$current 实例中
         if (Response::$isInsed === true) {
             Response::$current->setException($this);
         }
 
-        //log
-        $this->logError(
-            $this->getMessage(),
-            [
-                "file" => $this->getFile(),
-                "line" => $this->getLine()
-            ]
-        );
+        //记录日志
+        $this->logError();
         
         //key-path
         $kp = $this->ctx("xpath");
@@ -239,22 +362,55 @@ class BaseException extends \Exception
             }
         }
 
-        //如果需要终止响应
-        if ($exit || $this->needExit()===true) return $this->exit();
+        //标记为已处理过
+        $this->context["handled"] = true;
 
-        //不需要终止响应
-        return $this;
+        //如果需要终止响应
+        if ($exit || $this->needExit()===true) {
+            return $this->exit();
+        }
     }
 
     /**
-     * 错误日志 统一使用 Log::error 方法
-     * @param String $msg 日志信息内容
-     * @param Array $extra 日志中的额外记录
+     * 错误日志 
      * @return Bool
      */
-    protected function logError($msg, $extra=[])
+    protected function logError()
     {
-        return Log::error($msg, $extra);
+        //检查当前 异常是否已被处理过
+        if ($this->isHandled() === true) return false;
+
+        //获取当前异常的 Log 类型
+        $m = $this->getLogType();
+
+        //准备 日志数据
+        $msg = $this->getMessage();
+        $extra = [
+            "file" => $this->getFile(),
+            "line" => $this->getLine()
+        ];
+
+        //记录日志
+        return Log::create($m, $msg, $extra);
+    }
+
+    /**
+     * 判断 当前异常的 Log 类型，影响记录日志的 方法名
+     * 可选类型在 Log::$ms 中定义
+     * @return String 支持的 Log 类型
+     */
+    protected function getLogType()
+    {
+        //获取 异常预设的 key-path
+        $xpath = $this->ctx("xpath");
+        if (!Is::nemstr($xpath)) return "error";
+        //截取最后一段 作为 Log 类型
+        $xpkey = array_slice(explode("/", $xpath), -1)[0];
+        //如果支持此类型
+        if (Log::support($xpkey)) return $xpkey;
+
+        //默认 error 类型
+        return "error";
     }
 
     /**
@@ -276,32 +432,6 @@ class BaseException extends \Exception
         //调用 响应实例 输出异常信息
         $response->export();
         exit;
-
-        /* bak 20250815
-        $s = [];
-        $s[] = "";
-        $s[] = "----------PHP Error catched----------";
-        $s[] = "";
-        $s[] = "code: ".$this->ctx("code");
-        $s[] = $this->ctx("title");
-        $s[] = $this->ctx("message");
-        $s[] = "file: ".$this->getFile();
-        $s[] = "line: ".$this->getLine();
-        if (isset($this->context["trace"])) {
-            $s[] = "Stack trace";
-            $s = array_merge($s, $this->ctx("trace"));
-        }
-        $s[] = "";
-        $s[] = "----------PHP Error end----------";
-        $s[] = "";
-        echo implode("\n", $s);
-        //var_export(implode("\n", $s));
-        //var_export($this->getInfo());
-
-        //TODO: 调用 Response 响应类，创建异常响应，并输出
-        //...
-
-        exit;*/
     }
     
     /**
@@ -317,10 +447,8 @@ class BaseException extends \Exception
          */
         $code = $this->ctx("code_no_pre");
         $code = (int)$code;
-        $okErrors = [
-            //这些 php error 不需要终止
-            E_NOTICE, E_USER_NOTICE,
-        ];
+        //不需要终止响应的 异常(错误)码
+        $okErrors = static::$okErrors;
         return !in_array($code, $okErrors);
     }
 
@@ -337,7 +465,10 @@ class BaseException extends \Exception
      */
     final public static function handlePhpError($code, $msg, $file, $line)
     {
-        //创建异常
+        //fatal error 由 handlePhpFatalError() 方法处理
+        if (in_array($code, self::$fatalErrors)) return;
+
+        //创建 
         $e = new BaseException(
             $msg, 
             $code, 
@@ -349,20 +480,20 @@ class BaseException extends \Exception
             null
         );
 
-        if ($e->needExit()) {
-            //如果 此 php error 需要终止响应
-            try {
-                //抛出异常
-                throw $e;
-            } catch (BaseException $e) {
-                //处理异常
-                $e->handleException(true);
-            }
-        } else {
-            //如果不需要终止，则 只抛出异常，由调用者决定如何处理
-            throw $e;
-        }
+        //判断这个 新创建的 异常实例 是否被已处理过
+        if ($e->isHandled() === true) return;
 
+        //直接处理异常，在 handleException 方法内部会决定是否终止响应
+        //$e->handleException();
+        
+        //try-catch 才能保持 trace 
+        try {
+            //抛出异常
+            throw $e;
+        } catch (BaseException $e) {
+            //处理异常
+            $e->handleException();
+        }
     }
 
     /**
@@ -373,54 +504,58 @@ class BaseException extends \Exception
     {
         $lastError = error_get_last();
     
-        // 检查是否有未处理的致命错误
-        if (!empty($lastError)) {
-            $fatalErrors = [
-                //这些错误类型为 fatal error
-                E_ERROR, E_PARSE, 
-                E_CORE_ERROR, E_CORE_WARNING, 
-                E_COMPILE_ERROR, E_COMPILE_WARNING
-            ];
-            if (in_array($lastError['type'], $fatalErrors)) {
+        //检查是否有未处理的致命错误
+        if (empty($lastError)) return;
 
-                /**
-                 * 解析 fatal error 的 message 得到 trace 序列
-                 */
-                $code = $lastError["type"] ?? 1;
-                $msg = $lastError['message'] ?? "";
-                $file = $lastError["file"] ?? "";
-                $line = $lastError['line'] ?? 0;
-                //var_dump($msg);
-                $msga = explode("\n", $msg);
-                $msgstr = array_shift($msga);
-                $msgstr = explode(" in ", $msgstr)[0];
-                //Stack trace
-                $trace = [];
-                foreach ($msga as $i => $msgi) {
-                    $msgi = trim($msgi);
-                    if (substr($msgi, 0, 1)!=="#") continue;
-                    //$msgi = preg_replace("/#\d+\s+/","",$msgi);
-                    $trace[] = $msgi;
-                }
-                
-                try {
-                    //抛出异常
-                    throw new BaseException(
-                        $msgstr,
-                        $code,
-                        [
-                            //将 file、line、trace 作为额外异常信息
-                            "file" => $file,
-                            "line" => $line,
-                            "trace" => $trace
-                        ],
-                        null
-                    );
-                } catch (BaseException $e) {
-                    //处理异常，fatal error 必须终止响应
-                    $e->handleException(true);
-                }
-            }
+        //必须是 fatal error
+        if (!in_array($lastError["type"], self::$fatalErrors)) return;
+
+        /**
+         * 解析 fatal error 的 message 得到 trace 序列
+         */
+        $code = $lastError["type"] ?? 1;
+        $msg = $lastError["message"] ?? "";
+        $file = $lastError["file"] ?? "";
+        $line = $lastError["line"] ?? 0;
+        //var_dump($msg);
+        $msga = explode("\n", $msg);
+        $msgstr = array_shift($msga);
+        $msgstr = explode(" in ", $msgstr)[0];
+        //Stack trace
+        $trace = [];
+        foreach ($msga as $i => $msgi) {
+            $msgi = trim($msgi);
+            if (substr($msgi, 0, 1)!=="#") continue;
+            //$msgi = preg_replace("/#\d+\s+/","",$msgi);
+            $trace[] = $msgi;
+        }
+
+        //创建 
+        $e = new BaseException(
+            $msgstr,
+            $code,
+            [
+                //将 file、line、trace 作为额外异常信息
+                "file" => $file,
+                "line" => $line,
+                "trace" => $trace
+            ],
+            null
+        );
+
+        //判断这个 新创建的 异常实例 是否被已处理过
+        if ($e->isHandled() === true) return;
+
+        //直接处理 fatal error 终止响应
+        //$e->handleException(true);
+        
+        //try-catch 才能保持 trace 
+        try {
+            //抛出异常
+            throw $e;
+        } catch (BaseException $e) {
+            //处理异常，fatal error 必须终止响应
+            $e->handleException(true);
         }
     }
 
@@ -432,7 +567,7 @@ class BaseException extends \Exception
     final public static function regist()
     {
         set_error_handler([self::class, "handlePhpError"]);
-		//注册一个 在 exit() 后执行的方法，此方法中获取最后一个错误，如果是 fatal error 则抛出
+		//注册一个 在 exit() 后执行的方法，此方法中获取最后一个错误，如果是 fatal error 则处理
 		register_shutdown_function([self::class, "handlePhpFatalError"]);
     }
 
@@ -646,5 +781,9 @@ class BaseException extends \Exception
         }
         return $cmsg;
     }
+
+    /**
+     * 判断
+     */
 
 }

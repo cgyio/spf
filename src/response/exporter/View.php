@@ -128,17 +128,17 @@ class View extends Exporter
      */
     public function exportPause()
     {
+        $pd = [
+            "pause_msg" => "Web Paused!"
+        ];
         //从 Response 响应配置类中 获取对应的 默认 视图文件
         $view = $this->response->config->ctx("view/pause");
-        $html = cView::page(
-            $view,
-            [
-                "pause_msg" => "Web Paused!"
-            ]
-        );
-        $this->setContentType();
-        $this->response->header->sent();
-        echo $html;
+        $html = cView::page($view, $pd);
+        if (!Is::nemstr($html)) $html = "Web Paused!";
+
+        //eko
+        $this->eko($html, 200, $pd);
+        
         exit;
     }
 
@@ -149,21 +149,19 @@ class View extends Exporter
      */
     public function exportCode()
     {
+        $stu = $this->response->status;
+        $pd = [
+            "code" => $stu->code,
+            "info" => $stu->info
+        ];
         //从 Response 响应配置类中 获取对应的 默认 视图文件
         $view = $this->response->config->ctx("view/code");
-        $stu = $this->response->status;
-        $html = cView::page(
-            $view,
-            [
-                "code" => $stu->code,
-                "info" => $stu->info
-            ]
-        );
-        $this->setContentType();
-        //输出 响应状态码
-        http_response_code($stu->code);
-        $this->response->header->sent();
-        echo $html;
+        $html = cView::page($view, $pd);
+        if (!Is::nemstr($html)) $html = $stu->code." ".$stu->info;
+
+        //eko
+        $this->eko($html, $stu->code, $pd);
+        
         exit;
     }
 
@@ -175,18 +173,39 @@ class View extends Exporter
      */
     public function exportException($ecp)
     {
+        if (!$ecp instanceof BaseException) exit;
+
+        $pd = $ecp->getInfo();
         //从 Response 响应配置类中 获取对应的 默认 视图文件
         $view = $this->response->config->ctx("view/exception");
-        if (!$ecp instanceof BaseException) exit;
-        $html = cView::page(
-            $view,
-            $ecp->getInfo()
-        );
-        $this->setContentType();
-        //输出 响应状态码
-        if ($ecp->isInnerException()===true) http_response_code(500);
-        $this->response->header->sent();
-        echo $html;
+        $html = cView::page($view, $pd);
+
+        //如果视图文件不存在，则手动创建 异常输出的 html
+        if (!Is::nemstr($html)) {
+            $s = [];
+            $s[] = "";
+            $s[] = "----------PHP Error catched----------";
+            $s[] = "";
+            $s[] = "code: ".$ecp->ctx("code");
+            $s[] = $ecp->ctx("title");
+            $s[] = $ecp->ctx("message");
+            $s[] = "file: ".$ecp->getFile();
+            $s[] = "line: ".$ecp->getLine();
+            $trace = $ecp->ctx("trace");
+            if (Is::nemarr($trace)) {
+                $s[] = "Stack trace";
+                $s = array_merge($s, $trace);
+            }
+            $s[] = "";
+            $s[] = "----------PHP Error end----------";
+            $s[] = "";
+            $html = implode("<br>", $s);
+        }
+        $code = $ecp->isInnerException()===true ? 500 : 200;
+
+        //eko
+        $this->eko($html, $code, $pd);
+
         exit;
     }
 
@@ -203,38 +222,32 @@ class View extends Exporter
         $params = $rd["params"] ?? [];
         $html = $rd["html"] ?? null;
 
-        //如果需要调用 View 视图类
+        //根据 不同的 view 类型
         if (class_exists($view)) {
+            //如果需要调用 View 视图类
             //TODO: 创建视图实例，传入 params ，调用 视图实例的 export 方法
 
-            exit;
-        }
+            $pd = "view instance export html";
 
-        //如果传入了 输出页面的文件路径
-        if (file_exists($view)) {
+        } else if (file_exists($view)) {
+            //如果传入了 输出页面的文件路径
             $pd = cView::page(
                 $view,
                 $params
             );
-            //设置 Content-Type
-            $this->setContentType();
-            //输出 响应头
-            $this->response->header->sent();
-            //echo 
-            echo $pd;
-            exit;
+
+        } else if (Is::nemstr($html)) {
+            //如果传入了 html
+            $pd = $html;
         }
 
-        //如果传入了 html
-        if (Is::nemstr($html)) {
-            //设置 Content-Type
-            $this->setContentType();
-            //输出 响应头
-            $this->response->header->sent();
-            //echo 
-            echo $html;
-            exit;
+        //确保 最终输出内容是 html
+        if (!Is::html($pd)) {
+            throw new AppException("没有得到正确的视图内容", "response/fail");
         }
+
+        //eko
+        $this->eko($pd);
 
         exit;
     }

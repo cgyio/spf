@@ -60,6 +60,8 @@ class AppException extends BaseException
             //App 应用相关
             "app" => [
 
+                //执行响应方法错误
+                "response"          => ["执行响应方法失败", "执行响应方法发生错误，可能的原因：%{1}%",  21],    //code = 0020021
             ],
             
             

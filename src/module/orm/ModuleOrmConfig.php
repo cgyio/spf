@@ -15,6 +15,9 @@ class ModuleOrmConfig extends ModuleConfig
      * !! 子类自定义
      */
     protected $init = [
+
+        //此模块是否 仅 开发环境下 可用
+        //"dev" => true,
         
         /**
          * 指定要使用的数据库配置

@@ -70,9 +70,7 @@ class Gets extends SpecialUtil
      */
     public function __call($key, $dft)
     {
-        if ($this->has($key)) {
-            return $this->context[$key];
-        }
+        if ($this->has($key)) return $this->context[$key];
         if (empty($dft)) return null;
         return $dft[0];
     }

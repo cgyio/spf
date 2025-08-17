@@ -9,6 +9,7 @@ namespace Spf\response\exporter;
 
 use Spf\response\Exporter;
 use Spf\exception\BaseException;
+use Spf\Env;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -70,15 +71,17 @@ class Api extends Exporter
      */
     public function exportPause()
     {
-        $pd = Conv::a2j([
+        $pd = [
             "error" => false,
             "data" => [
                 "pause" => true
             ]
-        ]);
-        $this->setContentType();
-        $this->response->header->sent();
-        echo $pd;
+        ];
+        $ed = Conv::a2j($pd);
+
+        //eko
+        $this->eko($ed, 200, $pd);
+        
         exit;
     }
 
@@ -90,18 +93,18 @@ class Api extends Exporter
     public function exportCode()
     {
         $stu = $this->response->status;
-        $pd = Conv::a2j([
+        $pd = [
             "error" => false,
             "data" => [
                 "code" => $stu->code,
                 "info" => $stu->info
             ]
-        ]);
-        $this->setContentType();
-        //输出 响应状态码
-        http_response_code($stu->code);
-        $this->response->header->sent();
-        echo $pd;
+        ];
+        $ed = Conv::a2j($pd);
+
+        //eko
+        $this->eko($ed, $stu->code, $pd);
+        
         exit;
     }
 
@@ -114,16 +117,18 @@ class Api extends Exporter
     public function exportException($ecp)
     {
         if (!$ecp instanceof BaseException) exit;
+        $einfo = $ecp->getInfo();
         
-        $pd = Conv::a2j([
+        $pd = [
             "error" => true,
-            "data" => $ecp->getInfo()
-        ]);
-        $this->setContentType();
-        //输出 响应状态码
-        //if ($ecp->isInnerException()===true) http_response_code(500);
-        $this->response->header->sent();
-        echo $pd;
+            "data" => $einfo
+        ];
+        $ed = Conv::a2j($pd);
+        $code = $ecp->isInnerException()===true ? 500 : 200;
+
+        //eko
+        $this->eko($ed, $code, $pd);
+        
         exit;
     }
 
@@ -136,18 +141,14 @@ class Api extends Exporter
     {
         //responseData
         $rd = $this->response->data;
-        //格式化 输出的 数据
-        $pd = Arr::extend($this->stdData, [
+        //echo
+        $ed = Arr::extend($this->stdData, [
             "data" => $rd
         ]);
-        //转为 json
-        $pd = Conv::a2j($pd);
-        //写入 Content-Type
-        $this->setContentType();
-        //响应头
-        $this->response->header->sent();
-        //echo
-        echo $pd;
+        $ed = Conv::a2j($ed);
+
+        //eko
+        $this->eko($ed);
 
         exit;
     }
