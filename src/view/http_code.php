@@ -15,28 +15,30 @@ if (!isset($info)) $info = "Not Found";
 body {
     margin: 0; padding: 0; overflow: hidden;
     width: 100vw; height: 100vh;
-    display: flex; align-items: center; justify-content: center;
-    background-color: #f2f2f2;
-}
-#code_main {
-    min-width: 128px; height: 64px; padding: 0 16px; margin: 0;
-    display: flex; align-items: center;
-    box-sizing: border-box;
-    border: #ededed solid 1px; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
     font-size: 14px; 
     font-family: monospace, 'PingFang SC', 'Microsoft Yahei', '微软雅黑', sans-serif;
     color: #bbb;
-    background-color: #fff;
+    background-color: #f2f2f2;
 }
-.strong {
-    color: #333; font-weight: bold; margin-right: 16px;
+.code-title {
+    padding: 0; margin: 0 0 32px 0;
+    font-size: 64px; color: #f00;
+}
+.code-info {
+    padding: 0; margin: 0 0 35vh 0;
+    font-size: 24px; color: #888;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #101010;
+    }
 }
 </style>
 </head>
 <body>
-    <div id="code_main">
-        <span class="strong"><?=$code?></span>
-        <span><?=$info?></span>
-    </div>
+    <div class="code-title"><?=$code?></div>
+    <div class="code-info"><?=$info?></div>
 </body>
 </html>

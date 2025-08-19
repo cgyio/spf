@@ -221,12 +221,14 @@ class Path extends Util
      * @param Array $pathes 要检查的 文件|文件夹 路径 数组
      * @param Bool $all 是否返回所有存在的 文件|文件夹 ，false 则进返回第一个存在的 默认 false
      * @param Int $type 查询方法，FIND_[FILE|DIR|BOTH] 默认 FIND_FILE
+     * @return String|Array|null
      */
     public static function exists($pathes=[], $all=false, $type=Path::FIND_FILE) {
         if (!Is::nemarr($pathes)) return null;
+        $exists = [];
         foreach ($pathes as $i => $v) {
             $rv = self::find($v, $type);
-            if (!is_null($rv)) $exists[] = $rv;
+            if (Is::nemstr($rv)) $exists[] = $rv;
         }
         if (empty($exists)) return null;
         return $all ? $exists : $exists[0];

@@ -15,22 +15,30 @@ if (!isset($pause_msg)) {
 body {
     margin: 0; padding: 0; overflow: hidden;
     width: 100vw; height: 100vh;
-    display: flex; align-items: center; justify-content: center;
-    background-color: #f2f2f2;
-}
-#pause_main {
-    min-width: 128px; height: 64px; padding: 0 16px; margin: 0;
-    display: flex; align-items: center;
-    box-sizing: border-box;
-    border: #ededed solid 1px; border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
     font-size: 14px; 
     font-family: monospace, 'PingFang SC', 'Microsoft Yahei', '微软雅黑', sans-serif;
     color: #bbb;
-    background-color: #fff;
+    background-color: #f2f2f2;
+}
+.pause-title {
+    padding: 0; margin: 0 0 24px 0;
+    font-size: 48px; color: #f00;
+}
+.pause-info {
+    padding: 0; margin: 0 0 35vh 0;
+    font-size: 24px; color: #888;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #101010;
+    }
 }
 </style>
 </head>
 <body>
-    <div id="pause_main"><?=$pause_msg?></div>
+    <div class="pause-title">Web Paused!</div>
+    <div class="pause-info"><?=$pause_msg?></div>
 </body>
 </html>

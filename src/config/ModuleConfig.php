@@ -37,6 +37,19 @@ class ModuleConfig extends Configer
         //此模块是否 仅 开发环境下 可用
         "dev" => false,
 
+        //依赖的 其他模块
+        "dependency" => [
+            /*
+            "mod_name" => [
+                # 模块参数 与 此数组 结构一致
+                "middleware" => [],
+                ...
+            ],
+            ...
+            !! 经过 Module::findDependency 方法处理后，此参数将变更为 indexed 数组，包含所有依赖的模块的 modk
+            */
+        ],
+
         //此模块必须的 中间件，要删除 全局|应用中 定义的某个中间件，可在 类名路径前增加 __delete__ 标记
         "middleware" => [
             //入站

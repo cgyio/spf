@@ -7,6 +7,7 @@
 namespace Spf\config;
 
 use Spf\App;
+use Spf\Module;
 use Spf\Middleware;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -169,9 +170,10 @@ class AppConfig extends Configer
         $mods = [];
         $mids = Middleware::getStdMids();
         for ($i=0;$i<count($queue);$i++) {
-            //合并 module
+            //合并 module 同时 提取并合并依赖的其他模块
             $cmods = $queue[$i]["module"] ?? [];
-            if (!Is::nemarr($cmods)) continue;
+            $mods = Module::extend($mods, $cmods);
+            /*if (!Is::nemarr($cmods)) continue;
             foreach ($cmods as $modk => $modc) {
                 if (!isset($modc["enable"]) || $modc["enable"]!==true) {
                     //覆盖的设置中 模块不启用，则从已有模块中 删除此模块
@@ -186,7 +188,7 @@ class AppConfig extends Configer
                     //后定义的 extend 覆盖原参数
                     $mods[$modc] = Arr::extend($mods[$modk], $modc);
                 }
-            }
+            }*/
             //从 原有的 参数数组中 删除 module 参数
             unset($queue[$i]["module"]);
 

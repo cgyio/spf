@@ -47,10 +47,17 @@ class Src extends Exporter
         //src 响应类型 输出的数据 必须是 有效的 Resource 资源类实例
         if (!$data instanceof Resource) {
             $this->response->data = null;
-            return false;
+            //将 响应状态码设为 404
+            $code = 404;
+        } else {
+            //写入
+            $this->response->data = $data;
+            //将 响应状态码设为 200
+            $code = 200;
         }
-        //写入
-        $this->response->data = $data;
+        //修改 响应状态码
+        $this->response->setCode($code);
+        //不论资源是否找到，都返回 true 确保上层不出错
         return true;
     }
 
@@ -67,8 +74,19 @@ class Src extends Exporter
      */
     public function exportPause()
     {
-        //输出资源时，如果中断输出，直接返回 404
-        http_response_code(404);
+        //直接调用 View Exporter 类的 exportPause 方法
+        $exper = new View($this->response);
+        $exper->exportPause();
+        exit;
+
+
+        //输出资源时，如果中断输出，响应状态码 改为 404
+        $this->response->setCode(404);
+        //http_response_code(404);
+
+        //直接调用 View Exporter 类的 exportCode 方法
+        $exper = new View($this->response);
+        $exper->exportCode();
         exit;
     }
 
@@ -80,7 +98,11 @@ class Src extends Exporter
     public function exportCode()
     {
         //输出 响应状态码
-        http_response_code($this->response->status->code);
+
+        //直接调用 View Exporter 类的 exportCode 方法
+        $exper = new View($this->response);
+        $exper->exportCode();
+        //http_response_code($this->response->status->code);
         exit;
     }
 

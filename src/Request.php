@@ -313,6 +313,11 @@ class Request extends Core
         
         //将通过 $_GET 传入的 switch 开关，附加到 Response 响应实例
         $triggerBy->switch = $this->switch;
+
+        //开关 ?api=yes 强制以 api 形式输出响应数据
+        if ($this->switch->api === true) {
+            $triggerBy->setType("api");
+        }
     }
 
 

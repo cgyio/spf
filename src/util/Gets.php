@@ -49,6 +49,17 @@ class Gets extends SpecialUtil
     }
 
     /**
+     * 返回 context
+     * @param String $key
+     * @return String|null
+     */
+    public function ctx($key=null)
+    {
+        if (!Is::nemstr($key)) return $this->context;
+        return isset($this->context[$key]) ? $this->context[$key] : null;
+    }
+
+    /**
      * __get
      * @param String $key 访问 context[$key]
      * @return Mixed

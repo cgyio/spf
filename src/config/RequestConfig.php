@@ -20,6 +20,8 @@ class RequestConfig extends Configer
         "switches" => [
             //是否通过 dump 方式输出数据 默认 no
             "dump" => "no",
+            //是否强制以 api 方法输出数据
+            "api" => "no",
         ],
     ];
 

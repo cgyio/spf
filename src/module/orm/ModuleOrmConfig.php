@@ -16,8 +16,22 @@ class ModuleOrmConfig extends ModuleConfig
      */
     protected $init = [
 
+        //此模块是否受 WEB_PAUSE 影响，默认 true，此模块下的操作方法可自行在 注释中覆盖此参数
+        //"pause" => true,
+
         //此模块是否 仅 开发环境下 可用
-        //"dev" => true,
+        //"dev" => false,
+
+        //依赖的 其他模块
+        //"dependency" => [
+            /*
+            "mod_name" => [
+                # 模块参数 与 此数组 结构一致
+                "middleware" => [],
+                ...
+            ],
+            */
+        //],
         
         /**
          * 指定要使用的数据库配置

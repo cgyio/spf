@@ -90,14 +90,14 @@ class Num extends Util
     }
 
     //一直显示 kg 
-    public static function kg_always($num, $dig = null)
+    public static function kgAlways($num, $dig = null)
     {
         $kg = self::round($num/1000, $dig)."Kg";
         return $kg;
     }
 
     //bety <--> KB <--> MB <--> GB
-    public static function file_size($fsz)
+    public static function fileSize($fsz)
     {
         if (!is_numeric($fsz)) return $fsz;
         if ($fsz<1000) {

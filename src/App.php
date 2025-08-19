@@ -215,6 +215,38 @@ abstract class App extends Core
         }
 
     }
+    
+    /**
+     * 快捷访问 __get
+     * !! 子类如果要覆盖，请在此基础上增加，即 必须在子类 __get 方法中调用 parent::__get()
+     * @param String $key 要访问的 不存在的 属性
+     * @return Mixed
+     */
+    public function __get($key)
+    {
+        /**
+         * $this->module|mod        -->  Module::$modules
+         * 访问 当前应用中 所有启用的 模块实例
+         */
+        if ($key === "module" || $key === "mod") {
+            $mods = Module::all();
+            if (!empty($mods)) return (object)$mods;
+        }
+
+        /**
+         * $this->ModuleFooBar      --> Module::$modules["foo_bar"]
+         * $this->mod_foo_bar       --> Module::$modules["foo_bar"]
+         */
+        if (substr($key, 0, 6) === "Module" || substr($key, 0, 4)==="mod_") {
+            $kk = Str::snake($key, "_");
+            $karr = explode("_", $kk);
+            $modk = implode("_", array_slice($karr, 1));
+            return Module::all($modk);
+        }
+
+        //调用 父类的魔术方法 parent::__get($key)
+        return parent::__get($key);
+    }
 
 
 

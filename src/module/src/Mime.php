@@ -120,6 +120,7 @@ class Mime
 
     //预定义的可处理类型
     public static $processable = [
+        //纯文本文件
         "plain" => [
             "txt",
             "asp",
@@ -190,7 +191,7 @@ class Mime
         }
         if (Str::has($key, ".")) {
             if (Str::hasAny($key, DS, "/", "\\")) {
-                $info = pathinfo($kay);
+                $info = pathinfo($key);
                 if (isset($info["extension"])) return strtolower($info["extension"]);
             } else {
                 $ka = explode(".",$key);

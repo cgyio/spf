@@ -1,14 +1,14 @@
 <?php
 /**
  * 框架模块配置类
- * Src 资源处理模块
+ * Uac 权限控制模块
  */
 
-namespace Spf\module\src;
+namespace Spf\module\uac;
 
 use Spf\config\ModuleConfig;
 
-class ModuleSrcConfig extends ModuleConfig 
+class ModuleUacConfig extends ModuleConfig 
 {
     /**
      * 预设的设置参数
@@ -20,27 +20,21 @@ class ModuleSrcConfig extends ModuleConfig
         //"pause" => true,
 
         //此模块是否 仅 开发环境下 可用
-        //"dev" => false,
+        //"dev" => true,
 
         //依赖的 其他模块
-        //"dependency" => [
-            /*
-            "mod_name" => [
-                # 模块参数 与 此数组 结构一致
-                "middleware" => [],
-                ...
-            ],
-            */
-        //],
-
-        //Resource 资源管理类的 参数
-        "resource" => [
-            //定义允许直接访问资源的 路径列表，这些路径名必须在 Env::$current->config->dir 数组中定义
-            "access" => [
-                "src", "view", "upload",
+        "dependency" => [
+            //此模块依赖 Orm 模块
+            "orm" => [
+                //必须启用
+                "enable" => true,
+                //其他 orm 模块参数
+                /**
+                 * 默认不提供参数，当前应用的 参数中 必须开启 Orm 模块，并传入参数
+                 * 如果此处 传入了 参数，则可以不在 应用参数中启用 Orm 模块
+                 */
             ],
         ],
-        
     ];
 
     

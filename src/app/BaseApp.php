@@ -31,12 +31,17 @@ class BaseApp extends App
 
     /**
      * default
-     * @export view
+     * @export api
      * @param Array $args url 参数
      * @return Array
      */
     public function default(...$args)
     {
-        throw new AppException("响应方法错误测试", "app/response");
+        //throw new AppException("响应方法错误测试", "app/response");
+        //return $this->config->module;
+        //return $this->module->orm;
+        var_dump(App::ModuleSrc());
+        var_dump($this->mod_uac);
+        var_dump($this->ModuleOrm);
     }
 }

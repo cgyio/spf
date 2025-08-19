@@ -1,16 +1,14 @@
 <?php
 /**
  * 框架模块类
- * Src 资源处理模块
+ * Uac 权限控制模块
  */
 
 namespace Spf\module;
 
 use Spf\Module;
-use Spf\module\src\Resource;
-use Spf\util\Path;
 
-class Src extends Module 
+class Uac extends Module 
 {
     /**
      * 单例模式
@@ -25,9 +23,9 @@ class Src extends Module
      * !! 实际模块类必须覆盖
      */
     //模块的说明信息
-    public $intr = "资源处理模块";
+    public $intr = "Uac权限控制模块";
     //模块的名称 类名 FooBar 形式
-    public $name = "Src";
+    public $name = "Uac";
 
 
 
@@ -53,14 +51,10 @@ class Src extends Module
      * @param Array $args url 参数
      * @return Src 输出
      */
-    public function default(...$args)
+    /*public function default(...$args)
     {
-        //根据 URI 参数，解析并获取 资源
-        $resource = Resource::create($args);
-        //var_dump(get_class($resource));exit;
-        //返回得到的资源，将在 Response::export() 方法中自动调用资源输出
-        return $resource;
-    }
+        var_dump($args);
+    }*/
 
     
 }

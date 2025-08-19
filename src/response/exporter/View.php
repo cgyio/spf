@@ -9,6 +9,7 @@ namespace Spf\response\exporter;
 
 use Spf\response\Exporter;
 use Spf\exception\BaseException;
+use Spf\exception\AppException;
 use Spf\View as cView;
 use Spf\util\Is;
 use Spf\util\Str;
