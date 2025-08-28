@@ -29,6 +29,11 @@ class View extends Core
     //视图页面 文件路径
     public $page = "";
 
+    //框架视图类的 标准视图参数，所有视图类 支持传入的参数 必须在此基础上扩展
+    public static $stdParams = [
+
+    ];
+
 
 
     /**

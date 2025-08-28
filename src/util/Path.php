@@ -273,7 +273,7 @@ class Path extends Util
         }
 
         //路径数组
-        $path = trim(str_replace(["\\","/"],DS,$path), DS);
+        $path = str_replace(["\\","/"],DS,$path);   //trim(str_replace(["\\","/"],DS,$path), DS);
         $parr = explode(DS, $path);
 
         //从右向左 依次检查 路径是否存在
@@ -302,6 +302,7 @@ class Path extends Util
         }
 
         //创建路径
+        //var_dump($mkdir);exit;
         mkdir($mkdir, $mod, true);
         if (!is_dir($mkdir)) return false;
         return true;

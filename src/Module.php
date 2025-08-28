@@ -209,6 +209,20 @@ abstract class Module extends Core
 
 
     /**
+     * 在任意模块的 响应方法中 可用的 通用快捷操作
+     * !! 要求 Response 实例必须已创建
+     */
+
+    //快速设置 非 200 状态，并返回 null 数据
+    protected function responseCode($code=404)
+    {
+        Response::insSetCode($code);
+        return null;
+    }
+
+
+
+    /**
      * 静态方法
      */
 

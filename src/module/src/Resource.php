@@ -41,6 +41,17 @@ class Resource
     ];
 
     /**
+     * 当前的资源类型的本地文件，是否应保存在 特定路径下
+     * 指定的 特定路径 必须在 Src::$current->config->resource["access"] 中定义的 允许访问的文件夹下
+     *  null        表示不需要保存在 特定路径下，本地资源应在 [允许访问的文件夹]/... 路径下
+     *  "ext"       表示应保存在   [允许访问的文件夹]/[资源后缀名]/... 路径下
+     *  "foo/bar"   指定了 特定路径 foo/bar 表示此类型本地资源文件应保存在   [允许访问的文件夹]/foo/bar/... 路径下
+     * 默认 null 不指定 特定路径
+     * !! 如果必须，子类可以覆盖此属性
+     */
+    public static $filePath = null;     //可选 null | ext | 其他任意路径形式字符串 foo/bar 首尾不应有 /
+
+    /**
      * 根据 URI 请求参数，查找 并创建 Resource 资源实例
      * 资源管理类的 核心入口方法
      * @param Array|String $uri 字符串 或 数组
@@ -86,7 +97,7 @@ class Resource
             }
 
             //根据 资源 ext 获取存在的 Resource 子类
-            $cls = self::resCls($p);
+            $cls = self::resCls($p["ext"] ?? "");
             //var_dump($cls);
             if (empty($cls) || !class_exists($cls)) {
                 //Resource 资源子类不存在
@@ -114,13 +125,10 @@ class Resource
     {
         if (!Is::nemarr($args) || !Is::indexed($args)) return null;
         //将传入的 参数 拼接为 URI 字符串
-        $ouri = trim(implode("/", $args), "/");
+        $ouri = implode("/", $args);   //trim(implode("/", $args), "/");
         $uarr = explode("/", $ouri);
-        //将 URI 数组全部转为 foo_bar 形式
-        //$uarr = array_map(function($s) {
-        //    return Str::snake($s, "_");
-        //}, $uarr);
         $uri = implode("/", $uarr);
+        //var_dump($uri);
 
         //最终 要输出的 资源参数
         $pi = pathinfo($uri);
@@ -138,6 +146,16 @@ class Resource
 
         //收集 params
         $res["params"] = self::getParamsFromGets($res["params"]);
+
+        //先判断一次是否传入了真实存在的 本地文件路径
+        if (file_exists($uri) && !is_dir($uri)) {
+            $res = Arr::extend($res, [
+                "type" => "local",
+                "ext" => self::getExtFromPath($uri),
+                "real" => $uri,
+            ]);
+            return $res;
+        }
 
         //开始 判断 资源的来源类型 以及 其他资源参数
         $types = self::$sourceTypes;
@@ -242,42 +260,96 @@ class Resource
      * @param Bool $findDir 是否查找文件夹，默认 false 查找文件
      * @return String|null 找到 文件|文件夹 则返回真实路径 DS，未找到则返回 null
      */
-    final protected static function findLocal($path, $findDir=false)
+    final public static function findLocal($path, $findDir=false)
     {
         if (!Is::nemstr($path)) return null;
+
+        //是否包含 .min.
+        $hasmin = strpos($path, ".min.")!==false;
+        if ($hasmin) $nomin = str_replace(".min.",".",$path);
+
+        //构建查询 路径数组
+        $pathes = [];
+
+        //默认先直接检查 传入的是否是已经存在的 路径
+        $pathes[] = $path;
+        //去除 .min. 再次直接检查 传入的是否是已经存在的 路径
+        if ($hasmin) $pathes[] = $nomin;
+
+        //将 传入的路径 处理为可拼接的 路径字符串 去除首尾的 /
         $path = trim(str_replace(DS, "/", $path), "/");
+        if ($hasmin) $nomin = str_replace(".min.",".",$path);
 
         /**
          * 默认 可访问的 本地资源 路径在 SRC_PATH | VIEW_PATH | UPLOAD_PATH 下
          * 在 Src::$current->config->resource["access"] 参数中定义
          */
-        $dirs = Src::$current->config->resource["access"] ?? ["src", "view", "upload"];
-        //构建查询 路径数组
-        $pathes = [];
-        //默认先直接检查 路径是否存在
-        $pathes[] = $path;
+        $dirs = Src::$current->config->resource["access"] ?? ["src", "view", "upload", "spf/assets", "spf/view"];
+        //在允许访问的 dirs 文件夹下，可能还有指定的 特定路径
+        $subdir = null;
+        //如果查询的是 文件而不是文件夹 则需要查询此文件对应的 Resource 资源类是否定义了 本地文件保存的 特定路径
+        if ($findDir!==true) {
+            //获取 path 中包含的 后缀名
+            $ext = static::getExtFromPath($path);
+            if (Is::nemstr($ext)) {
+                $ext = strtolower($ext);
+                //获取当前路径 path 指向的 Resource 资源类全称
+                $rescls = static::resCls($ext);
+                //获取当前 Resource 资源类 指定的 本地文件必须保存在的 特定路径
+                $subdir = $rescls::$filePath;
+                //如果指定的 特定路径是 "ext" 则使用当前的 后缀名替换
+                if ($subdir === "ext") $subdir = $ext;
+            }
+        }
+        //将 可能存在的 subdir 拼接到 path 路径之前
+        if (Is::nemstr($subdir)) {
+            $path = trim($subdir, "/")."/".$path;
+            if ($hasmin) $nomin = trim($subdir, "/")."/".$nomin;
+        }
 
-        //是否包含 .min.
-        $hasmin = strpos($path, ".min.")!==false;
-        $nomin = str_replace(".min.",".",$path);
-
-        //去除 .min. 再次检查
-        if ($hasmin) $pathes[] = $nomin;
-        
+        /**
+         * 按 优先级 在 允许访问的路径下 查找 文件|文件夹
+         */
         //优先在 当前应用路径下查找
         if (App::$isInsed === true){
             $appk = App::$current::clsk();
-            foreach ($dirs as $dir) {
-                $pathes[] = "$dir/$appk/$path";
-                if ($hasmin) $pathes[] = "$dir/$appk/$nomin";
+            //跳过 BaseApp 默认应用
+            if ($appk !== "base_app") {
+                foreach ($dirs as $dir) {
+                    //忽略 框架内部路径
+                    if (substr($dir, 0, 4)==="spf/") continue;
+                    $pathes[] = "$dir/$appk/$path";
+                    if ($hasmin) $pathes[] = "$dir/$appk/$nomin";
+                }
             }
         }
 
         //然后再 webroot 路径下查找
         foreach ($dirs as $dir) {
+            //忽略 框架内部路径
+            if (substr($dir, 0, 4)==="spf/") continue;
             $pathes[] = "$dir/$path";
             if ($hasmin) $pathes[] = "$dir/$nomin";
         }
+
+        //最后再尝试 spf 框架内部路径
+        foreach ($dirs as $dir) {
+            //只能访问 框架内部路径
+            if (substr($dir, 0, 4)!=="spf/") continue;
+            //其他 框架内部路径
+            $pathes[] = "$dir/$path";
+            if ($hasmin) $pathes[] = "$dir/$nomin";
+        }
+        /*$pathes[] = "spf/view/$path";
+        $pathes[] = "spf/module/src/resource/theme/$path";
+        $pathes[] = "spf/module/src/resource/icon/$path";
+        if ($hasmin) {
+            $pathes[] = "spf/view/$nomin";
+            $pathes[] = "spf/module/src/resource/theme/$nomin";
+            $pathes[] = "spf/module/src/resource/icon/$nomin";
+        }*/
+
+        //var_dump($pathes);exit;
 
         //调用 Path::exists 方法，查找第一个存在的 路径
         $ftp = $findDir===true ? Path::FIND_DIR : Path::FIND_FILE;
@@ -295,35 +367,51 @@ class Resource
 
         //$_GET
         $gets = Request::$isInsed===true ? Request::$current->gets->ctx() : $_GET;
-        foreach ($gets as $k => $v) {
-            //将 true|false|null|yes|no 转为 bool
+        return static::fixParams($gets);
+    }
+
+    /**
+     * 处理 params 传入参数
+     * 将 true|false|null|yes|no 转为 bool
+     * 将 foo,bar 转为数组
+     * @param Array $params
+     * @return Array 处理后的
+     */
+    protected static function fixParams($params=[])
+    {
+        if (!Is::nemarr($params)) $params = [];
+        $rtn = [];
+        foreach ($params as $k => $v) {
             if (Is::nemstr($v) && (Is::ntf($v) || in_array(strtolower($v), ["yes","no"]))) {
+                //将 true|false|null|yes|no 转为 bool
                 if (Is::ntf($v)) {
                     eval("\$v = ".$v.";");
                     if ($v!==true) $v = false;
                 } else {
                     $v = strtolower($v) === "yes";
                 }
+            } else if (Is::explodable($v) !== false) {
+                // foo,bar  foo|bar  foo;bar ... 转为数组
+                $v = Arr::mk($v);
             }
-            $params[$k] = $v;
+            $rtn[$k] = $v;
         }
-
-        return $params;
+        return $rtn;
     }
 
     /**
      * 根据 资源后缀名 获取 预定义的 Resource 子类 类全称
-     * @param Array $option 通过 self::parse 得到的 资源参数
+     * @param String $ext 资源后缀名
      * @return String 找到的 类全称，没有对应的子类 直接返回 Resource 类
      */
-    protected static function resCls($option = [])
+    protected static function resCls($ext)
     {
         //类名前缀
         $cpre = "module/src";
         //传入空参数
-        if (!Is::nemarr($option)) return Cls::find("$cpre/Resource");
+        if (!Is::nemstr($ext)) return Cls::find("$cpre/Resource");
+        $ext = strtolower($ext);
         $clss = [];
-        $ext = $option["ext"];
         $clss[] = "$cpre/resource/$ext";
         $processableType = Mime::getProcessableType($ext);
         if (!is_null($processableType)) {
@@ -556,18 +644,9 @@ class Resource
                 return $this->content;
             }
 
-            //输出资源
-            if (Response::$isInsed !== true) {
-                //响应实例还未创建
-                throw new SrcException("响应实例还未创建", "resource/export");
-            }
-        
-            //输出响应头，根据 资源后缀名设置 Content-Type
-            Mime::setHeaders($this->ext, $this->name);
-            Response::$current->header->sent();
+            //输出资源 方法
+            $this->echoContent();
             
-            //echo
-            echo $this->content;
             exit;
 
         } catch (BaseException $e) {
@@ -583,6 +662,35 @@ class Resource
      */
     protected function beforeExport($params=[])
     {
+
+        return $this;
+    }
+
+    /**
+     * 资源输出的最后一步，echo
+     * !! 子类可覆盖此方法
+     * @param String $content 可单独指定最终输出的内容，不指定则使用 $this->content
+     * @return Resource $this
+     */
+    protected function echoContent($content=null)
+    {
+        //输出资源
+        if (Response::$isInsed !== true) {
+            //响应实例还未创建
+            throw new SrcException("响应实例还未创建", "resource/export");
+        }
+
+        //输出内容
+        if (!is_string($content) || !Is::nemstr($content)) {
+            $content = $this->content;
+        }
+    
+        //输出响应头，根据 资源后缀名设置 Content-Type
+        Mime::setHeaders($this->ext, $this->name);
+        Response::$current->header->sent();
+        
+        //echo
+        echo $content;
 
         return $this;
     }

@@ -274,7 +274,7 @@ class Is extends Util
     {
         if (self::nemstr($var) !== true) return false;
         libxml_use_internal_errors(true);
-        $dom = new DOMDocument();
+        $dom = new \DOMDocument();
         $dom->loadHTML($var);
         libxml_clear_errors();
         
@@ -291,6 +291,17 @@ class Is extends Util
     {
         if (!self::nemstr($file)) return false;
         return false !== strpos($file, "://");
+    }
+
+    /**
+     * 判断字符串是否 颜色色值 
+     * @param String $var
+     * @return Bool
+     */
+    public static function color($var = null)
+    {
+        $ctp = Color::isColorString($var);
+        return $ctp !== false;
     }
 
 

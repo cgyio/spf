@@ -276,7 +276,7 @@ abstract class Core
     {
         /**
          * static::foo()            -->  static::$current->foo
-         * static::foo(...args)     -->  static::$current->foo(...args)
+         * static::insFoo(...args)     -->  static::$current->foo(...args)
          * 以 静态方法 形式 调用 单例的 属性|方法
          * !! 核心类单例必须已经创建
          */
@@ -289,7 +289,12 @@ abstract class Core
                 if (!is_null($rtn)) return $rtn;
             }
             //尝试访问 单例的 方法
-            if (method_exists($ins, $key)) return call_user_func_array([$ins, $key], $args);
+            if (substr($key, 0, 3) === "ins") {
+                $m = substr($key, 3);
+                $m = Str::snake($m, "_");
+                $m = Str::camel($m, false);
+                if (method_exists($ins, $m)) return call_user_func_array([$ins, $m], $args);
+            }
         }
 
         //调用 BaseTrait::__callStatic

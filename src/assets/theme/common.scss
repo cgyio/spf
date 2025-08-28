@@ -1,0 +1,7 @@
+/** SPF-Theme 主题系统 通用 SCSS **/
+/** 需要加载 主题自动生成的 SCSS 变量 **/
+
+.spf {
+    position: relative;
+    border: $color-bdc-m solid $size-bd-m;
+}

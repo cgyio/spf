@@ -38,6 +38,9 @@ class ModuleSrcConfig extends ModuleConfig
             //定义允许直接访问资源的 路径列表，这些路径名必须在 Env::$current->config->dir 数组中定义
             "access" => [
                 "src", "view", "upload",
+                //框架内部文件
+                "spf/assets",
+                "spf/view",
             ],
         ],
         

@@ -126,15 +126,26 @@ class Image extends Resource
         //对图片进行依次处理
         $this->process();
 
-        //读取处理后 图片数据，并更新 $this->content
+        return $this;
+    }
+
+    /**
+     * 资源输出的最后一步，echo
+     * !! 覆盖父类
+     * @param String $content 可单独指定最终输出的内容，不指定则使用 $this->content
+     * @return Resource $this
+     */
+    protected function echoContent($content=null)
+    {
+        //读取处理后 图片数据
         $imgData = $this->getImageData($this->im);
         if (!is_string($imgData) || empty($imgData)) {
             //未读取到数据
             throw new SrcException("未能正确获取到图片数据", "resource/export");
         }
-        $this->content = $imgData;
-
-        return $this;
+        
+        //调用 父类方法
+        return parent::echoContent($imgData);
     }
 
     /**

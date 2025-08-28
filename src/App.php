@@ -201,8 +201,8 @@ abstract class App extends Core
 
             //将响应方法 返回的结果 存入 Response::$current->data
             $setres = Response::$current->setData($result);
-            if ($setres !== true) {
-                //保存结果出错
+            if ($setres !== true && Response::$current->status->isError()!==true) {
+                //保存结果出错 且 响应状态码是 200 时，报错，如果响应状态码不是 200 则 输出时不会使用 responseData 不需要报错
                 throw new AppException("响应结果保存到响应实例出错", "app/response");
             }
 
