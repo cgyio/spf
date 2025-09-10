@@ -201,6 +201,38 @@ class Configer
     }
 
     /**
+     * 判断给定的参数 是否在 init 或 dftInit 中定义了 默认值
+     * @param String $key
+     * @return Bool
+     */
+    public function defInDft($key)
+    {
+        return isset($this->init[$key]);
+    }
+
+    /**
+     * 运行时修改 init 默认值，相当于 在 config 配置类实例化以后，修改 init 参数，然后再次执行 extendConf
+     * @param Array $ctx
+     * @return $this
+     */
+    public function runtimeSetInit($ctx=[])
+    {
+        if (!Is::nemarr($ctx)) return $this;
+        //传入的 opt 用户设置
+        $opt = $this->opt;
+        if (!Is::nemarr($opt)) $opt = [];
+        //默认参数
+        $init = $this->init;
+        if (!Is::nemarr($init)) $init = [];
+        //重新 extend 参数
+        $ctx = Arr::extend($init, $ctx, $opt);
+        //更新 context
+        $this->context = $ctx;
+
+        return $this;
+    }
+
+    /**
      * __get 访问 context
      * @param String $key
      * @return Mixed

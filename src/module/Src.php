@@ -78,6 +78,117 @@ class Src extends Module
 
     /**
      * view
+     * @desc 输出前端库文件JS|CSS
+     * @auth false
+     * @pause false
+     * 
+     * 请求方法：
+     * https://host/[app_name/]src/lib/[foo/bar/][lib_name][.js|css]
+     * https://host/[app_name/]src/lib/[foo/bar/][lib_name]/[dev!-esm|esm|...].[js|css]
+     * https://host/[app_name/]src/lib/[foo/bar/][lib_name]/[@|latest|1.2.3][.js|css]
+     * https://host/[app_name/]src/lib/[foo/bar/][lib_name]/[@|latest|1.2.3]/[esm|...].[js|css]
+     * 
+     * @param Array $args url 参数
+     * @return Mixed
+     */
+    public function libView(...$args)
+    {
+        //传入空参数，报 404
+        if (!Is::nemarr($args)) return $this->responseCode(404);
+
+        //拼接请求的 路径字符串
+        $req = implode("/", $args);
+
+        //先检查一次请求的路径是否真实存在的 文件
+        $lfres = $this->localFileExistsed("lib/$req");
+        if ($lfres !== false) return $lfres;
+
+        //解析路径
+        $pi = pathinfo($req);
+        $ext = $pi["extension"] ?? "";
+        //$dir = $pi["dirname"] ?? "";
+        $fn = $pi["filename"] ?? "";
+        //$bn = array_slice($args, -1)[0];
+        $lp = array_slice($args, 0, -1);
+        //lib 资源实例化参数
+        $ps = [];
+        //switch 开关状态
+        $sw = [];
+
+        if (Str::hasAny($fn, "dev","esm","browser")) {
+            //访问 /src/lib/[foo/bar/]lib_name/[@|latest|1.2.3/]dev-esm.[js|css] 形式
+            //未指定 lib_name
+            if (empty($lp)) return $this->responseCode(404);
+            //switch 开关状态
+            $sw = explode("-", $fn);
+            if (count($lp)===1) {
+                // /src/lib/lib_name/dev-esm.[js|css]
+                $lib = $lp[0];
+                if (in_array($lib, ["@","latest"]) || strpos($lib, ".")!==false) return $this->responseCode(404);
+                $dir = "";
+            } else {
+                $lpl = array_slice($lp, -1)[0];
+                if (in_array($lpl, ["@","latest"]) || strpos($lpl, ".")!==false) {
+                    // /src/lib/[foo/bar/]lib_name/[@|latest|1.2.3]/dev-esm.[js|css]
+                    $ps["ver"] = $lpl;
+                    $lp = array_slice($lp, 0, -1);
+                    $lib = array_slice($lp, -1)[0];
+                } else {
+                    // /src/lib/[foo/bar/]lib_name/dev-esm.[js|css]
+                    $lib = $lpl;
+                }
+                $lp = array_slice($lp, 0, -1);
+                $dir = empty($lp) ? "" : implode("/", $lp);
+            }
+        } else if (in_array($fn, ["@","latest"]) || strpos($fn, ".")!==false) {
+            //访问 /src/lib/[foo/bar/]lib_name/[@|latest|1.2.3].[js|css]
+            //未指定 lib_name
+            if (empty($lp)) return $this->responseCode(404);
+            $ps["ver"] = $fn;
+            $lib = array_slice($lp, -1)[0];
+            $lp = array_slice($lp, 0, -1);
+            $dir = empty($lp) ? "" : implode("/", $lp);
+        } else {
+            //访问 /src/lib/[foo/bar/]lib_name[.js|css] 形式
+            $lib = $fn;
+            $dir = empty($lp) ? "" : implode("/", $lp);
+        }
+        //lib 名称获取错误
+        if (!isset($lib) || !Is::nemstr($lib)) return $this->responseCode(404);
+        //开关状态 写入 params 参数
+        if (!empty($sw)) {
+            foreach ($sw as $swi) {
+                $swv = strpos($swi,"!")===false;
+                $swk = $swv ? $swi : str_replace("!","",$swi);
+                $ps[$swk] = $swv;
+            }
+        }
+        //ext 写入 params 参数
+        if (Is::nemstr($ext)) {
+            $ps["export"] = $ext;
+        }
+
+        //创建 Lib 前端库资源实例
+        $libfp = ($dir=="" ? "" : $dir."/").$lib.".lib";
+        //调用 Resource::findLocal() 方法 查找对应的 *.lib 文件
+        $libf = Resource::findLocal($libfp);
+        //未找到 *.lib 文件
+        if (!file_exists($libf)) return $this->responseCode(404);
+        //创建 Lib 资源实例
+        $libo = Resource::create($libf, $ps);
+        if (!$libo instanceof Resource) {
+            //报错
+            throw new SrcException("$libfp 文件资源无法实例化", "resource/instance");
+        }
+        
+        //将 Response 输出类型 改为 src
+        Response::insSetType("src");
+        //输出资源
+        return $libo;
+    }
+
+    /**
+     * view
      * @desc 输出主题资源JS|CSS|SCSS
      * @auth false
      * @pause false 资源输出不受WEB_PAUSE影响
@@ -96,6 +207,11 @@ class Src extends Module
         
         //拼接请求的 路径字符串
         $req = implode("/", $args);
+
+        //先检查一次请求的路径是否真实存在的 文件
+        $lfres = $this->localFileExistsed("theme/$req");
+        if ($lfres !== false) return $lfres;
+        
         //解析对应的 后缀名|文件夹|文件名
         $pi = pathinfo($req);
         $ext = $pi["extension"] ?? "";
@@ -195,6 +311,11 @@ class Src extends Module
         
         //拼接请求的 路径字符串
         $req = implode("/", $args);
+
+        //先检查一次请求的路径是否真实存在的 文件
+        $lfres = $this->localFileExistsed("icon/$req");
+        if ($lfres !== false) return $lfres;
+        
         //解析对应的 后缀名|文件夹|文件名
         $pi = pathinfo($req);
         $ext = $pi["extension"] ?? "";
@@ -263,7 +384,7 @@ class Src extends Module
             
             return [
                 //使用 视图页面 spf/view/iconset.php
-                "view" => "spf/view/iconset.php",
+                "view" => "spf/assets/view/iconset.php",
                 //传入 Icon 资源实例作为视图页面参数
                 "params" => [
                     "icon" => $icon
@@ -278,6 +399,46 @@ class Src extends Module
         //输出资源
         return $icon;
     }
+
+
+
+    /**
+     * 工具方法
+     */
+
+    /**
+     * 检查某个路径 是否真实存在的文件路径，
+     * 如果是，则直接实例化为文件资源实例，并输出
+     * 否则，返回 false
+     * @param String $path 资源路径
+     * @return Resource|false
+     */
+    protected function localFileExistsed($path)
+    {
+        $lf = Resource::findLocal($path);
+        if (!file_exists($lf)) return false;
+
+        //如果此文件真实存在，直接创建资源实例 并返回
+        $res = Resource::create($lf, [
+            //min
+            "min" => strpos($path, ".min.") !== false,
+        ]);
+        if (!$res instanceof Resource) return false;
+        //将 Response 输出类型 改为 src
+        Response::insSetType("src");
+        //输出资源
+        return $res;
+    }
+
+
+
+
+
+
+
+
+
+    
 
     /**
      * forDev

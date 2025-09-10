@@ -31,11 +31,130 @@ class ViewConfig extends Configer
          * 定义所有 视图类的 支持的传入参数结构
          */
 
-        //favicon
-        "favicon" => "/src/icon/spf/logo-light.svg",
+        //视图文件实际路径
+        "page" => "",
 
-        //theme 视图使用的 SPF-Theme 主题，指定 *.theme 的路径
-        "theme" => "spf/assets/theme/spf.theme",
+        //语言
+        "lang" => "zh-CN",
+
+        //title 网页标题 前缀
+        "title" => "",
+
+        //favicon 图片地址
+        "favicon" => [
+            //图标 url 地址
+            "href" => "/src/icon/spf/logo-light.svg",
+            //图表类型，默认 svg
+            "type" => "image/svg+xml",
+        ],
+
+        //theme 视图使用的 SPF-Theme 主题
+        "theme" => [
+            //是否启用 SPF-Theme 主题
+            "enable" => true,
+            //主题名称
+            "name" => "spf",
+            //是否启用 暗黑模式
+            "darkmode" => true,
+            
+            /**
+             * 可以分别指定 明|暗 模式下的 theme 输出的 mode
+             * 例如指定了 mode["dark"] = "foo,bar" 则：
+             *      在 暗黑模式下，输出的 css 地址为 /[app_name/]src/theme/[theme_name].min.css?mode=foo,bar
+             * 
+             * 如果未启用 暗黑模式，则默认使用 light 模式中指定的 mode
+             */
+            "mode" => [
+                "light" => "light",
+                "dark" => "dark",
+            ],
+
+            /**
+             * 可以指定 使用的 主题相关的 scss 文件
+             * 这些文件，必须在主题中已定义
+             * 默认 all
+             */
+            "use" => "all",
+        ],
+
+        //icon 视图使用的 SPF-Theme icon 图标库，可以同时使用多个图标库
+        "iconset" => [
+            //默认使用 spf 图标库
+            "spf",
+        ],
+
+        //css 样式文件
+        "css" => [
+            //"css 文件的 url 通常为 /src/foo/bar.css 形式",
+            //...
+        ],
+
+        //meta 相关
+        //编码
+        "charset" => "utf-8",
+
+        //viewport 视口相关
+        //当前使用的 视口设置 名称，可自定义
+        "viewport" => "default",
+        "viewports" => [
+            /**
+             * 预定义的一些 视口设置参数
+             */
+            //默认
+            "default" => "width=device-width, initial-scale=1.0",
+            //移动端
+            "mobile" => "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no",
+            //iOS
+            "ios" => "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover",
+
+            //可自定义其他的 视口设置参数
+            //...
+        ],
+
+        //PWA 相关 （网页作为应用 安装到本地）在 SPA 类型的 View 视图中，可以启用 PWA 参数
+        "pwa" => [
+            //是否启用 PWA 相关设置，不启用，则下列的参数不会出现在 html 代码中
+            "enable" => false,
+
+            //应用名称
+            "application-name" => "",
+
+            //应用图标，需要使用 link 标签
+            //普通设备的 图标，使用 favicon 定义的
+            //"icon" => [
+            //    "size" => "192x192",
+            //    "href" => "",
+            //],
+            //苹果设备的 图标
+            "apple-touch-icon" => [
+                "href" => "/src/icon/spf/logo-app.svg",
+                "type" => "image/svg+xml",
+                "sizes" => "180x180",
+            ],
+
+            //浏览器 工具栏|地址栏 背景色，仅在部分移动端设备中生效
+            "theme-color" => "",
+
+            //仅针对 苹果设备
+            //允许 PWA 全屏
+            "apple-mobile-web-app-capable" => "yes",
+            //状态栏样式
+            "apple-mobile-web-app-status-bar-style" => "black",
+        ],
+
+        //seo 相关
+        //网页描述
+        "description" => "",
+        //关键字
+        "keywords" => "",
+        //作者
+        "author" => "",
+        //版权
+        "copyright" => "",
+            
+        //robots 爬虫相关
+        "robots" => "noindex, nofollow",
+
         
     ];
 
@@ -50,36 +169,22 @@ class ViewConfig extends Configer
     protected function fixOpt($opt=[])
     {
         /**
-         * 模块的 配置参数，在 App 实例化时已处理过，直接传入即可
+         * 视图类的 实例化参数，由 输出时 手动传入，直接返回
          */
         return $opt;
     }
-
+    
     /**
-     * 定义 配置参数 合并方法 默认使用 Arr::extend 覆盖方向： $opt --> $init --> $dftInit
-     * !! 覆盖父类
-     * @return $this
+     * 处理设置值
+     * 设置值支持格式：String, IndexedArray, Numeric, Bool, null
+     * !! 覆盖父类，直接返回，不做处理
+     * @param Mixed $val 要处理的设置值
+     * @param Closure $callback 对设置值进行自定义处理的方法，参数为 原始设置值，返回处理后的设置值
+     * @return Mixed 处理后的设置值，不支持的格式 返回 null
      */
-    /*public function extendConf()
+    public function fixConfVal($val = null, $callback = null)
     {
-        
-
-        return $this;
-    }*/
-
-    /**
-     * 根据当前 配置类全称，获取对应的 模块类名
-     *      Spf\module\foo_bar\ModuleFooBarConfig           -->  FooBar
-     *      NS\module\app_name\foo_bar\ModuleFooBarConfig   -->  FooBar
-     * @return String 模块类名 FooBar 形式
-     */
-    public static function moduleClsn()
-    {
-        $cls = static::class;
-        $clsn = Cls::name($cls);
-        //截取 模块类名
-        if (substr($clsn, 0, 6)==="Module") $clsn = substr($clsn, 6);
-        if (substr($clsn, -6)==="Config") $clsn = substr($clsn, 0, -6);
-        return $clsn;
+        return $val;
     }
+
 }

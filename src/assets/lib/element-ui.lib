@@ -1,0 +1,33 @@
+{
+    "lib": "element-ui",
+    "variable": "Element",
+    "version": {
+        "@": "2.15.14",
+        "latest": "2.15.14"
+    },
+    "ext": ["js","css"],
+    "switch": {},
+    "cdn": "https://cdnjs.cloudflare.com/ajax/libs/element-ui/",
+
+    "2.15.14": {
+        "js": {
+            "-esm-browser-": {
+                "file": "index.min.js",
+                "fix": [
+                    "appendExportForEsm"
+                ]
+            },
+            "-esm!-browser-": {
+                "file": "index.min.js"
+            }
+        },
+        "css": {
+            "-esm-browser-": {
+                "file": "theme-chalk/index.min.css",
+                "fix": [
+                    "fixIconFonts"
+                ]
+            }
+        }
+    }
+}

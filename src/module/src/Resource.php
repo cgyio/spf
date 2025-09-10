@@ -84,6 +84,10 @@ class Resource
                     "content"   => $content
                 ];
             } else {
+                //传入了 一个远程地址
+                if (strpos($uri, "://")!==false && (substr($uri, 0,4)==="http" || substr($uri, 0,5)==="https")) {
+                    $uri = str_replace("://","/",$uri);
+                }
                 //通过输入 调用路径 rawPath 创建 resource 实例
                 $p = self::parse($uri);
                 if (is_null($p)) {
@@ -148,11 +152,12 @@ class Resource
         $res["params"] = self::getParamsFromGets($res["params"]);
 
         //先判断一次是否传入了真实存在的 本地文件路径
-        if (file_exists($uri) && !is_dir($uri)) {
+        $lp = str_replace("/",DS,$uri);
+        if (file_exists($lp) && !is_dir($lp)) {
             $res = Arr::extend($res, [
                 "type" => "local",
-                "ext" => self::getExtFromPath($uri),
-                "real" => $uri,
+                "ext" => self::getExtFromPath($lp),
+                "real" => $lp,
             ]);
             return $res;
         }
@@ -212,12 +217,12 @@ class Resource
         //检查远程文件是否存在
         if (self::exists($real)!==true) return false;
         //获取远程文件信息
-        $fi = self::getRemoteFileInfo($real);
+        //$fi = self::getRemoteFileInfo($real);
 
         //这是 远程资源
         return Arr::extend($res, [
             "type" => "remote",
-            "ext" => $fi["ext"],
+            "ext" => self::getExtFromPath($real),    //$fi["ext"],
             "real" => $real
         ]);
     }
@@ -284,7 +289,7 @@ class Resource
          * 默认 可访问的 本地资源 路径在 SRC_PATH | VIEW_PATH | UPLOAD_PATH 下
          * 在 Src::$current->config->resource["access"] 参数中定义
          */
-        $dirs = Src::$current->config->resource["access"] ?? ["src", "view", "upload", "spf/assets", "spf/view"];
+        $dirs = Src::$current->config->resource["access"] ?? ["src", "view", "upload", "spf/assets", /*"spf/view"*/];
         //在允许访问的 dirs 文件夹下，可能还有指定的 特定路径
         $subdir = null;
         //如果查询的是 文件而不是文件夹 则需要查询此文件对应的 Resource 资源类是否定义了 本地文件保存的 特定路径
@@ -336,7 +341,6 @@ class Resource
         foreach ($dirs as $dir) {
             //只能访问 框架内部路径
             if (substr($dir, 0, 4)!=="spf/") continue;
-            //其他 框架内部路径
             $pathes[] = "$dir/$path";
             if ($hasmin) $pathes[] = "$dir/$nomin";
         }
@@ -364,10 +368,14 @@ class Resource
     protected static function getParamsFromGets($params=[])
     {
         if (!Is::nemarr($params)) $params = [];
+        $params = static::fixParams($params);
 
         //$_GET
         $gets = Request::$isInsed===true ? Request::$current->gets->ctx() : $_GET;
-        return static::fixParams($gets);
+        $gets = static::fixParams($gets);
+
+        //合并
+        return Arr::extend($params, $gets);
     }
 
     /**
@@ -614,7 +622,11 @@ class Resource
     /**
      * 资源输出流程
      * !! 子类不要覆盖这个流程，可以覆盖内部的钩子方法
-     * @param Array $params 可以在输出资源时，额外指定参数，可定义 $params["return"] = true 返回资源内容，而不是直接输出
+     * @param Array $params 可以在输出资源时，额外指定参数，可通过定义 $params["return"] 来获取资源内容，而不是直接输出
+     *  return === false        直接输出资源
+     *  return === true         获取 资源的 content 内容
+     *  return === "instance"   直接返回资源实例本身
+     *  return === "任意属性名"   直接返回 $resource->任意属性名
      * @return void
      */
     final public function export($params = [])
@@ -630,7 +642,8 @@ class Resource
 
             //是否返回资源内容，而不是直接输出
             $return = $params["return"] ?? false;
-            if (!is_bool($return)) $return = false;
+            if (!is_bool($return) && !Is::nemstr($return)) $return = false;
+            if (Is::nemstr($return) && $return!=="instance" && !property_exists($this, $return)) $return = false;
             unset($params["return"]);
 
             //子类实现的 自定义处理方法
@@ -639,12 +652,17 @@ class Resource
             //TODO: 输出之前，如果需要，保存文件到本地
             //$this->saveRemoteToLocal();
 
-            if ($return) {
-                //返回资源内容，而不是直接输出
-                return $this->content;
-            }
+            /**
+             * 根据 return 参数 输出资源|返回资源内容
+             */
+            //return === true 返回资源内容，而不是直接输出
+            if ($return === true) return $this->content;
+            //return === "instance" 返回资源实例本身
+            if ($return === "instance") return $this;
+            //return === "资源实例的任意属性名" 返回资源实例此属性的 值
+            if (Is::nemstr($return)) return $this->$return;
 
-            //输出资源 方法
+            //return === false 输出资源 方法
             $this->echoContent();
             
             exit;
@@ -704,6 +722,29 @@ class Resource
     {
 
         exit;
+    }
+
+
+
+    /**
+     * 工具方法
+     */
+
+    /**
+     * 合并额外的 params 到当前 params
+     * 通常用于 beforeExport 方法中
+     * @param Array $params 
+     * @return $this
+     */
+    protected function extendParams($params=[])
+    {
+        if (!Is::nemarr($params)) return $this;
+        //首先处理一下 params 将 ntf|yes|no|foo,bar 形式的 字符串 转换为对应的 值
+        $params = static::fixParams($params);
+        //合并
+        $this->params = Arr::extend($this->params, $params);
+
+        return $this;
     }
 
 
@@ -778,7 +819,7 @@ class Resource
         $fi["ext"] = $ext;
         $size = $hd["Content-Length"]*1;
         $fi["size"] = $size;
-        $fi["sizestr"] = Num::file_size($size);
+        $fi["sizestr"] = Num::fileSize($size);
         $fi["ctime"] = strtotime($hd["Last-Modified"]);
         $pcs = Mime::$processable;
         $ks = array_keys($pcs);

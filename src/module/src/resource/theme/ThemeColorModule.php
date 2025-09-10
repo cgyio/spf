@@ -186,13 +186,15 @@ class ThemeColorModule extends ThemeModule
     /**
      * 创建 SCSS 变量定义语句 rows
      * !! 覆盖父类
-     * @param ThemeExporter $exper 资源输出类实例
-     * @param Array $ctx 资源输出类的 context["module_name"]
-     * @return ThemeExporter 返回生成 content 缓存后的 资源输出类实例
+     * @param Array $ctx 当前输出的主题参数 context 中此模块的参数 context["module_name"]
+     * @return Theme 返回生成 rows 缓存后的 主题实例
      */
-    public function createScssVarsDefineRows(&$exper, $ctx)
+    public function createScssVarsDefineRows($ctx)
     {
-        //生成 颜色系统模块的 SCSS 变量定义语句，保存到 $exper->content 缓存
+        //主题实例
+        $theme = $this->theme;
+
+        //生成 颜色系统模块的 SCSS 变量定义语句，保存到 $theme->rows 缓存
         $conf = $this->origin;
 
         // 0    生成 $colorListGroupName 列表变量，例如：$colorListBase
@@ -207,12 +209,12 @@ class ThemeColorModule extends ThemeModule
             $vk = "colorList".Str::camel($grk, true);
             //变量值 item 名称数组
             $vv = $gritems;
-            //调用 $exper->rowDef() 方法 生成 变量 定义语句
-            $exper->rowDef($vk, $vv);
+            //调用 $theme->rowDef() 方法 生成 变量 定义语句
+            $theme->rowDef($vk, $vv);
         }
 
         // 1    生成 $colorListAll 变量
-        if (Is::nemarr($allitems)) $exper->rowDef("colorListAll", $allitems);
+        if (Is::nemarr($allitems)) $theme->rowDef("colorListAll", $allitems);
 
         // 2    生成 $colorShiftQueue
         //获取 color 模块最终输出参数的 shift 级数
@@ -223,51 +225,32 @@ class ThemeColorModule extends ThemeModule
                 array_unshift($que, "l".$i);
                 $que[] = "d".$i;
             }
-            $exper->rowDef("colorShiftQueue", $que);
+            $theme->rowDef("colorShiftQueue", $que);
         }
         //空行
-        $exper->rowAddEmpty(1);
+        $theme->rowEmpty(1);
 
         // 3    生成 $color-item-m 变量
         $flat = Arr::flat($ctx, "-");
         foreach ($flat as $vk => $vv) {
-            $exper->rowDef("color-".$vk, $vv);
+            $theme->rowDef("color-".$vk, $vv);
         }
         //空行
-        $exper->rowAddEmpty(1);
+        $theme->rowEmpty(1);
 
         // 4    生成 $color-map: ( ... );
-        $exper->rowAdd("\$color-map: (", "");
+        $theme->rowAdd("\$color-map: (", "");
         foreach ($flat as $vk => $vv) {
-            $exper->rowDef($vk, $vv, [
+            $theme->rowDef($vk, $vv, [
                 "prev" => "",
                 "rn" => ",",
             ]);
         }
-        $exper->rowAdd(");", "");
+        $theme->rowAdd(");", "");
         //空行
-        $exper->rowAddEmpty(1);
+        $theme->rowEmpty(1);
 
-        return $exper;
-    }
-    
-    /**
-     * 创建 CSS 变量定义语句 rows
-     * !! 覆盖父类
-     * @param ThemeExporter $exper 资源输出类实例
-     * @param Array $ctx 资源输出类的 context["module_name"]
-     * @return ThemeExporter 返回生成 content 缓存后的 资源输出类实例
-     */
-    public function createCssVarsDefineRows(&$exper, $ctx)
-    {
-        // 生成 --color-item-m 变量
-        $flat = Arr::flat($ctx,"-");
-        foreach ($flat as $vk => $vv) {
-            $exper->rowDef("--color-".$vk, $vv, [
-                "prev" => "",
-            ]);
-        }
-        return $exper;
+        return $theme;
     }
 
     /**

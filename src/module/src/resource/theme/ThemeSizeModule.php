@@ -200,13 +200,15 @@ class ThemeSizeModule extends ThemeModule
     /**
      * 创建 SCSS 变量定义语句 rows
      * !! 覆盖父类
-     * @param ThemeExporter $exper 资源输出类实例
-     * @param Array $ctx 资源输出类的 context["module_name"]
-     * @return ThemeExporter 返回生成 content 缓存后的 资源输出类实例
+     * @param Array $ctx 当前输出的主题参数 context 中此模块的参数 context["module_name"]
+     * @return Theme 返回生成 rows 缓存后的 主题实例
      */
-    public function createScssVarsDefineRows(&$exper, $ctx)
+    public function createScssVarsDefineRows($ctx)
     {
-        //生成 尺寸系统模块的 SCSS 变量定义语句，保存到 $exper->content 缓存
+        //主题实例
+        $theme = $this->theme;
+
+        //生成 颜色系统模块的 SCSS 变量定义语句，保存到 $theme->rows 缓存
         $conf = $this->origin;
 
         // 0    生成 $sizeShiftQueue
@@ -220,51 +222,32 @@ class ThemeSizeModule extends ThemeModule
                 array_unshift($que, $sk);
                 $que[] = $lk;
             }
-            $exper->rowDef("sizeShiftQueue", $que);
+            $theme->rowDef("sizeShiftQueue", $que);
         }
         //空行
-        $exper->rowAddEmpty(1);
+        $theme->rowEmpty(1);
 
         // 1    生成 $size-item-m|xs|xl... 变量
         $flat = Arr::flat($ctx,"-");
         foreach ($flat as $vk => $vv) {
-            $exper->rowDef("size-".$vk, $vv);
+            $theme->rowDef("size-".$vk, $vv);
         }
         //空行
-        $exper->rowAddEmpty(1);
+        $theme->rowEmpty(1);
 
         // 2    生成 $size-map: ( ... );
-        $exper->rowAdd("\$size-map: (", "");
+        $theme->rowAdd("\$size-map: (", "");
         foreach ($flat as $vk => $vv) {
-            $exper->rowDef($vk, $vv, [
+            $theme->rowDef($vk, $vv, [
                 "prev" => "",
                 "rn" => ",",
             ]);
         }
-        $exper->rowAdd(");", "");
+        $theme->rowAdd(");", "");
         //空行
-        $exper->rowAddEmpty(1);
+        $theme->rowEmpty(1);
 
-        return $exper;
-    }
-    
-    /**
-     * 创建 CSS 变量定义语句 rows
-     * !! 覆盖父类
-     * @param ThemeExporter $exper 资源输出类实例
-     * @param Array $ctx 资源输出类的 context["module_name"]
-     * @return ThemeExporter 返回生成 content 缓存后的 资源输出类实例
-     */
-    public function createCssVarsDefineRows(&$exper, $ctx)
-    {
-        // 生成 --size-item-m 变量
-        $flat = Arr::flat($ctx,"-");
-        foreach ($flat as $vk => $vv) {
-            $exper->rowDef("--size-".$vk, $vv, [
-                "prev" => "",
-            ]);
-        }
-        return $exper;
+        return $theme;
     }
 
     /**

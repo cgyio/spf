@@ -491,6 +491,17 @@ class Path extends Util
         return ".".strtolower($ext);
     }
 
+    /**
+     * 判断给定的 路径 是否是 url 形式 以 https:// | // | / 开头
+     * @param String $path
+     * @return Bool
+     */
+    public static function isUrl($path)
+    {
+        if (!Is::nemstr($path)) return false;
+        return strpos($path, "://")!==false || substr($path, 0,2)==="//" || substr($path, 0,1)==="/";
+    }
+
 
 
     

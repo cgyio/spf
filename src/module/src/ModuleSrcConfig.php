@@ -40,7 +40,7 @@ class ModuleSrcConfig extends ModuleConfig
                 "src", "view", "upload",
                 //框架内部文件
                 "spf/assets",
-                "spf/view",
+                //"spf/view",
             ],
         ],
         

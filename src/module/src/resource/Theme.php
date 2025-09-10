@@ -81,6 +81,7 @@ class Theme extends Plain
     /**
      * 定义 可用的 params 参数规则
      * 参数项 => 默认值
+     * !! 覆盖父类
      */
     protected static $stdParams = [
         //是否 强制不使用 缓存的 css 文件
@@ -92,6 +93,21 @@ class Theme extends Plain
         //合并主题文件路径下的 其他 scss 文件，默认 all 表示使用所有定义在 meta["use"] 中的 SCSS 文件
         "use" => "all",        //foo,bar  -->  需要合并 meta["use"]["foo"] meta["use"]["bar"]
     ];
+
+    /**
+     * 定义支持的 export 类型，必须定义相关的 createFooContent() 方法
+     * 必须是 Mime 支持的 文件后缀名
+     * !! 覆盖父类
+     */
+    protected static $exps = [
+        "js", "css", "scss",
+    ];
+    
+    /**
+     * 此类型纯文本资源的 注释符 [ 开始符号, 每行注释的开头符号, 结尾符号 ]
+     * !! 覆盖父类
+     */
+    public $cm = ["/**", " * ", " */"];
 
     /**
      * 解析 theme 主题文件 得到的 主题数据
@@ -106,6 +122,30 @@ class Theme extends Plain
         */
     ];
 
+    //当前输出的 mode 模式的 主题参数 context，依据此生成对应的 js|css|scss 文件内容
+    public $context = [
+        /*
+        # 某个 主题模块 的数据
+        "module_name" => [
+            # 从模块下的 某个 参数 item
+            "item_name" => [
+                ... 参数值 ...
+            ],
+            ...
+        ],
+
+        "color" => [
+            "red" => [
+                "m" => "#ff0000",
+                "d2" => "",
+                "d1" => "",
+                ...
+            ],
+        ],
+        ...
+        */
+    ];
+
     /**
      * 当前资源创建完成后 执行
      * !! 覆盖父类
@@ -113,23 +153,27 @@ class Theme extends Plain
      */
     protected function afterCreated()
     {
+        //格式化 params 并根据 export 修改 ext|mime
+        $this->formatParams();
+        $ps = $this->params;
+
         //文件内容是 主题参数 json 数据，转为 Array
         $ctx = Conv::j2a($this->content);
 
         //提取主题元数据
-        $stdMeta = self::$stdMeta;
+        $stdMeta = static::$stdMeta;
         $meta = [];
         foreach ($stdMeta as $key => $val) {
             if (!isset($ctx[$key])) continue;
             $meta[$key] = $ctx[$key];
         }
         //使用标准数据结构 填充
-        $meta = Arr::extend(self::$stdMeta, $meta);
+        $meta = Arr::extend(static::$stdMeta, $meta);
         //保存到 meta
         $this->meta = $meta;
 
         //依次提取主题中包含的 主题模块，并实例化
-        $mods = self::$themeModules;
+        $mods = static::$themeModules;
         foreach ($mods as $modk) {
             $modc = $ctx[$modk] ?? [];
             $modclsn = "Theme".Str::camel($modk, true)."Module";
@@ -138,21 +182,8 @@ class Theme extends Plain
                 //不存在 此主题模块解析类
                 throw new SrcException("未找到主题模块 $modclsn 的解析类", "resource/getcontent");
             }
-            $modins = new $modcls($modc);
+            $modins = new $modcls($modc, $this);
             $this->modules[$modk] = $modins;
-        }
-
-        //标准化 params
-        $ps = $this->params;
-        if (!Is::nemarr($ps)) $ps = [];
-        $ps = Arr::extend(self::$stdParams, $ps);
-        $this->params = $ps;
-
-        //根据要输出的 文件类型，修改 ext|mime 
-        $ext = $this->exportExt();
-        if ($ext !== $this->ext) {
-            $this->ext = $ext;
-            $this->mime = Mime::getMime($ext);
         }
         
         return $this;
@@ -167,8 +198,8 @@ class Theme extends Plain
     protected function beforeExport($params=[])
     {
         //合并额外参数
-        if (!Is::nemarr($params)) $params = [];
-        if (!Is::nemarr($params)) $this->params = Arr::extend($this->params, $params);
+        $this->extendParams($params);
+        $this->formatParams();
 
         //读取缓存文件
         $cfp = $this->cacheFile();
@@ -190,9 +221,23 @@ class Theme extends Plain
                 $modins->parse();
                 $ctx[$modk] = $modins->getItemByMode(...$modes);
             }
+            //缓存 context
+            $this->context = $ctx;
+
+            //根据 export 类型 调用对应的 createExtContent 方法
+            $ext = $this->params["export"] ?? $this->ext;
+            $m = "create".Str::camel($ext, true)."Content";
+            if (!method_exists($this, $m)) {
+                //对应 方法不存在，则 不做处理，表示直接使用 当前 content
+                //通常针对于 输出此文件实例的 实际文件类型
+    
+            } else {
+                //调用方法
+                $this->$m();
+            }
 
             //调用 对应 ext 的 ThemeExporter
-            $ext = $this->exportExt();
+            /*$ext = $this->exportExt();
             $extclsn = "Theme".Str::camel($ext, true)."Exporter";
             $extcls = Cls::find("module/src/resource/theme/$extclsn", "Spf\\");
             if (!class_exists($extcls)) {
@@ -201,7 +246,7 @@ class Theme extends Plain
             }
             $exporter = new $extcls($this, $ctx);
             //生成 content
-            $this->content = $exporter->createContent();
+            $this->content = $exporter->createContent();*/
 
             //写入缓存文件
             $this->saveToCacheFile();
@@ -217,26 +262,170 @@ class Theme extends Plain
         return $this;
     }
 
+
+
     /**
-     * 资源输出的最后一步，echo
-     * !! 覆盖父类
-     * @param String $content 可单独指定最终输出的内容，不指定则使用 $this->content
-     * @return Resource $this
+     * 不同 export 类型，生成不同的 content
+     * !! 子类可以根据 exps 中定义的可选值，实现对应的 createFooContent() 方法
+     * @return $this
      */
-    protected function echoContent($content=null)
+    //生成 CSS content
+    protected function createCssContent()
     {
-        //输出资源
-        if (Response::$isInsed !== true) {
-            //响应实例还未创建
-            throw new SrcException("响应实例还未创建", "resource/export");
-        }
-    
-        //输出响应头，根据 资源后缀名设置 Content-Type
-        Mime::setHeaders($this->ext, $this->name);
-        Response::$current->header->sent();
+        //meta
+        $meta = $this->meta;
+        $thn = $meta["name"];
+
+        //context
+        $ctx = $this->context;
+        if (!Is::nemarr($ctx)) return $this;
+
+        //先清空 rows 内容行数据缓存
+        $this->rows = [];
+
+        /**
+         * 创建此主题的 CSS 文件内容
+         * 
+         *  0   生成 CSS 文件头部
+         *  1   生成此主题的 CSS 变量语句
+         *  2   调用 createScssContent 生成此主题的 SCSS 语句
+         *  3   调用 Scss::parseScss 方法 编译得到的 SCSS 内容 生成 CSS 语句
+         *  4   合并 CSS 变量语句 和 SCSS 解析得到的 CSS 语句，生成新最终的 content
+         */
+
+        // 0  生成 CSS 文件头部
+        //charset
+        $charset = "@charset \"UTF-8\";";
+        $this->rowAdd($charset, "");
+        $this->rowEmpty(1);
+        $this->rowComment(
+            "SPF-Theme 主题 $thn",
+            "$thn.css 主要样式",
+            "!! 不要手动修改 !!"
+        );
         
-        //echo
-        echo $this->content;
+        // 1 生成此主题的 CSS 变量语句
+        $this->rowCssVars();
+
+        //缓存 生成的 rows
+        $rows = array_merge($this->rows);
+
+        // 2 生成此主题的 SCSS 语句
+        $this->createScssContent();
+        $cnt = $this->content;
+
+        // 3 调用 Scss::parseScss 方法 编译得到的 SCSS 内容 生成最终的 CSS 文件内容
+        //编译，默认不压缩，通过 theme 自身的 min 参数决定是否输出压缩文件
+        $cnt = Scss::parseScss($cnt, false);
+        //去掉自动生成的 charset
+        $cnt = str_replace($charset, "", $cnt);
+
+        // 4 合并 rows 和 cnt
+        $rn = $this->rn;
+        $cnt = implode($rn, $rows) .$rn. $cnt;
+
+        //创建 CSS 文件资源实例，通过 export 获取最终的 content
+        $res = $this->createSubRes($cnt, "css");
+        if (empty($res)) return $this;
+        //生成 content
+        $this->content = $res->export([
+            "return" => true
+        ]);
+
+        return $this;
+    }
+    //生成 SCSS content
+    protected function createScssContent()
+    {
+        //meta
+        $meta = $this->meta;
+        $thn = $meta["name"];
+
+        //先清空 rows 内容行数据缓存
+        $this->rows = [];
+        
+        /**
+         * 创建此主题的 SCSS 文件内容
+         * 
+         *  0   生成 SCSS 文件头部
+         *  1   解析 $this->context 生成 各种 SCSS 变量
+         *  2   合并 主题必须的 common.scss 文件 和 通过 use=foo,bar 指定的 其他同路径下的 scss 文件
+         */
+
+        // 0  生成 SCSS 文件头部
+        $this->rowComment(
+            "SPF-Theme 主题 $thn",
+            "$thn.scss 变量以及样式定义",
+            "!! 不要手动修改 !!"
+        );
+
+        // 1 解析 $this->context 生成 各种 SCSS 变量
+        $this->rowScssVars();
+
+        // 2 合并 主题必须的 common.scss 文件 和 通过 use=foo,bar 指定的 其他同路径下的 scss 文件
+        $this->rowUseFiles();
+
+        //合并 rows 得到 scss 文件内容 清空 rows 数组
+        $cnt = $this->rowCnt(true);
+
+        //创建 SCSS 文件资源实例，通过 export 获取最终的 content
+        $res = $this->createSubRes($cnt, "scss");
+        if (empty($res)) return $this;
+        //生成 content
+        $this->content = $res->export([
+            "return" => true
+        ]);
+
+        return $this;
+    }
+    //生成 JS content
+    protected function createJsContent()
+    {
+        //meta
+        $meta = $this->meta;
+        $thn = $meta["name"];
+
+        //context
+        $ctx = $this->context;
+        if (!Is::nemarr($ctx)) return $this;
+        $ctxjson = Conv::a2j($ctx);
+
+        //先清空 rows 内容行数据缓存
+        $this->rows = [];
+        
+        /**
+         * 创建此主题的 CSS 文件内容
+         * 
+         *  0   生成 JS 文件头部
+         *  1   将 context 内容 直接输出为 Js 语句
+         *  2   为 JS 语句 增加 ES6 export 支持
+         */
+
+        // 0  生成 JS 文件头部
+        $this->rowComment(
+            "SPF-Theme 主题 $thn",
+            "$thn.js 定义 cssvar",
+            "!! 不要手动修改 !!"
+        );
+
+        // 1 将 context 内容 直接输出为 Js 语句
+        //const cssvar
+        $this->rowAdd("const cssvar = JSON.parse(\"".$ctxjson."\")");
+
+        // 2 为 JS 语句 增加 ES6 export 支持
+        $this->rowAdd("export default cssvar");
+        $this->rowEmpty(1);
+
+        //合并 rows 得到 JS 文件内容 清空 rows
+        $cnt = $this->rowCnt(true);
+
+        //创建 SCSS 文件资源实例，通过 export 获取最终的 content
+        $res = $this->createSubRes($cnt, "js");
+        if (empty($res)) return $this;
+        //生成 content
+        $this->content = $res->export([
+            "return" => true
+        ]);
 
         return $this;
     }
@@ -336,6 +525,90 @@ class Theme extends Plain
     }
 
     /**
+     * 获取 可能存在的 此主题下的 common.css|scss 通用样式文件
+     * 查找顺序：当前主题路径 --> 当前应用的 theme 路径下 --> 网站 theme 路径下 --> 框架 theme 路径下
+     * @return String 找到的 对应的 文件真实路径
+     */
+    protected function commonFilePath()
+    {
+        //meta
+        $meta = $this->meta;
+        //meta 中定义的 common 文件
+        $mcf = $meta["use"]["common"] ?? null;
+        if (Is::nemstr($mcf)) {
+            $cf = Path::find($mcf, Path::FIND_FILE);
+            //定义的 common 文件存在，直接返回
+            if (file_exists($cf)) return $cf;
+        }
+
+        //开始查找
+
+        //主题名称
+        $thn = $meta["name"];
+        //主题所在路径
+        $real = $this->real;
+        $dir = dirname($real);
+        //构建查找 路径数组
+        $cfs = [];
+
+        // 0 查找 当前主题的文件夹
+        $cfs[] = $dir.DS.$thn.DS.$thn."_common.css";
+        $cfs[] = $dir.DS.$thn.DS.$thn."_common.scss";
+
+        // 1 查找 当前应用的 theme 路径
+        if (App::$isInsed === true) {
+            $appk = App::$current::clsk();
+            if ($appk !== "base_app") {
+                $cfs[] = "src/$appk/theme/$thn/$thn"."_common.css";
+                $cfs[] = "src/$appk/theme/$thn/$thn"."_common.scss";
+            }
+        }
+
+        // 2 查找 网站 theme 路径
+        $cfs[] = "src/theme/$thn/$thn"."_common.css";
+        $cfs[] = "src/theme/$thn/$thn"."_common.scss";
+
+        // 3 查找 框架 theme 路径
+        $cfs[] = "spf/assets/theme/$thn/$thn"."_common.css";
+        $cfs[] = "spf/assets/theme/$thn/$thn"."_common.scss";
+
+        // 4 兜底的 通用 SPF-Theme 主题样式文件，此文件一定存在
+        $cfs[] = "spf/assets/theme/common.scss";
+
+        //查找
+        $cf = Path::exists($cfs);
+
+        return $cf;
+    }
+
+    /**
+     * 根据 传入的 content 创建对应的 CSS|SCSS|JS 资源实例 是当前 theme 主题资源的 引用资源
+     * @param String $cnt 传入的 CSS|SCSS|JS 字符串内容
+     * @param String $ext 要创建的资源类型 后缀名 例如：css|scss|js，默认 scss
+     * @return Resource|null
+     */
+    protected function createSubRes($cnt, $ext="scss")
+    {
+        if (!Is::nemstr($cnt) || !Is::nemstr($ext)) return null;
+        //根据当前资源的 params 生成对应 资源的 实例化参数
+        $ps = Arr::extend($this->params, [
+            "content" => $cnt,
+            //取消 params 中的部分项目
+            "create" => "__delete__",
+            "mode" => "__delete__",
+            "use" => "__delete__",
+        ]);
+        //当前主题名称
+        $thn = $this->meta["name"];
+        //创建资源的 文件名
+        $fn = $thn.".".$ext;
+        //创建资源实例
+        $res = Resource::create($fn, $ps);
+        if (!$res instanceof Resource) return null;
+        return $res;
+    }
+
+    /**
      * 获取 当前主题的 meta 元数据
      * @param String $key 要获取的某个 meta 数据的 key
      * @return Array $this->meta
@@ -357,6 +630,127 @@ class Theme extends Plain
         $modins = $this->modules[$modk] ?? null;
         if ($modins instanceof ThemeModule) return $modins;
         return null;
+    }
+
+
+
+    /**
+     * 手动操作 内容行数组
+     * !! Theme 资源类扩展方法，操作 rows 数组
+     */
+
+    /**
+     * 生成 CSS 变量语句
+     * @return $this
+     */
+    protected function rowCssVars()
+    {
+        //context
+        $ctx = $this->context;
+        if (!Is::nemarr($ctx)) return $this;
+
+        //:root {
+        $this->rowAdd(":root {", "");
+
+        //依次生成 各主题模块的 CSS 变量定义语句
+        foreach ($ctx as $modk => $modc) {
+            //模块输出 头部语句
+            $this->rowComment("$modk 模块变量定义");
+            //CSS 变量前缀
+            $cvpre = "--$modk-";
+            if ($modk === "vars") $cvpre = "--";
+            //将此主题模块参数数组 一维化，然后依次定义为 CSS 变量
+            $flat = Arr::flat($modc, "-");
+            foreach ($flat as $vk => $vv) {
+                $this->rowDef($vk, $vv, [
+                    "prev" => $cvpre,
+                ]);
+            }
+        }
+
+        //}
+        $this->rowEmpty(1);
+        $this->rowAdd("}", "");
+        $this->rowEmpty(1);
+
+        return $this;
+    }
+
+    /**
+     * 生成 SCSS 变量语句
+     * @return $this
+     */
+    protected function rowScssVars()
+    {
+        //context
+        $ctx = $this->context;
+        if (!Is::nemarr($ctx)) return $this;
+
+        //modules
+        $modules = $this->modules;
+        if (!Is::nemarr($modules)) return $this;
+
+        //依次调用 各主题模块的 createScssVarsDefineRows 方法
+        foreach ($ctx as $modk => $modc) {
+            //获取对应的 主题模块实例
+            $modins = $modules[$modk];
+            if (empty($modins) || !$modins instanceof ThemeModule) continue;
+            //模块输出 头部语句
+            $this->rowComment("$modk 模块变量定义", "");
+            //调用 各 主题模块的 SCSS 变量定义语句 生成方法
+            $modins->createScssVarsDefineRows($modc);
+        }
+
+        //尾部空行
+        $this->rowEmpty(3);
+
+        return $this;
+    }
+
+    /**
+     * 合并 主题指定的 use 其他文件，读取含数据，合并到当前 rows
+     * 通过 调用 useFile 方法
+     * @return $this
+     */
+    protected function rowUseFiles()
+    {
+        // 0 合并 common 文件，此文件必须合并
+        $cmf = $this->commonFilePath();
+        if (file_exists($cmf)) {
+            $this->useFile($cmf, [
+                //合并 common 文件时，启用 import 即执行 common 文件中定义的 import 语句
+                "noimport" => false,
+            ]);
+        }
+
+        // 1 合并 use=foo,bar 中定义的要合并的 css|scss 文件
+        //params 中的 use 参数
+        $uses = $this->params["use"] ?? [];
+        if ($uses === "") $uses = [];
+        if (Is::nemstr($uses) && $uses !== "all") $uses = Arr::mk($uses);
+        //meta 中定义的 use 参数
+        $usedef = $this->meta["use"] ?? [];
+        if (!Is::nemarr($usedef) || !(Is::nemarr($uses) || $uses==="all")) return $this;
+
+        //uses = all
+        if ($uses === "all") {
+            $uses = array_filter(array_keys($usedef), function($ui) {
+                return $ui !== "common";
+            });
+        }
+
+        //合并 uses 中指定的 其他 css|scss 文件
+        if (Is::nemarr($uses)) {
+            $ufs = [];
+            foreach ($uses as $usei) {
+                if (!isset($usedef[$usei]) || !Is::nemstr($usedef[$usei])) continue;
+                $ufs[] = $usedef[$usei];
+            }
+            //使用 useFile 方法
+            $this->useFile(...$ufs);
+        }
+
+        return $this;
     }
 
 }

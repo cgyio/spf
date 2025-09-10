@@ -103,45 +103,28 @@ class ThemeVarsModule extends ThemeModule
     /**
      * 创建 SCSS 变量定义语句 rows
      * !! 覆盖父类
-     * @param ThemeExporter $exper 资源输出类实例
-     * @param Array $ctx 资源输出类的 context["module_name"]
-     * @return ThemeExporter 返回生成 content 缓存后的 资源输出类实例
+     * @param Array $ctx 当前输出的主题参数 context 中此模块的参数 context["module_name"]
+     * @return Theme 返回生成 rows 缓存后的 主题实例
      */
-    public function createScssVarsDefineRows(&$exper, $ctx)
+    public function createScssVarsDefineRows($ctx)
     {
-        //生成 其他变量 的 SCSS 变量定义语句，保存到 $exper->content 缓存
+        //主题实例
+        $theme = $this->theme;
+
+        //生成 颜色系统模块的 SCSS 变量定义语句，保存到 $theme->rows 缓存
         $conf = $this->origin;
 
         // 0    生成 $foo-bar-jaz... 变量
         $flat = Arr::flat($ctx,"-");
         foreach ($flat as $vk => $vv) {
-            $exper->rowDef($vk, $vv, [
+            $theme->rowDef($vk, $vv, [
                 "quote" => "\"",
             ]);
         }
         //空行
-        $exper->rowAddEmpty(1);
+        $theme->rowEmpty(1);
 
-        return $exper;
-    }
-    
-    /**
-     * 创建 CSS 变量定义语句 rows
-     * !! 覆盖父类
-     * @param ThemeExporter $exper 资源输出类实例
-     * @param Array $ctx 资源输出类的 context["module_name"]
-     * @return ThemeExporter 返回生成 content 缓存后的 资源输出类实例
-     */
-    public function createCssVarsDefineRows(&$exper, $ctx)
-    {
-        // 生成 --item-m 变量
-        $flat = Arr::flat($ctx,"-");
-        foreach ($flat as $vk => $vv) {
-            $exper->rowDef("--".$vk, $vv, [
-                "prev" => "",
-            ]);
-        }
-        return $exper;
+        return $theme;
     }
 
     /**

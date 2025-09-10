@@ -23,6 +23,9 @@ class ThemeModule
      */
     public $key = "";
 
+    //此主题模块所在主题实例
+    public $theme = null;
+
     /**
      * 定义此模块 在主题文件中的 标准参数数据格式
      * !! 子类必须覆盖
@@ -138,9 +141,10 @@ class ThemeModule
     /**
      * 构造
      * @param Array $conf 传入主题文件中 关于此主题模块的 设置参数内容
+     * @param Theme $theme 主题实例
      * @return void
      */
-    final public function __construct($conf=[])
+    final public function __construct($conf=[], $theme=null)
     {
         //先合并 当前模块 和 模块基类的 $stdFoobar 标准数据结构
         static::mergeStd();
@@ -148,6 +152,7 @@ class ThemeModule
         $conf = Arr::extend(static::$stdCtx, $conf);
         //缓存
         $this->origin = $conf;
+        $this->theme = $theme;
     }
 
     /**
@@ -310,29 +315,14 @@ class ThemeModule
     /**
      * 创建 SCSS 变量定义语句 rows
      * !! 子类必须实现此方法
-     * @param ThemeExporter $exper 资源输出类实例
-     * @param Array $ctx 资源输出类的 context["module_name"]
-     * @return ThemeExporter 返回生成 content 缓存后的 资源输出类实例
+     * @param Array $ctx 当前输出的主题参数 context 中此模块的参数 context["module_name"]
+     * @return Theme 返回生成 content 缓存后的 主题实例
      */
-    public function createScssVarsDefineRows(&$exper, $ctx)
+    public function createScssVarsDefineRows($ctx)
     {
         //子类必须实现
         //...
-        return $exper;
-    }
-    
-    /**
-     * 创建 CSS 变量定义语句 rows
-     * !! 子类必须实现此方法
-     * @param ThemeExporter $exper 资源输出类实例
-     * @param Array $ctx 资源输出类的 context["module_name"]
-     * @return ThemeExporter 返回生成 content 缓存后的 资源输出类实例
-     */
-    public function createCssVarsDefineRows(&$exper, $ctx)
-    {
-        //子类必须实现
-        //...
-        return $exper;
+        return $this->theme;
     }
 
 

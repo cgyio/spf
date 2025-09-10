@@ -176,7 +176,11 @@ class View extends Exporter
     {
         if (!$ecp instanceof BaseException) exit;
 
-        $pd = $ecp->getInfo();
+        //$pd = $ecp->getInfo();
+        $pd = [
+            //异常实例
+            "exception" => $ecp,
+        ];
         //从 Response 响应配置类中 获取对应的 默认 视图文件
         $view = $this->response->config->ctx("view/exception");
         $html = cView::page($view, $pd);

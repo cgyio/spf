@@ -276,4 +276,111 @@ abstract class App extends Core
 
         return false;
     }
+
+    /**
+     * 根据当前的 App 应用实例化情况，为 传入的 本地路径|url 增加 appk 前缀
+     * 例如：当前已实例化的应用 foo_app，则：
+     *      本地路径
+     *      bar.json                转换为：src/foo_app/bar.json
+     *      src/lib/vue/@.js        转换为：src/foo_app/lib/vue/@.js
+     *      view/pms/bar.css        转换为：view/foo_app/view/bar.css
+     * !! 传入的 路径开始文件夹 必须在 Env::$current->config->dir 数组中定义的
+     * 
+     *      url
+     *      https://host/src/icon/spf.js        转换为：https://host/foo_app/src/icon/spf.js
+     **     //host/method/arg1/arg2             转换为：//host/foo_app/method/arg1/arg2
+     *      /src/lib/vue/@/product.js           转换为：/foo_app/src/lib/vue/@/product.js
+     * 
+     * @param String $path 要处理的路径 如 src/theme/spf
+     * @return String 处理后的 路径
+     */
+    public static function path($path)
+    {
+        //传入的 path
+        if (!Is::nemstr($path)) return $path;
+
+        //当前应用必须已经实例化，且 不能是 BaseApp
+        if (App::$isInsed !== true) return $path;
+        $appk = App::$current::clsk();
+        if ($appk === "base_app") return $path;
+
+        //传入 url 形式(以 https:// | // | / 开头的)，直接 使用 App::url(...) 方法
+        if (Path::isUrl($path) === true) return static::url($path);
+
+        //DS --> /
+        $p = str_replace(DS, "/", $path);
+
+        //路径数组
+        $parr = explode("/", $p);
+        //默认在 src 路径下，例如：传入 foo.js 相当于传入 src/foo.js
+        if (count($parr)<=1) array_unshift($parr, "src");
+        //支持的 路径开始文件夹
+        $dirs = Env::$current->config->dir;
+        //传入了不支持的 开始文件夹，直接返回
+        if (!isset($dirs[$parr[0]])) return $path;
+
+        //向路径中插入 appk
+        if (count($parr)<=2) {
+            array_splice($parr, 1, 0, $appk);
+        } else {
+            $oappk = $parr[1];
+            if ($oappk === $appk || App::has($oappk)!==false) {
+                //路径已经包含 应用信息，直接返回
+                return implode("/", $parr);
+            }
+            array_splice($parr, 1, 0, $appk);
+        }
+        //返回处理后的 路径
+        return implode("/", $parr);
+    }
+
+    /**
+     * 根据当前的 App 应用实例化情况，为 传入的 url 增加 appk 前缀
+     * 例如：当前已实例化的应用 foo_app，则：
+     *      https://host/src/icon/spf.js        转换为：https://host/foo_app/src/icon/spf.js
+     **     //host/method/arg1/arg2             转换为：//host/foo_app/method/arg1/arg2
+     *      /src/lib/vue/@/product.js           转换为：/foo_app/src/lib/vue/@/product.js
+     * 
+     * @param String $url 要处理的路径 如 /src/theme/spf
+     * @return String 处理后的 url
+     */
+    public static function url($url)
+    {
+        //传入的 path
+        if (!Is::nemstr($url)) return $url;
+
+        //当前应用必须已经实例化，且 不能是 BaseApp
+        if (App::$isInsed !== true) return $url;
+        $appk = App::$current::clsk();
+        if ($appk === "base_app") return $url;
+
+        //传入 url 形式 必须 以 https:// | // | / 开头的
+        if (Path::isUrl($url) !== true) return $url;
+
+        if (strpos($url, "://")!==false || substr($url, 0,2)==="//") {
+            //以 https:// | // 开头的
+            $uarr = explode("//", $url);
+            $parr = explode("/", $uarr[1]);
+            if ($uarr[1]==="" || count($parr)<2) return $url;
+            $uarr[0] = $uarr[0]."//".$parr[0];
+            $parr = array_slice($parr, 1);
+        } else {
+            //以 / 开头的
+            $uarr = ["", substr($url,1)];
+            $parr = explode("/", $uarr[1]);
+            if ($uarr[1]==="" || count($parr)<1) return $url;
+        }
+
+        //判断传入的 url 是否已包含 appk
+        $oappk = $parr[0];
+        if ($oappk === $appk || App::has($oappk)) {
+            //已包含 appk 信息，直接返回
+            return $uarr[0]."/".implode("/", $parr);
+        }
+
+        //插入 appk
+        array_splice($parr, 0, 0, $appk);
+        //返回
+        return $uarr[0]."/".implode("/", $parr);
+    }
 }

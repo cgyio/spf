@@ -109,6 +109,7 @@ class Icon extends Plain
     /**
      * 定义 可用的 params 参数规则
      * 参数项 => 默认值
+     * !! 覆盖父类
      */
     protected static $stdParams = [
         //是否 强制不使用 缓存的 glyphs
@@ -120,6 +121,15 @@ class Icon extends Plain
         
         //其他可选参数，在指定要输出某个图标 svg 时，其他参数参考 svg 资源类
         //...
+    ];
+
+    /**
+     * 定义支持的 export 类型，必须定义相关的 createFooContent() 方法
+     * 必须是 Mime 支持的 文件后缀名
+     * !! 覆盖父类
+     */
+    protected static $exps = [
+        "js", "css", "svg",
     ];
 
     //当前图标库的 元数据
@@ -139,6 +149,14 @@ class Icon extends Plain
      */
     protected function afterCreated()
     {
+        //格式化 params 并根据 export 修改 ext|mime
+        $this->formatParams();
+        $ps = $this->params;
+        //指定要输出某个具体的图标 svg 的情况
+        if (isset($ps["icon"]) && Is::nemstr($ps["icon"])) {
+            $this->params["export"] = "svg";
+        }
+
         //文件内容是 图标库的参数 json 数据，转为 Array
         $ctx = Conv::j2a($this->content);
         //合并 格式化为 标准图标库参数形式
@@ -154,25 +172,6 @@ class Icon extends Plain
             $meta[$k] = $v;
         }
         $this->meta = $meta;
-
-        //标准化 params
-        $ps = $this->params;
-        if (!Is::nemarr($ps)) $ps = [];
-        $ps = Arr::extend(self::$stdParams, $ps);
-        //处理 ntf|yes|no 以及 foo,bar 形式的 传入参数
-        $ps = static::fixParams($ps);
-        $this->params = $ps;
-        //指定要输出某个具体的图标 svg 的情况
-        if (isset($ps["icon"]) && Is::nemstr($ps["icon"])) {
-            $this->params["export"] = "svg";
-        }
-        
-        //根据要输出的 文件类型，修改 ext|mime 
-        $ext = $this->params["export"] ?? "js";
-        if ($ext !== $this->ext) {
-            $this->ext = $ext;
-            $this->mime = Mime::getMime($ext);
-        }
 
         //根据传入的参数 决定是否需要解析 阿里 js
         if ($created === true && $this->params["create"] !== true) {
@@ -231,9 +230,8 @@ class Icon extends Plain
     protected function beforeExport($params=[])
     {
         //合并额外参数
-        if (!Is::nemarr($params)) $params = [];
-        if (!Is::nemarr($params)) $this->params = Arr::extend($this->params, $params);
-        $this->params = static::fixParams($this->params);
+        $this->extendParams($params);
+        $this->formatParams();
 
         //传入的 export | icon 参数
         $exp = $this->params["export"] ?? "js";
@@ -241,44 +239,10 @@ class Icon extends Plain
 
         if (!Is::nemstr($icon)) {
             //未指定要输出某个图标 svg，根据 export 生成输出内容
-            switch ($exp) {
-                //默认 输出 js 文件
-                case "js":
-                    //获取 js 缓存文件
-                    $jsf = $this->getJsPath();
-                    if (!file_exists($jsf)) {
-                        //输出资源错误，未找到对应的 js 文件
-                        throw new SrcException("未找到图标库 ".$this->name." 对应的 JS 文件", "resource/export");
-                    }
-                    $this->content = file_get_contents($jsf);
-                    break;
-
-                //输出 css 文件
-                case "css":
-                    //通用 spf-icon 样式文件 默认保存在 框架内部路径 spf/assets/icon/[iconset|spf-icon].css
-                    $csfs = [];
-                    //此图标库名称 
-                    $iset = $this->meta["iconset"];
-                    if (App::$isInsed === true) {
-                        //优先在 应用路径下查找 src/[app_name]/icon/[iconset].css
-                        $appk = App::$current::clsk();
-                        $csfs[] = "src/$appk/icon/$iset.css";
-                    }
-                    //然后查找网站根路径下 src/icon/[iconset].css
-                    $csfs[] = "src/icon/$iset.css";
-                    //然后查找框架内部
-                    $csfs[] = "spf/assets/icon/$iset.css";
-                    $csfs[] = "spf/assets/icon/spf-icon.css";
-                    $csf = Path::exists($csfs);
-                    if (file_exists($csf)) {
-                        //找到文件，读取
-                        $this->content = file_get_contents($csf);
-                    } else {
-                        //未找到文件，返回简易 spf-icon 样式
-                        $this->content = ".spf-icon {width: 1em; height: 1em; vertical-align: -0.15em; fill: currentColor; overflow: hidden;}";
-                    }
-                    break;
-
+            $m = "create".Str::camel($exp, true)."Content";
+            if (method_exists($this, $m)) {
+                //生成对应 输出类型的 content
+                $this->$m();
             }
 
             //minify
@@ -314,19 +278,106 @@ class Icon extends Plain
         return $this;
     }
 
+
+
+    /**
+     * 不同 export 类型，生成不同的 content
+     * !! 子类可以根据 exps 中定义的可选值，实现对应的 createFooContent() 方法
+     * @return $this
+     */
+    //生成 CSS content
+    protected function createCssContent()
+    {
+        //当前图标库 css 文件
+        $csf = $this->getCssPath();
+        if (file_exists($csf)) {
+            //创建 css|scss 资源实例，传入 params 作为参数
+            //因为当前的 params 中的 export == css，因此 如果创建的是 scss 实例，其输出的 content 也会被解析为 css
+            $cssres = Resource::create($csf, $this->params);
+            //调用 CSS|SCSS 资源实例的 export 方法获取 content
+            $this->content = $cssres->export([
+                "return" => true
+            ]);
+        } else {
+            //未找到文件，返回简易 spf-icon 样式
+            $this->content = ".spf-icon {width: 1em; height: 1em; vertical-align: -0.15em; fill: currentColor; overflow: hidden;}";
+        }
+        return $this;
+    }
+    //生成 JS content
+    protected function createJsContent()
+    {
+        //获取 js 缓存文件
+        $jsf = $this->getJsPath();
+        if (!file_exists($jsf)) {
+            //输出资源错误，未找到对应的 js 文件
+            throw new SrcException("未找到图标库 ".$this->name." 对应的 JS 文件", "resource/export");
+        }
+        //创建 JS 资源实例，将当前的 params 作为参数传入
+        $jsres = Resource::create($jsf, $this->params);
+        //调用 JS 资源实例的 export 方法获取 js content
+        $this->content = $jsres->export([
+            "return" => true
+        ]);
+        return $this;
+    }
+
     /**
      * 获取当前图标库的 js 缓存文件路径，不检查是否存在
      * @return String 
      */
     protected function getJsPath()
     {
-        //此图标库的 js 缓存文件应保存在 *.icon 文件目录下，同名 js 文件中
+        //此图标库的 js 缓存文件应保存在 *.icon 文件目录下，同名文件夹下的 同名 js 文件中
         $real = $this->real;
         $dir = dirname($real);
         $iset = $this->meta["iconset"] ?? null;
         if (!Is::nemstr($iset)) return null;
-        $jsf = $dir.DS.$iset.".js";
+        $jsf = $dir.DS.$iset.DS.$iset.".js";
         return $jsf;
+    }
+
+    /**
+     * 查找当前图标库的 关联 css 文件路径
+     * 关联的 css 文件应保存在 *.icon 文件所在路径下，同名文件中的 同名 css|scss 文件
+     * 如果当前路径不存在，则依次在 应用icon目录 --> 网站icon目录 --> 框架icon目录 中查找 同名 css|scss 文件
+     * @return String|null
+     */
+    protected function getCssPath()
+    {
+        //iconset
+        $iset = $this->meta["iconset"] ?? null;
+        if (!Is::nemstr($iset)) return null;
+        //icon 文件实际路径
+        $real = $this->real;
+        $dir = dirname($real);
+
+        //要查找的 路径列表
+        $csfs = [];
+        //当前路径下的 css|scss 文件路径
+        $csfs[] = $dir.DS.$iset.DS.$iset.".css";
+        $csfs[] = $dir.DS.$iset.DS.$iset.".scss";
+        //当前应用的 icon 目录
+        if (App::$isInsed === true) {
+            $appk = App::$current::clsk();
+            if ($appk !== "base_app") {
+                $csfs[] = "src/$appk/icon/$iset/$iset.css";
+                $csfs[] = "src/$appk/icon/$iset/$iset.scss";
+            }
+        }
+        //网站 icon 目录
+        $csfs[] = "src/icon/$iset/$iset.css";
+        $csfs[] = "src/icon/$iset/$iset.scss";
+        //框架 icon 目录
+        $csfs[] = "spf/assets/icon/$iset/$iset.css";
+        $csfs[] = "spf/assets/icon/$iset/$iset.scss";
+        //!! 最终提供兜底的 css 文件，此文件一定存在
+        $csfs[] = "spf/assets/icon/base.css";
+
+        //查找文件
+        $csf = Path::exists($csfs, false, Path::FIND_FILE);
+        if (!file_exists($csf)) return null;
+        return $csf;
     }
 
     /**

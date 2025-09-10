@@ -51,9 +51,9 @@ class Image extends Resource
     public $queue = [
         //等比缩放，默认 100%
         "zoom" => "100",
-        //缩放并裁剪，例如：原图 1920*1080 输入裁剪参数 1920,1200 最终输出尺寸 1728*1080 放大到 1920*1200
-        "clip" => "0,0",
-        //缩略图，默认 256 方形，可任意形状 256|128,128|256,128
+        //缩放并裁剪，例如：原图 1920*1080 输入裁剪参数 1920x1200 最终输出尺寸 1728*1080 放大到 1920*1200
+        "clip" => "0x0",
+        //缩略图，默认 256 方形，可任意形状 256|128x128|256x128
         "thumb" => "256",
         //水印，可指定字符，或水印图片路径
         "mark" => "",   //TODO:
@@ -190,10 +190,10 @@ class Image extends Resource
         $this->im = self::zoomImage($this->im, $p);
     }
     //缩放到指定宽高，当指定的宽高比不等于原图片时，保证缩放后的图片不超出指定的宽高
-    protected function processClip($p="0,0")
+    protected function processClip($p="0x0")
     {
-        if ($p==="0,0") return;
-        $opt = explode(",", $p);
+        if ($p==="0x0") return;
+        $opt = explode("x", $p);
         $this->im = self::clipImage($this->im, (int)$opt[0], (int)$opt[1]);
     }
     //自动生成缩略图，裁切原图，满足缩略图宽高比
@@ -205,7 +205,7 @@ class Image extends Resource
             $p = (int)$p;
             $opt = [ $p, $p ];
         } else {
-            $opt = explode(",", $p);
+            $opt = explode("x", $p);
             if (
                 count($opt)<=0 || 
                 !is_numeric($opt[0]) || 
