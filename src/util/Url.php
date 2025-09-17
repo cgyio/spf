@@ -7,6 +7,8 @@
 namespace Spf\util;
 
 use Spf\App;
+use Spf\Env;
+use Spf\module\Src;
 
 class Url extends SpecialUtil
 {
@@ -214,5 +216,82 @@ class Url extends SpecialUtil
         $nurl = $nurl.(Is::nemarr($uq) ? "?".http_build_query($uq) : "");
 
         return new Url($nurl);
+    }
+
+    /**
+     * 将 可直接通过 url 直接访问的 本地 文件|文件夹 路径 转为 实际的 Url 地址
+     * !! 需要启用 Src 模块，且 Src 模块已经实例化
+     * !! 允许直接通过 url 访问的 本地资源的路径 在 Src::$current->config->resource["access"] 中定义
+     * 
+     * 例如：
+     * /data/ms/assets/foo.js                   -->  Url::mk('/src/foo.js')
+     * /data/ms/app/foo_app/assets/bar.css      -->  Url::mk('/foo_app/src/bar.css')
+     * /data/vendor/cgyio/spf/src/assets/lib    -->  Url::mk('/src/lib')
+     * 
+     * @param String $path 本地 文件|文件夹 路径
+     * @param Bool $withDomain 是否添加当前 url 的 domain，默认 false
+     * @return String|null 返回 资源 url，如果 withDomain===true 则返回完整 url，否则返回 / 开头的 url
+     */
+    public static function src($path, $withDomain=false)
+    {
+        if (!Is::nemstr($path)) return null;
+        //确保路径分隔符为 DS
+        $path = str_replace(["\\","/"], DS, $path);
+        //去除 path 可能存在的 ../.. 
+        $path = Path::fix($path);
+
+        //依赖 已经实例化的 Src 模块
+        if (Src::$isInsed!==true) return null;
+        //获取允许的访问的 路径数组
+        $accs = Src::$current->config->resource["access"] ?? [];
+        if (!Is::nemarr($accs)) return null;
+
+        //当前本地路径是在 某个 app 路径下
+        $inapp = false;
+        if (strpos($path, DS."app")!==false) {
+            $inapp = true;
+            $parr = explode(DS."app", $path);
+            if (!isset($parr[1]) || !Is::nemstr($parr[1])) return null;
+            $parr = explode(DS, $parr[1]);
+            if (!isset($parr[1]) || !Is::nemstr($parr[1])) return null;
+            $appk = $parr[1];
+        }
+
+        //先执行 Path::rela 将物理路径 转为 可通过 Path::find 解析的相对路径
+        $path = Path::rela($path);
+
+        //判断路径是否可以被直接访问
+        $accessable = false;
+        foreach ($accs as $apre) {
+            $alen = strlen($apre);
+            if (substr($path, 0, $alen)===$apre) {
+                $accessable = true;
+                $path = substr($path, $alen);
+                break;
+            }
+        }
+
+        //不可访问
+        if (!$accessable) return null;
+
+        //生成 url
+        $u = [];
+        if ($inapp) $u[] = $appk;
+        $u[] = "src";
+        if ($inapp) {
+            $path = str_replace($appk, "", $path);
+            $path = preg_replace("/\/+/", "/", $path);
+            $u[] = trim($path, "/");
+        } else {
+            $u[] = trim($path, "/");
+        }
+        $u = "/".implode("/", $u);
+
+        if (!$withDomain) return $u;
+
+        //调用当前 url 实例
+        $url = Url::current();
+        return $url->domain.$u;
+
     }
 }

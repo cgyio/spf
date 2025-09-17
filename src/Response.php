@@ -319,6 +319,18 @@ class Response extends Core
      */
 
     /**
+     * 在响应方法中的 快捷操作
+     * 快速返回 某个非 200 的状态码 并终止响应
+     * @param Int $code 要返回的 非 200 的状态码 默认 404
+     * @return null
+     */
+    public static function returnCode($code=404)
+    {
+        Response::insSetCode($code);
+        return null;
+    }
+
+    /**
      * 判断支持的 响应类型
      * @param String $type 指定要判断是否支持的 响应类型，不指定则返回所有支持的响应类型
      * @return Bool|Array

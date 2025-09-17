@@ -1,10 +1,10 @@
 /** SPF-Theme 主题系统 通用 SCSS **/
 
 /** 引用一些通用的 CSS 库 **/
-//normalize
-@import "https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css";
-//animate
-@import "https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css";
+//modern-normalize
+@import "/src/lib/normalize.css";
+//animate.css
+@import "/src/lib/animate.css";
 
 
 .spf {

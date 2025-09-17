@@ -1,0 +1,83 @@
+.cv-bar {
+    //@include pmp;
+    @include po-ov($w: 100%, $h: unset, $mg: 0, $pd: 0);
+    //width: 100%; min-height: $size-bar;
+    @include flex-x($x: flex-start, $y: center);
+
+    &.bar-m {min-height: $size-bar;}
+    @each $szi in $sizeShiftQueue {
+        @if map-get($sizeMap, bar-#{$szi}) != null {
+            $bsz: map-get($sizeMap, bar-#{$szi});
+            &.bar-#{$szi} {
+                min-height: $bsz;
+                &>.bar-logo {
+                    height: calc(#{$bsz} * 0.75);
+                }
+            }
+        }
+    }
+    @for $sz from 18 through 64 {
+        &.bar-#{$sz}px {
+            min-height: #{$sz}px;
+            &>.bar-logo {
+                height: calc(#{$sz}px * 0.75);
+            }
+        }
+    }
+
+    &.bar-gap-inner {
+        box-sizing: border-box;
+        padding: 0 $size-gap;
+    }
+    @each $szi in $sizeShiftQueue {
+        @if map-get($sizeMap, gap-#{$szi}) != null {
+            &.bar-gap-inner.gap-#{$szi} {
+                padding: 0 map-get($sizeMap, gap-#{$szi});
+            }
+        }
+    }
+
+    &.bar-bd {
+        border-bottom: $color-bd solid 1px;
+    }
+    &.bar-bg {
+        background-color: $color-bg-l3;
+        &.bar-bg-blur {
+            backdrop-filter: blur(8px);
+            background-color: #{$color-bg-l3}E6;
+        }
+    }
+    &.bar-shadow {
+        box-shadow: 0 2px 6px rgba(0,0,0,.2);
+    }
+    &.bar-fixed {
+        position: fixed;
+        z-index: 100;
+        &.fixed-top {
+            top: 0; left: 0;
+            &.bar-bd {
+                border: none;
+                border-bottom: $color-bd solid 1px;
+            }
+            &.bar-shadow {
+                box-shadow: 0 2px 6px rgba(0,0,0,.2);
+            }
+        }
+        &.fixed-bottom {
+            bottom: 0; left: 0;
+            &.bar-bd {
+                border: none;
+                border-top: $color-bd solid 1px;
+            }
+            &.bar-shadow {
+                box-shadow: 0 -2px 6px rgba(0,0,0,.2);
+            }
+        }
+    }
+
+    &>.bar-logo {
+        width: auto;
+        margin-right: $size-gap-xl
+    }
+
+}

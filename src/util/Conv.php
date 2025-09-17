@@ -145,6 +145,35 @@ class Conv extends Util
         return implode(" ", $rtn);
     }
 
+    /**
+     * html property --> array
+     * prop="foo" pre-prop="bar"  -->  ["prop"=>"foo", "pre-prop"=>"bar"]
+     * @param String $props html 标签中定义的 attr
+     * @return Array
+     */
+    public static function p2a($props)
+    {
+        if (!Is::nemstr($props)) return [];
+        $props = trim($props);
+        $props = preg_replace("/\s+/", " ", $props);
+        $parr = explode(" ",$props);
+        $rst = [];
+        foreach ($parr as $pi) {
+            $pia = explode("=", trim($pi));
+            if (count($pia)===1) {
+                $rst[$pi] = true;
+            } else {
+                $pk = $pia[0];
+                $pv = $pia[1];
+                if (in_array(substr($pv, 0,1),["'","\""])) {
+                    $pv = substr($pv, 1, -1);
+                }
+                $rst[$pk] = $pv;
+            }
+        }
+        return $rst;
+    }
+
 
     /**
      * 其他

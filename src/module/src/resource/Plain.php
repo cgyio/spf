@@ -8,6 +8,7 @@
 namespace Spf\module\src\resource;
 
 use Spf\App;
+use Spf\Response;
 use Spf\module\src\Resource;
 use Spf\module\src\Mime;
 use Spf\module\src\SrcException;
@@ -30,9 +31,9 @@ class Plain extends Resource
      */
     protected static $stdParams = [
         //是否 强制不使用 缓存的 数据
-        "create" => false,
+        //"create" => false,
         //输出文件的 类型
-        "export" => "",
+        //"export" => "",
         //可指定要合并输出的 其他 文件
         "use" => [],
         //是否忽略 @import 默认 false
@@ -47,9 +48,9 @@ class Plain extends Resource
      * 必须是 Mime 支持的 文件后缀名
      * !! Plain 子类应覆盖此属性
      */
-    protected static $exps = [
-        "js", "css",
-    ];
+    //protected static $exps = [
+    //    "js", "css",
+    //];
 
     //纯文本文件 将 content 按行拆分为 indexed []
     public $rows = [];
@@ -79,16 +80,7 @@ class Plain extends Resource
      */
     protected function afterCreated()
     {
-        //标准化 params
-        $this->formatParams();
-
-        //将 content 按行拆分为 rows 行数组
-        $this->contentToRows();
-
-        //处理 import 语句
-        $this->fixImport();
-        
-        return $this;
+        return $this->plainAfterCreated();
     }
 
     /**
@@ -99,37 +91,40 @@ class Plain extends Resource
      */
     protected function beforeExport($params=[])
     {
-        //合并额外参数
-        $this->extendParams($params);
-        $this->formatParams();
+        return $this->plainBeforeExport($params);
+    }
 
-        //根据 use 参数，合并指定的 文件
-        if (isset(static::$stdParams["use"])) {
-            $uses = $this->params["use"] ?? [];
-            if ($uses === "") $uses = [];
-            if (Is::nemstr($uses)) $uses = Arr::mk($uses);
-            $this->useFile(...$uses);
+    /**
+     * 资源输出的最后一步，echo
+     * !! 覆盖父类
+     * @param String $content 可单独指定最终输出的内容，不指定则使用 $this->content
+     * @return Resource $this
+     */
+    protected function echoContent($content=null)
+    {
+        //输出资源
+        if (Response::$isInsed !== true) {
+            //响应实例还未创建
+            throw new SrcException("响应实例还未创建", "resource/export");
         }
 
-        //根据 export 类型 调用对应的 createExtContent 方法
-        if (isset(static::$stdParams["export"])) {
-            $ext = $this->params["export"] ?? $this->ext;
-            $m = "create".Str::camel($ext, true)."Content";
-            if (!method_exists($this, $m)) {
-                //对应 方法不存在，则 不做处理，表示直接使用 当前 content
-                //通常针对于 输出此文件实例的 实际文件类型
-    
-            } else {
-                //调用方法
-                $this->$m();
-            }
-        }
-
-        //minify
+        //!! 增加 min 判断，对 JS|CSS 执行压缩
         if ($this->isMin() === true) {
             //压缩 JS/CSS 文本
             $this->content = $this->minify();
         }
+
+        //输出内容
+        if (!is_string($content) || !Is::nemstr($content)) {
+            $content = $this->content;
+        }
+    
+        //输出响应头，根据 资源后缀名设置 Content-Type
+        Mime::setHeaders($this->ext, $this->name);
+        Response::$current->header->sent();
+        
+        //echo
+        echo $content;
 
         return $this;
     }
@@ -146,28 +141,6 @@ class Plain extends Resource
         $ps = $this->params;
         if (!Is::nemarr($ps)) $ps = [];
         $ps = Arr::extend(static::$stdParams, $ps);
-
-        //export
-        if (isset(static::$stdParams["export"])) {
-            if (!isset($ps["export"]) || !Is::nemstr($ps["export"])) {
-                $ps["export"] = $this->ext;
-            } else {
-                $ext = $ps["export"];
-                if (!(Mime::support($ext) && in_array($ext, static::$exps))) {
-                    //指定要输出的 export 类型 不正确，报错
-                    throw new SrcException("要输出的 $ext 类型不是有效的文件类型", "resource/getcontent");
-                }
-            }
-        }
-
-        //根据要输出的 文件类型，修改 ext|mime 
-        if (isset(static::$stdParams["export"])) {
-            $ext = $ps["export"];
-            if ($ext !== $this->ext) {
-                $this->ext = $ext;
-                $this->mime = Mime::getMime($ext);
-            }
-        }
 
         //写回
         $this->params = $ps;
@@ -310,14 +283,63 @@ class Plain extends Resource
         return $this;
     }
 
+    /**
+     * 默认的 Plain 类型资源的 afterCreated 方法
+     * 方便子类使用父类的 方法
+     * !! 不要覆盖
+     * @return Resource $this
+     */
+    final protected function plainAfterCreated()
+    {
+        //标准化 params
+        $this->formatParams();
 
+        //将 content 按行拆分为 rows 行数组
+        $this->contentToRows();
+
+        //处理 import 语句
+        $this->fixImport();
+        
+        return $this;
+    }
 
     /**
-     * 不同 export 类型，生成不同的 content
-     * !! 子类可以根据 exps 中定义的可选值，实现对应的 createFooContent() 方法
-     * @return $this
+     * 默认的 Plain 类型资源的 beforeExport 方法
+     * 方便子类使用父类的 方法
+     * !! 不要覆盖
+     * @param Array $params 可传入额外的 资源处理参数
+     * @return Resource $this
      */
-    //例如：protected function createCssContent() {}
+    final protected function plainBeforeExport($params=[])
+    {
+        //合并额外参数
+        $this->extendParams($params);
+        $this->formatParams();
+
+        //根据 use 参数，合并指定的 文件
+        if (isset(static::$stdParams["use"])) {
+            $uses = $this->params["use"] ?? [];
+            if ($uses === "") $uses = [];
+            if (Is::nemstr($uses)) $uses = Arr::mk($uses);
+            $this->useFile(...$uses);
+        }
+
+        //根据 export 类型 调用对应的 createExtContent 方法
+        if (isset(static::$stdParams["export"])) {
+            $ext = $this->params["export"] ?? $this->ext;
+            $m = "create".Str::camel($ext, true)."Content";
+            if (!method_exists($this, $m)) {
+                //对应 方法不存在，则 不做处理，表示直接使用 当前 content
+                //通常针对于 输出此文件实例的 实际文件类型
+    
+            } else {
+                //调用方法
+                $this->$m();
+            }
+        }
+
+        return $this;
+    }
 
 
 
@@ -525,9 +547,15 @@ class Plain extends Resource
     {
         //判断此文件路径是否存在
         if (!Is::nemstr($path)) return [];
-        //根据传入的 path 生成真实存在 资源路径
-        $fp = $this->getFilePath($path);
-        if (!Is::nemstr($fp)) return [];
+
+        if (file_exists($path) && !is_dir($path)) {
+            //如果直接传入了真实本地路径
+            $fp = $path;
+        } else {
+            //根据传入的 path 生成真实存在 资源路径
+            $fp = $this->getFilePath($path);
+            if (!Is::nemstr($fp)) return [];
+        }
 
         /**
          * 处理要引用的资源的实例化参数
@@ -588,6 +616,10 @@ class Plain extends Resource
         $fn = $this->name;
         //当前文件所在路径 
         $dir = dirname($this->real);
+
+        //将本地文件完整路径 转为相对路径
+        $rela = Path::rela($path);
+        if (Is::nemstr($rela)) $path = $rela;
 
         //检查传入的 是否是 文件名 不含 DS|/|. 等路径形式字符
         if (Str::hasAny($path, DS, "/", ".") !== true) {
@@ -653,5 +685,24 @@ class Plain extends Resource
             return $cnt;
         }
         return $this->content;
+    }
+
+    /**
+     * 压缩指定的 字符串
+     * @param String $cnt 要执行压缩的代码
+     * @param String $ext 这段代码的 类型 js|css
+     * @return String 压缩后的代码
+     */
+    public function minifyCnt($cnt, $ext="js")
+    {
+        if (!Is::nemstr($cnt) || !Is::nemstr($ext)) return $cnt;
+        $mcls = "MatthiasMullie\\Minify\\".strtoupper($ext);
+        if (class_exists($mcls)) {
+            $minifier = new $mcls();
+            $minifier->add($cnt);
+            $mcnt = $minifier->minify();
+            return $mcnt;
+        }
+        return $cnt;
     }
 }

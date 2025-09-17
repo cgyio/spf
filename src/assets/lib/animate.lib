@@ -1,0 +1,24 @@
+{
+    "lib": "animate",
+    "variable": "animate",
+    "version": {
+        "@": "4.1.1",
+        "latest": "4.1.1"
+    },
+    "ext": ["css"],
+    "switch": {
+        "dev": "__delete__",
+        "esm": "__delete__",
+        "browser": true
+    },
+    "cdn": "https://cdnjs.cloudflare.com/ajax/libs/animate.css/",
+
+    "4.1.1": {
+        "css": {
+            "browser": {
+                "file": "animate.min.css",
+                "fix": []
+            }
+        }
+    }
+}

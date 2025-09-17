@@ -1,0 +1,171 @@
+/** cv-tip **/
+.cv-tip {
+
+    $arrow-w: 12px;
+    $arrow-h: 16.968px;
+    $arrow-mg: 12px;
+    $arrow-mg-fix: -6px;    //-8.484px;
+
+    @include po-abs($w: unset, $h: unset, $l: unset, $t: unset, $mg: 0, $pd: 0);
+    min-height: $size-btn; overflow: unset;
+    @include flex-x($y: stretch);
+    border-radius: $size-radius;
+    border: $color-bd solid 1px;
+    //@include shadow;
+    box-shadow: 2px 2px 8px rgba(0,0,0,.2);
+    z-index: 8000;
+    opacity: 0;
+    cursor: default;
+    @include trans;
+
+    &>.cv-tip-content {
+        @include po($w: unset, $h: unset, $mg: 0, $pd: 0 $size-gap);
+        @include flex-x;
+        border-radius: $size-radius;
+        background-color: $color-white;
+        color: $color-fc;
+        font-size: $size-f-s;
+        z-index: 8003;
+    }
+
+    &>.cv-tip-arrow-wrapper {
+        @include po-abs($w: unset, $h: unset, $l: unset, $t: unset, $mg: 0, $pd: 0);
+        overflow: hidden;
+        z-index: 8002;
+
+        &>.cv-tip-arrow {
+            @include po-ov($w: $arrow-w, $h: $arrow-w,  $mg: 0, $pd: 0);
+            background-color: $color-white;
+            border: $color-bd solid 1px;
+            border-radius: 0;
+            z-index: 8002;
+            transform: rotate(45deg);
+            transform-origin: center;
+        }
+    }
+
+    &[class*=-top], &[class*=-bottom] {
+        &>.cv-tip-arrow-wrapper {
+            width: 100%; height: $arrow-h; padding: 0 $size-gap;
+            left: 0;
+            @include flex-x($x: center);
+        }
+
+        &[class*=-start]>.cv-tip-arrow-wrapper {justify-content: flex-start;}
+        &[class*=-end]>.cv-tip-arrow-wrapper {justify-content: flex-end;}
+    }
+    &[class*=-top]>.cv-tip-arrow-wrapper {bottom: $arrow-mg-fix; }
+    &[class*=-bottom]>.cv-tip-arrow-wrapper {top: $arrow-mg-fix; }
+
+    &[class*=-left], &[class*=-right] {
+        &>.cv-tip-arrow-wrapper {
+            height: 100%; width: $arrow-h; padding: $size-gap-xs 0;
+            top: 0;
+            @include flex-y($x: center, $y: center);
+        }
+
+        &[class*=-start]>.cv-tip-arrow-wrapper {justify-content: flex-start;}
+        &[class*=-end]>.cv-tip-arrow-wrapper {justify-content: flex-end;}
+    }
+    &[class*=-left]>.cv-tip-arrow-wrapper {right: $arrow-mg-fix; }
+    &[class*=-right]>.cv-tip-arrow-wrapper {left: $arrow-mg-fix; }
+
+    /** color style **/
+    @each $ci in $colorListAll {
+        $c: map-get($colorMap, $ci);
+        $c-d3: map-get($colorMap, #{$ci}-d3);
+        $c-l3: map-get($colorMap, #{$ci}-l3);
+        $c-w: $color-white;
+        $c-b: $color-black;
+
+        /** dark effect **/
+        @if $c-d3 != null {
+            &.cv-tip-type-#{$ci} {
+                &.cv-tip-effect-dark {
+                    border: none;
+                    box-shadow: 2px 2px 8px #{$c}66;
+                    &>.cv-tip-content {
+                        //background: linear-gradient(#{$c-d3}, #{$c-b});
+                        background-color: $c;
+                        color: $c-w;
+                    }
+                    &>.cv-tip-arrow-wrapper {
+                        &>.cv-tip-arrow {
+                            background-color: $c;
+                            border: none;
+                        }
+                    }
+                    /*&[class*=-left], &[class*=-right] {
+                        &>.cv-tip-arrow-wrapper {
+                            &>.cv-tip-arrow {
+                                background: linear-gradient(to bottom right, #{$c-d3}, #{$c-b});
+                            }
+                        }
+                    }
+                    &[class*=-top]>.cv-tip-arrow-wrapper>.cv-tip-arrow {
+                        background-color: $c-b;
+                    }
+                    &[class*=-bottom]>.cv-tip-arrow-wrapper>.cv-tip-arrow {
+                        background-color: $c-d3;
+                    }*/
+            
+                }
+            }
+        }
+
+        /** light effect **/
+        @if $c-l3 != null {
+            $c-l2: map-get($colorMap, #{$ci}-l2);
+            &.cv-tip-type-#{$ci} {
+                &.cv-tip-effect-light {
+                    border-color: $c;
+                    box-shadow: 2px 2px 8px #{$c}33;
+                    &>.cv-tip-content {
+                        //background: linear-gradient(#{$c-w}, #{$c-l3});
+                        background-color: $c-w;
+                        color: $c-b;
+                    }
+                    &>.cv-tip-arrow-wrapper {
+                        &>.cv-tip-arrow {
+                            background-color: $c-w;
+                            border-color: $c;
+                        }
+                    }
+                    /*&[class*=-left], &[class*=-right] {
+                        &>.cv-tip-arrow-wrapper {
+                            &>.cv-tip-arrow {
+                                background: linear-gradient(to bottom right, #{$c-w}, #{$c-l3});
+                            }
+                        }
+                    }
+                    &[class*=-top]>.cv-tip-arrow-wrapper>.cv-tip-arrow {
+                        background-color: $c-l3;
+                    }
+                    &[class*=-bottom]>.cv-tip-arrow-wrapper>.cv-tip-arrow {
+                        background-color: $c-w;
+                    }*/
+            
+                }
+            }
+        }
+    }
+
+    /** 多行 tip **/
+    &.cv-tip-multiple-rows {
+        &>.cv-tip-content {
+            padding: $size-gap-s 0;
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-start;
+            &>span {
+                @include po($w: 100%, $h: unset, $mg: 0, $pd: 0 $size-gap);
+                margin-bottom: 4px;
+                @include flex-x;
+                &:last-child {
+                    margin: 0;
+                }
+            }
+        }
+    }
+
+}

@@ -16,9 +16,11 @@
 
     "cdn": "https://cdnjs.cloudflare.com/ajax/libs/vue/",
 
+    "class": "module/src/resource/lib/VueLib",
+
     "2.7.16": {
         "js": {
-            "-dev-esm-browser-": {
+            "dev-esm-browser": {
                 "comment": "开发环境，esm导入，用于浏览器端",
                 "file": "vue.common.dev.min.js",
                 "fix": [
@@ -26,18 +28,18 @@
                     "appendExportForEsm"
                 ]
             },
-            "-dev!-esm-browser-": {
+            "dev!-esm-browser": {
                 "comment": "生产环境，esm导入，用于浏览器端",
                 "file": "vue.esm.browser.min.js",
                 "fix": [
                     "appendExportForEsm"
                 ]
             },
-            "-dev-esm!-browser-": {
+            "dev-esm!-browser": {
                 "file": "vue.common.dev.min.js",
                 "fix": []
             },
-            "-dev!-esm!-browser-": {
+            "dev!-esm!-browser": {
                 "file": "vue.common.prod.min.js",
                 "fix": []
             }
@@ -46,19 +48,19 @@
 
     "3.5.21": {
         "js": {
-            "-dev-esm-browser-": {
+            "dev-esm-browser": {
                 "file": "vue.esm-browser.min.js",
                 "fix": []
             },
-            "-dev!-esm-browser-": {
+            "dev!-esm-browser": {
                 "file": "vue.esm-browser.prod.min.js",
                 "fix": []
             },
-            "-dev-esm!-browser-": {
+            "dev-esm!-browser": {
                 "file": "vue.global.min.js",
                 "fix": []
             },
-            "-dev!-esm!-browser-": {
+            "dev!-esm!-browser": {
                 "file": "vue.global.prod.min.js",
                 "fix": []
             }

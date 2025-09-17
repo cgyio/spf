@@ -1,0 +1,188 @@
+/**
+ * Vue 2.* 插件 base
+ * CGY-VUE 基础插件
+ * 
+ * 入口，提供 install 方法
+ */
+
+//需要 cgy.core.js 支持
+//const cgy = ...
+//console.log(cgy.version);
+
+//需要 vue.2.7.9 支持
+//console.log(Vue);
+
+import cgy from '/cgy/@';
+
+import globalMethods from '/vue/@/plugin/base/global';
+import mixin from '/vue/@/plugin/base/mixin';
+import instanceMethods from '/vue/@/plugin/base/instance';
+import directive from '/vue/@/plugin/base/directive';
+
+//加载此插件需要的 components 组件库，可加载多个组件库
+import comps from '/vue/@/components/base';
+
+import mixinEvtBus from '/vue/@/mixins/base/evt-bus';
+import mixinUiBase from '/vue/@/mixins/base/ui-base';
+import mixinUsrBase from '/vue/@/mixins/base/usr-base';
+import mixinNavBase from '/vue/@/mixins/base/nav-base';
+import mixinDbBase from '/vue/@/mixins/base/db-base';
+
+//cgy 挂到 window 上
+window.cgy = cgy;
+
+const bs = Object.create(null);
+bs.install = function(Vue, options = {}) {
+
+    //扩展 Vue
+    cgy.def(Vue, {
+        cgy,
+        host: window.location.href.split('://')[0]+'://'+window.location.href.split('://')[1].split('/')[0],
+        lib: 'https://io.cgy.design',
+        
+        //根组件实例
+        $root: {
+            value: null,
+            writable: true
+        },
+
+        //动态组件缓存，通过 invokeComp() 方法动态加载的组件实例挂在此属性下
+        dynamicComponentsInstance: [],
+        //debug
+        debug: {
+            value: false,
+            writable: true
+        },
+
+        //usr 用户管理器，全局管理 usr 用户
+        //usr,
+        //主页 page 管理器，用于 spa 单页应用
+        //pager,
+
+        //ui 相关
+        //样式主题/暗黑模式管理
+        //theme,
+
+        //base 插件自定义 options
+        baseOptions: {},
+        //base 插件 init 序列
+        baseInitSequence: [],
+
+
+    });
+
+    // 1. 添加全局方法或 property
+    //Vue.myGlobalMethod = function () {
+        // 逻辑...
+    //}
+    //先将 options 缓存，在 initBasePlugin() 执行时将对 Vue.baseOptions 进行处理
+    Object.assign(Vue.baseOptions, options);
+
+    //应用全局方法
+    //Object.assign(Vue, globalMethods);
+    cgy.def(Vue, globalMethods);
+
+    //Vue.usr.setOptions(options);
+    //Vue.pager.setOptions(options);
+    //Vue.theme.setOptions(options);
+
+    // 2. 添加全局资源
+    //注册全局组件
+    //先缓存 此插件使用的 组件库名称 到 baseOptions
+    Vue.baseOptions.globalComponents = ['base'];
+    for (let [compn, compu] of Object.entries(comps)) {
+        Vue.component(
+            compn,
+            ()=>import(compu)
+        );
+    }
+    //Vue.directive('my-directive', { } )
+    if (!cgy.is.empty(directive)) {
+        for (let dir in directive) {
+            Vue.directive(dir, directive[dir]);
+        }
+    }
+
+    // 3. 注入组件选项
+    //Vue.mixin(mixin);
+
+    // 4. 添加实例方法
+    //Vue.prototype.$myMethod = function (methodOptions) {
+        // 逻辑...
+    //}
+    cgy.def(Vue.prototype, {
+        $cgy: cgy,
+        $is: cgy.is,
+        $extend: cgy.extend,
+        $wait: cgy.wait,
+        $until: cgy.until,
+        $log: cgy.log.ready({
+            label: 'CVue',
+            sign: '>>>'
+        }),
+        $request: Vue.request,
+        $req: Vue.req,
+        $lib: Vue.lib,
+    });
+
+    //引入 instanceMethods 文件
+    cgy.def(Vue.prototype, instanceMethods);
+
+    //特殊组件实例，单例
+    cgy.def(Vue, {
+        
+        //事件总线
+        evtBus: new Vue({
+            mixins: [mixinEvtBus]
+        }),
+
+        //ui
+        ui: new Vue({
+            mixins: [mixinUiBase]
+        }),
+
+        //uac 权限控制
+        usr: new Vue({
+            mixins: [mixinUsrBase]
+        }),
+
+        //nav 导航管理
+        nav: new Vue({
+            mixins: [mixinNavBase]
+        }),
+
+        //db 数据库管理
+        db: new Vue({
+            mixins: [mixinDbBase]
+        }),
+    });
+    cgy.def(Vue.prototype, {
+        $bus: Vue.evtBus,
+        $ev: Vue.evtBus.$trigger,
+        $ui: Vue.ui,
+        $usr: Vue.usr,
+        $nav: Vue.nav,
+        $db: Vue.db,
+    });
+    Vue.evtBus.event = {};
+
+    //将各功能组件单例的 init 方法添加到 baseInitSequence 启动序列
+    //只有在启动序列中所有 async 函数执行完成后，才能执行根组件创建
+    let initComps = ['ui','usr','nav'];
+    for (let i=0;i<initComps.length;i++) {
+        let compi = Vue[initComps[i]],
+            init = compi.init;
+        if (cgy.is(init,'asyncfunction')) {
+            Vue.baseInitSequence.push(init.bind(compi));
+        }
+    }
+    
+    //混入 mixin
+    Vue.mixin(mixin);
+    
+    //各功能模块准备
+    //Vue.prepareBasePluginModules(options, 'usr','pager','theme');
+    //cgy.conf(Vue, options)
+}
+
+export default bs;

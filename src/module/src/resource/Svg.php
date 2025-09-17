@@ -143,7 +143,7 @@ class Svg extends Plain
             if ($fln>1 && $i>=$fln) continue;
             $fc = $fln===1 ? $fill[0] : $fill[$i];
             //$fc == "" 则跳过
-            if ($fc=="") continue;
+            if ($fc=="" || $fc=="0") continue;
             //查找代码中的 fill="..." 片段，切换为指定的 fc 颜色
             $mts = [];
             $mt = preg_match("/(fill=\"\#?[0-9a-fA-F]*\")/", $path, $mts);

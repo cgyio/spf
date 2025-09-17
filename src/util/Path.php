@@ -120,6 +120,98 @@ class Path extends Util
     }
 
     /**
+     * 将绝对路径，转换为可以通过 Path::find 查询到的 相对路径
+     * 如：
+     * /data/ms/app/foo_app/assets/bar/jaz.js           -->  src/foo_app/bar/jaz.js
+     * /data/ms/library/foo/bar.php                     -->  lib/foo/bar.php
+     * /data/vendor/cgyio/spf/src/assets/lib/vue.lib    -->  spf/assets/lib/vue.lib
+     * 
+     * !! 需要在 Env::$current->config->path 中定义各 特殊路径
+     * @param String $path 绝对路径
+     * @return String|null 转换后的相对路径
+     */
+    public static function rela($path)
+    {
+        if (!Is::nemstr($path)) return null;
+
+        //确保路径分隔符为 DS
+        $path = str_replace(["\\","/"], DS, $path);
+        //去除 path 可能存在的 ../.. 
+        $path = self::fix($path);
+        //路径数组
+        $parr = explode(DS, $path);
+        //路径数组长度
+        $plen = count($parr);
+
+        //确保 环境实例已创建
+        if (Env::$isInsed!==true) return null;
+        //获取预定义的 各种特殊路径
+        $dirs = Env::$current->config->dir;
+        $pathes = Env::$current->config->path;
+        //var_dump($dirs);
+
+        //针对 $path 在某个 app 路径下 的情况
+        $apre = $pathes["app"];
+        $alen = strlen($apre);
+        if (substr($path, 0, $alen)===$apre) {
+            $appp = substr($path, $alen);
+            $appk = explode(DS, ltrim($appp, DS))[0];
+            //将 dirs 中定义的 特殊路径附加 appk 前缀，形成完整的 特殊路径前缀
+            foreach ($dirs as $dk => $dp) {
+                if ($dk==="app") continue;
+                $pdk = $dk."/".$appk;
+                $pathes[$pdk] = $apre.DS.$appk.DS.str_replace(["\\","/"],DS, $dp);
+            }
+        }
+        //var_dump($pathes);
+        //exit;
+
+        //将 特殊路径 分别拆分为数组，并按数组长度，大到小排序
+        $pts = [];
+        foreach ($pathes as $pk => $pi) {
+            $pip = str_replace(["\\","/"], DS, $pi);
+            $pia = explode(DS, $pip);
+            $pts[] = [
+                "key" => $pk,
+                "path" => $pip,
+                "parr" => $pia,
+                "plen" => count($pia),
+                "slen" => strlen($pip),
+            ];
+        }
+        //按路径长度 大到小 排序
+        usort($pts, function($a,$b) {
+            if ($a["plen"]===$b["plen"]) return 0;
+            return $a["plen"]>$b["plen"] ? -1 : 1;
+        });
+        //var_dump($pts);
+        //exit;
+
+        //检查是否有 符合的特殊路径 是 $path 的根路径
+        for ($i=0;$i<count($pts);$i++) {
+            $pti = $pts[$i];
+            $pilen = $pti["plen"];
+            //特殊路径 一定不能比 $path 长
+            if ($pilen>$plen) continue;
+            //特殊路径 字符串长度
+            $slen = $pti["slen"];
+            if (substr($path, 0, $slen) === $pti["path"]) {
+                //找到符合条件的前缀
+                $pr = $pti["key"].substr($path, $slen);
+                //路径分割符 转为 /
+                $pr = str_replace(DS, "/", $pr);
+                return $pr;
+            }
+        }
+
+        //var_dump($dirs);
+        //var_dump($pts);
+        //exit;
+
+        return null;
+    }
+
+    /**
      * 根据输入，查找真实存在的 文件路径|文件夹路径
      * foo/bar          --> ROOT_PATH/foo/bar
      * xxxx/foo         --> XXXX_PATH/foo
@@ -273,7 +365,7 @@ class Path extends Util
         }
 
         //路径数组
-        $path = str_replace(["\\","/"],DS,$path);   //trim(str_replace(["\\","/"],DS,$path), DS);
+        $path = str_replace(["\\","/"],DS,$path);
         $parr = explode(DS, $path);
 
         //从右向左 依次检查 路径是否存在
@@ -502,139 +594,89 @@ class Path extends Util
         return strpos($path, "://")!==false || substr($path, 0,2)==="//" || substr($path, 0,1)==="/";
     }
 
+    /**
+     * 将某个路径下的 文件|子文件夹文件 递归输出为 一维数组
+     * @param String $path 路径，必须是存在的本地文件夹路径
+     * @param String $prefix 在一维文件数组中的 key 键名 前缀，默认 ""
+     * @param String $glup key 的连接符，默认 -
+     * @param String $ext 可以指定要查找的文件后缀名，默认 ""
+     * @return Array 粗路径下所有找到的文件 一维数组
+     *  [
+     *      "pre-fn" => "物理路径",
+     *      "pre-subdir-fn" => "",
+     *      ...
+     *  ]
+     */
+    public static function flat($path, $prefix="", $glup="-", $ext="")
+    {
+        //确保查找路径真实存在
+        if (!Is::nemstr($path)) return [];
+        $path = self::find($path, Path::FIND_DIR);
+        if (!Is::nemstr($path)) return [];
 
+        //处理 文件 key 的连接符
+        if (!Is::nemstr($glup)) $glup = "-";
+        if (strlen($glup)>1) $glup = substr($glup, -1);
 
-    
+        //处理前缀 必须为 foo-bar- 形式  或者  为空
+        if (!Is::nemstr($prefix)) {
+            $prefix = "";
+        } else {
+            if (substr($prefix, -1)!==$glup) {
+                $prefix .= $glup;
+            }
+        }
+        
+        //要查询的文件 后缀名
+        if (!Is::nemstr($ext)) $ext = "";
+        if (Is::nemstr($ext)) {
+            $oext = $ext;
+            if (substr($ext, 0, 1)!==".") $ext = ".".$ext;
+            $extlen = strlen($ext);
+        } else {
+            $oext = "";
+            $extlen = 0;
+        }
 
-    //根据输入，查找真实存在的文件，返回文件路径，未找到则返回null
-    //!! 已废弃
-    public static function __find(
-        $path = "",     //要查找的文件或文件夹
-        $options = []   //可选的参数
-    ) {
-        $options = Arr::extend([
-            "inDir" => DIR_ASSET,
-            "subDir" => "",
-            "checkDir" => false
-        ], $options);
-        if (file_exists($path) && $options["checkDir"]==false) return $path;
-        if (is_dir($path) && $options["checkDir"]==true && substr($path, 0, 4)!="app/") return $path;
-        $path = trim(str_replace("/", DS, $path), DS);
-        $local = [];
+        //准备 文件 列表数组
+        $fs = [];
 
-        $subDir = $options["subDir"];
-        if (empty($subDir)) $subDir = [];
-        $subDir = Is::indexed($subDir) ? $subDir : (Is::nemstr($subDir) ? explode(",", $subDir) : []);
-        $checkDir = $options["checkDir"];
-        $inDir = $options["inDir"];
-        if (empty($inDir)) $inDir = [];
-        $inDir = Is::indexed($inDir) ? $inDir : (Is::nemstr($inDir) ? explode(",", $inDir) : []);
-        $appDir = [];
-        if (!empty($inDir)) {
-            $parr = explode(DS, $path);
-            //if (strtolower($parr[0]) == "app" || !is_null(Resper::cls("App/".ucfirst(strtolower($parr[0]))))) {
-            if (strtolower($parr[0]) == "app" || is_dir(APP_PATH.DS.strtolower($parr[0]))) {
-                if (strtolower($parr[0]) == "app") array_shift($parr);
-                if (is_dir(APP_PATH.DS.$parr[0])) {
-                    $app = array_shift($parr);
-                    $appDir[] = "app/$app";
-                    foreach ($inDir as $i => $dir) {
-                        $appDir[] = "app/$app/$dir";
-                        //$appDir[] = APP_PATH.DS.$app.DS.$dir;
-                    }
-                    $npath = implode(DS, $parr);
-                    $gl = self::_findarr($npath, [
-                        "inDir" => $appDir,
-                        "subDir" => $subDir,
-                        "checkDir" => $checkDir
-                    ], $local);
-                }
-            /*} else if (!is_null(self::cnst($parr[0]))) {
-                $cnst = array_shift($parr);
-                foreach ($inDir as $i => $dir) {
-                    $cnstDir[] = "$cnst/$dir";
-                }
-                $npath = implode(DS, $parr);
-                $gl = self::_findarr($npath, [
-                    "inDir" => $cnstDir,
-                    "subDir" => $subDir,
-                    "checkDir" => $checkDir
-                ], $local);*/
-            } else {
-                if (!is_null(self::cnst($parr[0]))) {
-                    $cnst = array_shift($parr);
+        //遍历
+        $dh = opendir($path);
+        while ( false !== ($fn = readdir($dh)) ) {
+            if (in_array($fn,[".",".."])) continue;
+            $fp = $path.DS.$fn;
+            //针对文件
+            if (is_file($fp)) {
+                if ($extlen>0) {
+                    //指定了要查找的文件后缀名
+                    if (strlen($fn)<=$extlen || strtolower(substr($fn, $extlen*-1))!==$ext) continue;
+                    //解析得到 组件名 或 组件组 component-group 名称
+                    $vn = $prefix.substr($fn, 0, $extlen*-1);
+                    //写入组件数组
+                    $fs[$vn] = $fp;
                 } else {
-                    $cnst = "root";
+                    //未指定要查找的文件后缀名，查找所有类型文件，将文件后缀名作为 key 的最后一节
+                    $fpi = pathinfo($fp);
+                    $fn = $fpi["filename"];
+                    $fext = $fpi["extension"];
+                    $vn = $prefix.$fn.$glup.$fext;
+                    //写入组件数组
+                    $fs[$vn] = $fp;
                 }
-                //var_dump($cnst);
-                foreach ($inDir as $i => $dir) {
-                    $cnstDir[] = "$cnst/$dir";
+                continue;
+            }
+            //针对文件夹
+            if (is_dir($fp)) {
+                $subfs = self::flat($fp, $prefix.$fn, $glup, $oext);
+                if (Is::nemarr($subfs)) {
+                    $fs = array_merge($fs, $subfs);
                 }
-                $npath = implode(DS, $parr);
-                $gl = self::_findarr($npath, [
-                    "inDir" => $cnstDir,
-                    "subDir" => $subDir,
-                    "checkDir" => $checkDir
-                ], $local);
             }
         }
-        $gl = self::_findarr($path, [
-            "inDir" => $inDir,
-            "subDir" => $subDir,
-            "checkDir" => $checkDir
-        ], $local);
-        
-        //var_dump($local);
-        //exit;
-        if (isset($_GET["break_dump"]) && $_GET["break_dump"]=="yes") {
-            var_dump($local);
-            //exit;
-        }
-        //break_dump("break_pathfind", $local);
-        
-        foreach ($local as $i => $v) {
-            if (file_exists($v)) return $v;
-            if ($checkDir && is_dir($v)) return $v;
-        }
-        return null;
+
+        //返回
+        return $fs;
     }
 
-    //建立查找路径数组
-    //!! 已废弃
-    protected static function _findarr(
-        $path = "",
-        $options = [],  //已经由 find 方法处理过，可直接使用，不做排错
-        &$olocal = []    //将建立的路径数组 merge 到此数组中
-    ) {
-        $inDir = $options["inDir"];
-        $subDir = $options["subDir"];
-        $checkDir = $options["checkDir"];
-        $inApp = isset($inDir[0]) && Str::has($inDir[0],"app/");
-        $local = [];
-        $info = pathinfo(self::mk($path));
-        if (!$inApp) {
-            $local[] = self::mk($path);
-            if ($checkDir) $local[] = $info["dirname"].DS.$info["filename"];
-        }
-        foreach ($subDir as $k => $sdi) {
-            $sdi = str_replace("/",  DS, $sdi);
-            $local[] = $info["dirname"].DS.$sdi.DS.$info["basename"];
-            if ($checkDir) $local[] = $info["dirname"].DS.$sdi.DS.$info["filename"];
-        }
-        foreach ($inDir as $i => $idi) {
-            $idi = str_replace("/", DS, $idi);
-            $pi = self::mk($idi.DS.$path);
-            $local[] = $pi;
-            $info = pathinfo($pi);
-            if ($checkDir) $local[] = $info["dirname"].DS.$info["filename"];
-            foreach ($subDir as $k => $sdi) {
-                $sdi = str_replace("/",  DS, $sdi);
-                $local[] = $info["dirname"].DS.$sdi.DS.$info["basename"];
-                if ($checkDir) $local[] = $info["dirname"].DS.$sdi.DS.$info["filename"];
-            }
-        }
-        //$local = array_unique($local);
-        $olocal = array_merge($olocal, $local);
-        $olocal = array_unique($olocal);
-    }
 }

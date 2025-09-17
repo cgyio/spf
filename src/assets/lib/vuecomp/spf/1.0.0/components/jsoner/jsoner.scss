@@ -1,0 +1,362 @@
+/** cv-jsoner **/
+.cv-jsoner {
+    $height-main: 56px;
+    $height-thead: 36px;    //24px;
+    $height-row: 36px;      //32px;
+    $height-tctrl: 48px;    //36px;
+
+    //@include pmpnoov;
+    overflow: hidden;
+    width: 100%; min-height: $height-main;
+    @include flex-y;
+    border: $color-bd solid 1px;
+    border-radius: $size-gap-xs;
+    background-color: $color-bg-l3;
+    color: $color-fc;
+    font-size: $size-f;
+
+    &:focus-within {
+        border-color: $color-primary;
+    }
+
+    &>.thead, .tbody>.row, .tbody>.row>.rhead {
+        //@include pmpnoov;
+        box-sizing: border-box;
+        width: 100%;
+        @include flex-x($y: stretch);
+        border-top: $color-bd solid 1px;
+        //border-bottom: $color-bd solid 1px;
+        @include trans;
+
+        .el-tag.el-tag--info {
+            color: $color-fc-l1 !important;
+        }
+
+        &>span {
+            padding: 0 $size-gap-xs;
+            box-sizing: border-box;
+            @include flex-x;
+            //border-right: $color-bd solid 1px;
+
+            &:last-child {
+                border: none;
+            }
+
+            &.key {
+                flex:1;
+                padding-left: 0;
+                &.array-key {
+                    justify-content: flex-end !important;
+                }
+            }
+            &.key-ashtml {
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: flex-start;
+                flex: 1;
+                padding: $size-gap-s $size-gap-s $size-gap-s 0;
+                line-height: 150%;
+                color: $color-fc-d1;
+                font-size: $size-f;
+                font-family: $font-fml-code;
+            }
+            &.value {
+                width: 256px;
+            }
+            &.value-ashtml {
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: flex-start;
+                width: 256px; 
+                padding-top: $size-gap-s; padding-bottom: $size-gap-s;
+                line-height: 150%;
+                color: $color-fc-d1;
+                font-size: $size-f;
+                font-family: $font-fml-code;
+
+                &>.val-row, &>span, &>div {
+                    @include po($w: 100%, $h: unset, $mg: 0, $pd: 0);
+                    @include flex-x($y: center);
+
+                    &.val-tit {
+                        margin-bottom: $size-gap-s;
+                        font: {
+                            size: $size-f-l;
+                            weight: bold;
+                        }
+                        color: $color-fc-d3;
+                    }
+
+                    &.val-info {
+                        padding-left: $size-gap-xl;
+                    }
+                    &.val-notice {
+                        color: $color-danger; font-weight: bold;
+                    }
+                    &.val-diy {
+                        margin: $size-gap-xl 0 $size-gap 0;
+                        &>.val-diy-label {
+                            width: 96px; margin-right: $size-gap-xl;
+                            color: $color-fc-d3; font-weight: bold;
+                        }
+                    }
+                }
+            }
+            &.ctrl {
+                width: calc(#{$size-btn-s} + #{$size-gap-xs} * 2);  //36px;
+                justify-content: center;
+            }
+        }
+
+        &>.tree-btn {
+            width: $height-thead; padding: 0; overflow: hidden;
+            @include flex-x($x: center, $y: center);
+            border-right: none;
+
+            &>.tree-btn-icon {
+                color: $color-fc-l1;
+                @include trans($dura: .2s);
+                &.subopened {
+                    transform: rotate(90deg);
+                }
+            }
+        }
+        
+        &.empty {
+            align-items: center;
+            justify-content: center;
+            font-size: $size-f;
+            color: $color-fc-l1;
+        }
+    }
+
+    &>.thead {
+        height: $height-thead;
+        background-color: $color-bg-l2;
+        border-top: none;
+        border-bottom: $color-bd solid 1px;
+
+        &>span {
+            color: $color-fc-l1;
+            font-size: $size-f-s;
+        }
+
+        &>.key {
+            padding-right: 0;
+            &>.flex-1 {flex:1;}
+            &>.resize {
+                //margin-right: calc(#{$size-gap-xs} * -1);
+                color: $color-fc-l2;
+                cursor: col-resize;
+                &:hover {
+                    color: $color-fc-l1;
+                }
+            }
+        }
+    }
+
+    .tbody {
+        //@include pmpnoov;
+        box-sizing: border-box;
+        width: 100%; /*min-height: $height-row;*/
+        @include flex-y;
+
+        &>.row, &>.row>.rhead {
+            min-height: $height-row;
+
+            &>span {
+                overflow: hidden;
+
+                &>input {
+                    width: 0; height: 28px;
+                    flex: 1; 
+                    border: none;
+                    outline: none;
+                    background-color: transparent;
+                    color: $color-fc-d1;
+                    font-size: $size-f;
+                    font-family: $font-fml-code;
+
+                    &:focus {
+                        color: $color-primary;
+                    }
+                }
+
+                &>.btn {
+                    margin-left: $size-gap-xs;
+                    &:first-child {margin-left: 0;}
+                }
+            }
+
+            //&:last-child {border: none;}
+            &:first-child {border: none;}
+
+            /*&:hover {
+                background-color: $color-bg-l2;
+                &.subopened {
+                    background-color: transparent;
+                }
+            }
+
+            &:focus-within {
+                background-color: $color-primary-bg;
+                border-top-color: $color-primary-l2;
+
+                &+.row, &+.rhead {
+                    border-top-color: $color-primary-l2;
+                }
+
+                &.subopened {
+                    background-color: transparent;
+                    border-top-color: $color-bd;
+                    &+.row, &+.rhead {
+                        border-top-color: $color-bd;
+                    }
+                }
+                &:hover {
+                    background-color: $color-primary-bg;
+                    &.subopened {
+                        background-color: transparent;
+                    }
+                }
+            }*/
+        }
+
+        &>.row {
+            $bdc: #{$color-primary-l2};
+            $bgc: #{$color-primary-bg};
+
+            &>.rhead {
+                cursor: pointer;
+            }
+
+            &:hover {
+                background-color: $color-bg-l2;
+                &.subopened, &.nohover {
+                    background-color: transparent;
+                }
+            }
+
+            &:focus-within {
+                background-color: $bgc;
+                border-top-color: $bdc;
+                &:hover {
+                    background-color: $bgc;
+                }
+                &+.row {
+                    border-top-color: $bdc;
+                }
+            }
+
+            &.subopened {
+                background-color: transparent;
+                &:hover {
+                    background-color: transparent;
+                    &>.rhead {
+                        background-color: $color-bg-l2;
+                    }
+                }
+                &:focus-within {
+                    border-top-color: $bdc;
+                    &>.rhead {
+                        background-color: $bgc;
+                        border-bottom-color: $bdc;
+                        &>span.tree-btn {
+                            &>.tree-btn-icon {
+                                color: $color-primary;
+                            }
+                        }
+                    }
+                    &>.tbody {
+                        &>.row {
+                            border-left-color: $bdc;
+                        }
+                    }
+                    &+.row {
+                        border-top-color: $bdc;
+                    }
+                }
+            }
+        }
+
+        &>.row>.rhead {
+            &.subopened {
+                border-bottom: $color-bd solid 1px;
+            }
+        }
+
+        &>.row.array-value, &>.row.object-value {
+            flex-direction: column;
+            align-items: flex-start;
+            justify-content: flex-start;
+
+            &>.tbody {
+                
+            }
+        }
+
+        &[class*=lvl] {
+            padding-left: $height-thead;
+            &>.row {
+                border-left: $color-bd solid 1px;
+            }
+        }
+        &.lvl-0 {
+            padding-left: 0;
+            &>.row {
+                border-left: none;
+            }
+        }
+
+        &.with-scroll {
+            flex: 1;
+            @include nicescroll($size: 4px, $radius: 2px);
+        }
+        
+    }
+
+    &>.tctrl {
+        //@include pmp($pd: 0 $size-gap-xs);
+        @include po-ov($w: 100%, $h: $height-tctrl, $mg: 0, $pd: 0 $size-gap-xs);
+        //width: 100%; height: $height-tctrl;
+        @include flex-x;
+        border-top: $color-bd solid 1px;
+        background-color: $color-bg-l2;
+
+        &>.btn {
+            margin-left: $size-gap-xs;
+            &:first-child {margin-left: 0;}
+        }
+        &>span.gap {flex: 1;}
+    }
+
+    &>.jsonpre {
+        //@include pmp($pd: $size-gap);
+        @include po-ov($w: 100%, $h: unset, $mg: 0, $pd: $size-gap);
+        //width: 100%;
+        @include flex-y;
+        border-top: $color-bd solid 1px;
+        font-family: 'Cascadia Code', 'Consolas', monospace;
+        color: $color-fc-d3;
+    }
+
+    /** 全屏显示 **/
+    &.fullscreen {
+        position: fixed; width: 100vw; height: 100vh; overflow: hidden;
+        left: 0; top: 0;
+        border: none;
+        border-radius: 0;
+        z-index: 500;
+        @include shadow;
+
+        &>.tbody {
+            flex: 1;
+            @include nicescroll;
+            &>.row {
+                &:last-child {
+                    border-bottom: $color-bd solid 1px;
+                }
+            }
+        }
+    }
+}

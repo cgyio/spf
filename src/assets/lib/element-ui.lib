@@ -6,24 +6,35 @@
         "latest": "2.15.14"
     },
     "ext": ["js","css"],
-    "switch": {},
+    "switch": {
+        "dev": "__delete__",
+        "esm": false,
+        "browser": true,
+        "dark": false
+    },
     "cdn": "https://cdnjs.cloudflare.com/ajax/libs/element-ui/",
 
     "2.15.14": {
         "js": {
-            "-esm-browser-": {
+            "esm-browser": {
                 "file": "index.min.js",
                 "fix": [
                     "appendExportForEsm"
                 ]
             },
-            "-esm!-browser-": {
+            "esm!-browser": {
                 "file": "index.min.js"
             }
         },
         "css": {
-            "-esm-browser-": {
-                "file": "theme-chalk/index.min.css",
+            "browser": {
+                "file": "element-ui-light.css",
+                "fix": [
+                    "fixIconFonts"
+                ]
+            },
+            "browser-dark": {
+                "file": "element-ui-dark.css",
                 "fix": [
                     "fixIconFonts"
                 ]

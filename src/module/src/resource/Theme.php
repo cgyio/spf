@@ -2,7 +2,7 @@
 /**
  * 框架 Src 资源处理模块
  * Resource 资源类 Theme 子类
- * 继承自 Plain 纯文本类型基类，处理 *.theme 类型本地文件
+ * 继承自 ParsablePlain 复合资源类型基类，处理 *.theme 类型本地文件
  * 
  * 定义 Spf 框架视图 主题的 文件格式|解析方式|输出方式 的规则：
  *   0  ***.theme 文件内容是 包含主题相关参数的 json 数据，只能是 !! 本地文件
@@ -25,22 +25,8 @@ use Spf\util\Conv;
 use Spf\util\Path;
 use Spf\util\Color;
 
-class Theme extends Plain
+class Theme extends ParsablePlain
 {
-    /**
-     * 当前的资源类型的本地文件，是否应保存在 特定路径下
-     * 指定的 特定路径 必须在 Src::$current->config->resource["access"] 中定义的 允许访问的文件夹下
-     *  null        表示不需要保存在 特定路径下，本地资源应在 [允许访问的文件夹]/... 路径下
-     *  "ext"       表示应保存在   [允许访问的文件夹]/[资源后缀名]/... 路径下
-     *  "foo/bar"   指定了 特定路径 foo/bar 表示此类型本地资源文件应保存在   [允许访问的文件夹]/foo/bar/... 路径下
-     * 默认 null 不指定 特定路径
-     * !! 覆盖父类
-     * !! *.theme 主题文件 必须保存在 [允许访问的文件夹]/theme/... 路径下
-     */
-    public static $filePath = "ext";    //可选 null | ext | 其他任意路径形式字符串 foo/bar 首尾不应有 /
-
-
-
     /**
      * 主题参数 元数据 标准数据结构
      */
@@ -100,7 +86,7 @@ class Theme extends Plain
      * !! 覆盖父类
      */
     protected static $exps = [
-        "js", "css", "scss",
+        "css", "scss", "js",
     ];
     
     /**
@@ -113,7 +99,7 @@ class Theme extends Plain
      * 解析 theme 主题文件 得到的 主题数据
      */
     //主题元数据
-    protected $meta = [];
+    public $meta = [];
     //各主题模块的 实例
     protected $modules = [
         /*
@@ -201,65 +187,71 @@ class Theme extends Plain
         $this->extendParams($params);
         $this->formatParams();
 
-        //读取缓存文件
-        $cfp = $this->cacheFile();
-        if ($cfp !== false) {
-            //存在缓存文件 且 允许读取缓存 则 读取缓存
-            $this->content = file_get_contents($cfp);
-        } else {
-            //缓存文件不存在，或 开启了 强制忽略缓存，开始解析主题文件，获取目标内容
-
-            //请求的 mode 模式
-            $modes = $this->exportModes();
-
-            //依次调用 主题模块的 parse 方法
-            $mods = $this->modules;
-            //解析得到的 context
-            $ctx = [];
-            foreach ($mods as $modk => $modins) {
-                //调用 各主题模块的 解析方法
-                $modins->parse();
-                $ctx[$modk] = $modins->getItemByMode(...$modes);
+        //检查是否需要 读取缓存
+        if ($this->useCache() === true) {
+            //读取缓存
+            $cnt = $this->getCacheContent();
+            if (Is::nemstr($cnt)) {
+                //缓存内容存在，直接使用缓存的内容
+                $this->content = $cnt;
+                return $this;
             }
-            //缓存 context
-            $this->context = $ctx;
-
-            //根据 export 类型 调用对应的 createExtContent 方法
-            $ext = $this->params["export"] ?? $this->ext;
-            $m = "create".Str::camel($ext, true)."Content";
-            if (!method_exists($this, $m)) {
-                //对应 方法不存在，则 不做处理，表示直接使用 当前 content
-                //通常针对于 输出此文件实例的 实际文件类型
-    
-            } else {
-                //调用方法
-                $this->$m();
-            }
-
-            //调用 对应 ext 的 ThemeExporter
-            /*$ext = $this->exportExt();
-            $extclsn = "Theme".Str::camel($ext, true)."Exporter";
-            $extcls = Cls::find("module/src/resource/theme/$extclsn", "Spf\\");
-            if (!class_exists($extcls)) {
-                //主题资源输出类 不存在
-                throw new SrcException("$ext 类型主题资源输出类不存在", "resource/export");
-            }
-            $exporter = new $extcls($this, $ctx);
-            //生成 content
-            $this->content = $exporter->createContent();*/
-
-            //写入缓存文件
-            $this->saveToCacheFile();
-
         }
 
-        //minify
-        if ($this->isMin() === true) {
-            //压缩 JS/CSS 文本
-            $this->content = $this->minify();
+        //忽略缓存 或 缓存不存在 则 解析主题文件 生成资源内容
+        //请求的 mode 模式
+        $modes = $this->exportModes();
+
+        //依次调用 主题模块的 parse 方法
+        $mods = $this->modules;
+        //解析得到的 context
+        $ctx = [];
+        foreach ($mods as $modk => $modins) {
+            //调用 各主题模块的 解析方法
+            $modins->parse();
+            $ctx[$modk] = $modins->getItemByMode(...$modes);
         }
+        //缓存 context
+        $this->context = $ctx;
+
+        //根据 export 类型 生成对应的 content
+        $this->createExportContent();
+
+        //写入缓存文件
+        $this->saveCacheContent();
 
         return $this;
+    }
+
+
+
+    /**
+     * 缓存处理方法
+     */
+
+    /**
+     * 根据传入的参数，获取缓存文件的 路径，不论文件是否存在
+     * 缓存文件 默认保存在 当前资源文件路径下的 资源同名文件夹下
+     * !! 覆盖父类
+     * @return String 缓存文件的 路径
+     */
+    protected function getCachePath()
+    {
+        //当前 theme 文件路径
+        $real = $this->real;
+        //缓存的 css|scss|js 文件在 theme 文件目录下的 [theme_name]/... theme 同名文件夹下
+        $pi = pathinfo($real);
+        //theme 所在文件夹
+        $dir = $pi["dirname"];
+        //theme 文件名 不带 后缀 foo_bar 形式
+        $thn = Str::snake($pi["filename"], "_");
+
+        //获取要读取的 文件类型|mode 生成 缓存文件名 theme_name_mode_list.ext
+        $ext = $this->exportExt();
+        $modn = implode("_", $this->exportModes());
+        $cfn = $thn."_".$modn.".".$ext;
+        //缓存文件路径
+        return $dir.DS.$thn.DS.$cfn;
     }
 
 
@@ -437,57 +429,6 @@ class Theme extends Plain
      */
 
     /**
-     * 判断是否存在 要输出的 css|scss|js 缓存文件
-     * @return String|false 存在则返回文件路径，不存在 返回 false
-     */
-    protected function cacheFile()
-    {
-        //params
-        $ps = $this->params;
-
-        //是否 强制不使用 缓存
-        $create = $ps["create"] ?? false;
-        if (!is_bool($create)) $create = false;
-        //强制不使用缓存 则返回 false
-        if ($create===true) return false;
-
-        //缓存文件路径
-        $cfp = $this->cacheFilePath();
-
-        //检查文件是否存在
-        if (file_exists($cfp)) return $cfp;
-        return false;
-    }
-
-    /**
-     * 把本次请求文件的 解析结果 缓存到 对应的 缓存文件
-     * @return Bool
-     */
-    protected function saveToCacheFile()
-    {
-        //根据 params 获取 缓存文件路径
-        $cfp = $this->cacheFilePath();
-        //保存解析结果
-        $cnt = $this->content;
-        //写入文件
-        return Path::mkfile($cfp, $cnt);
-    }
-
-    /**
-     * 根据传入的 参数，获取 输出文件类型 css|scss|js
-     * @return String ext
-     */
-    protected function exportExt()
-    {
-        $ps = $this->params;
-        $ext = $ps["export"] ?? "css";
-        if (!Is::nemstr($ext) || !in_array(strtolower($ext), ["css", "scss", "js"])) {
-            $ext = "css";
-        }
-        return strtolower($ext);
-    }
-
-    /**
      * 从 传入的 $_GET 参数，获取要输出的 mode []
      * @return Array mode 数组
      */
@@ -499,29 +440,6 @@ class Theme extends Plain
         $marr = explode(",", $mode);
         if (!Is::nemarr($marr)) $marr = ["light"];
         return $marr;
-    }
-
-    /**
-     * 根据传入的 参数，获取对应缓存文件的 文件路径，不论是否存在缓存文件
-     * @return String 对应缓存文件 路径
-     */
-    protected function cacheFilePath()
-    {
-        //当前 theme 文件路径
-        $real = $this->real;
-        //缓存的 css|scss|js 文件在 theme 文件目录下的 [theme_name]/... theme 同名文件夹下
-        $pi = pathinfo($real);
-        //theme 所在文件夹
-        $dir = $pi["dirname"];
-        //theme 文件名 不带 后缀 foo_bar 形式
-        $thn = Str::snake($pi["filename"], "_");
-
-        //获取要读取的 文件类型|mode 生成 缓存文件名 theme_name_mode_list.ext
-        $ext = $this->exportExt();
-        $modn = implode("_", $this->exportModes());
-        $cfn = $thn."_".$modn.".".$ext;
-        //缓存文件路径
-        return $dir.DS.$thn.DS.$cfn;
     }
 
     /**
@@ -606,18 +524,6 @@ class Theme extends Plain
         $res = Resource::create($fn, $ps);
         if (!$res instanceof Resource) return null;
         return $res;
-    }
-
-    /**
-     * 获取 当前主题的 meta 元数据
-     * @param String $key 要获取的某个 meta 数据的 key
-     * @return Array $this->meta
-     */
-    public function meta($key=null)
-    {
-        if (!Is::nemstr($key)) return (object)$this->meta;
-        $mv = Arr::find($this->meta, $key);
-        return $mv;
     }
 
     /**
@@ -717,10 +623,10 @@ class Theme extends Plain
         // 0 合并 common 文件，此文件必须合并
         $cmf = $this->commonFilePath();
         if (file_exists($cmf)) {
-            $this->useFile($cmf, [
+            $this->useFile([
                 //合并 common 文件时，启用 import 即执行 common 文件中定义的 import 语句
                 "noimport" => false,
-            ]);
+            ], $cmf);
         }
 
         // 1 合并 use=foo,bar 中定义的要合并的 css|scss 文件
@@ -751,6 +657,130 @@ class Theme extends Plain
         }
 
         return $this;
+    }
+
+
+
+    /**
+     * 静态工具
+     */
+
+    /**
+     * 当前类型的 复合资源，可以在 Src 模块中定义 特有的 响应方法
+     * 例如：*.theme 资源 在 Src 模块中的 可以定义 特有的响应方法 themeView
+     * 响应方法将调用 此处定义的 方法逻辑
+     * !! 覆盖父类
+     * !! 此方法将直接操作 Response 响应实例，返回响应结果
+     * @param Array $args URI 路径数组
+     * @return Mixed
+     */
+    public static function response(...$args)
+    {
+        /**
+         * 实现 Src 模块中的 Theme 特有响应方法
+         * 
+         * 请求方法：
+         * https://host/[app_name/]src/theme/[theme_name]                       访问 主题编辑器
+         * https://host/[app_name/]src/theme/[theme_name][.min].[js|css|scss]   访问主题 JS|CSS|SCSS 文件
+         */
+
+        //传入空参数，报 404
+        if (!Is::nemarr($args)) {
+            Response::insSetCode(404);
+            return null;
+        }
+        
+        //拼接请求的 路径字符串
+        $req = implode("/", $args);
+
+        //先检查一次请求的路径是否真实存在的 文件
+        $lfres = static::getLocalResource("theme/$req");
+        if ($lfres !== false) return $lfres;
+        
+        //解析对应的 后缀名|文件夹|文件名
+        $pi = pathinfo($req);
+        $ext = $pi["extension"] ?? "";
+        $dir = $pi["dirname"] ?? "";
+        $fn = $pi["filename"] ?? "";
+
+        //处理请求的资源上级路径
+        if (!Is::nemstr($dir) || in_array($dir, ["."])) $dir = "";
+
+        //处理请求资源的 后缀名
+        if (!Is::nemstr($ext)) $ext = "theme";
+        $ext = strtolower($ext);
+
+        //支持输出的 ext 格式
+        $exts = array_merge(static::$exps, ["theme"]);
+        //请求的 后缀名不支持，报 404
+        if (!in_array(strtolower($ext), $exts)) {
+            Response::insSetCode(404);
+            return null;
+        }
+
+        //请求的文件名为空，报 404
+        if (!Is::nemstr($fn)) {
+            Response::insSetCode(404);
+            return null;
+        }
+
+        //是否存在 .min.
+        $ismin = false;
+        if (substr(strtolower($fn), -4)===".min") {
+            $ismin = true;
+            $fn = substr($fn, 0, -4);
+        }
+
+        //首先定位 请求的主题 *.theme 文件，创建 Theme 主题资源实例
+        if ($ext === "theme") {
+            $thfp = substr($req, -6)===".theme" ? $req : $req.".theme";
+        } else {
+            $thfp = ($dir=="" ? "" : $dir."/").$fn.".theme";
+        }
+        //调用 Resource::findLocal() 方法 查找对应的 *.theme 文件
+        $thf = Resource::findLocal($thfp);
+        //未找到 *.theme 文件
+        if (!file_exists($thf)) {
+            Response::insSetCode(404);
+            return null;
+        }
+
+        //主题资源实例 的 params 参数
+        $ps = [];
+        if ($ismin) $ps["min"] = true;
+        if ($ext !== "theme") {
+            $ps["export"] = $ext;
+        }
+        
+        //创建 Theme 资源实例
+        $theme = Resource::create($thf, $ps);
+        if (!$theme instanceof Resource) {
+            //报错
+            throw new SrcException("$thfp 文件资源无法实例化", "resource/instance");
+        }
+
+        //根据请求的后缀名，决定输出的资源内容
+        if ($ext === "theme") {
+            //输出 主题编辑器 视图
+            Response::insSetType("view");
+            
+            //TODO: 创建 ThemeView 实例
+            return [
+                //使用 ThemeView 视图类
+                "view" => "view/ThemeView",
+                //传入 Theme 资源实例作为 视图类的 实例化参数
+                "params" => [
+                    "theme" => $theme
+                ]
+            ];
+
+        }
+        
+        //根据 ext 输出对应的 JS|CSS|svg 资源
+        //将 Response 输出类型 改为 src
+        Response::insSetType("src");
+        //输出资源
+        return $theme;
     }
 
 }

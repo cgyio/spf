@@ -10,10 +10,15 @@ use Spf\App;
 use Spf\Response;
 use Spf\Module;
 use Spf\module\src\Resource;
+use Spf\module\src\Fs;
+use Spf\module\src\resource\Lib;
+use Spf\module\src\resource\Theme;
+use Spf\module\src\resource\Icon;
 use Spf\module\src\SrcException;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
+use Spf\util\Url;
 use Spf\util\Conv;
 use Spf\util\Path;
 use Spf\util\Color;
@@ -70,6 +75,21 @@ class Src extends Module
         return $resource;
     }
 
+    /**
+     * api
+     * @desc 文件系统操作
+     * @auth true
+     * @role all
+     * 
+     * @param Array $args url 参数
+     * @return Mixed
+     */
+    public function fsApi(...$args)
+    {
+        //调用 Fs::response 方法 代理此请求
+        return Fs::response(...$args);
+    }
+
 
 
     /**
@@ -93,98 +113,8 @@ class Src extends Module
      */
     public function libView(...$args)
     {
-        //传入空参数，报 404
-        if (!Is::nemarr($args)) return $this->responseCode(404);
-
-        //拼接请求的 路径字符串
-        $req = implode("/", $args);
-
-        //先检查一次请求的路径是否真实存在的 文件
-        $lfres = $this->localFileExistsed("lib/$req");
-        if ($lfres !== false) return $lfres;
-
-        //解析路径
-        $pi = pathinfo($req);
-        $ext = $pi["extension"] ?? "";
-        //$dir = $pi["dirname"] ?? "";
-        $fn = $pi["filename"] ?? "";
-        //$bn = array_slice($args, -1)[0];
-        $lp = array_slice($args, 0, -1);
-        //lib 资源实例化参数
-        $ps = [];
-        //switch 开关状态
-        $sw = [];
-
-        if (Str::hasAny($fn, "dev","esm","browser")) {
-            //访问 /src/lib/[foo/bar/]lib_name/[@|latest|1.2.3/]dev-esm.[js|css] 形式
-            //未指定 lib_name
-            if (empty($lp)) return $this->responseCode(404);
-            //switch 开关状态
-            $sw = explode("-", $fn);
-            if (count($lp)===1) {
-                // /src/lib/lib_name/dev-esm.[js|css]
-                $lib = $lp[0];
-                if (in_array($lib, ["@","latest"]) || strpos($lib, ".")!==false) return $this->responseCode(404);
-                $dir = "";
-            } else {
-                $lpl = array_slice($lp, -1)[0];
-                if (in_array($lpl, ["@","latest"]) || strpos($lpl, ".")!==false) {
-                    // /src/lib/[foo/bar/]lib_name/[@|latest|1.2.3]/dev-esm.[js|css]
-                    $ps["ver"] = $lpl;
-                    $lp = array_slice($lp, 0, -1);
-                    $lib = array_slice($lp, -1)[0];
-                } else {
-                    // /src/lib/[foo/bar/]lib_name/dev-esm.[js|css]
-                    $lib = $lpl;
-                }
-                $lp = array_slice($lp, 0, -1);
-                $dir = empty($lp) ? "" : implode("/", $lp);
-            }
-        } else if (in_array($fn, ["@","latest"]) || strpos($fn, ".")!==false) {
-            //访问 /src/lib/[foo/bar/]lib_name/[@|latest|1.2.3].[js|css]
-            //未指定 lib_name
-            if (empty($lp)) return $this->responseCode(404);
-            $ps["ver"] = $fn;
-            $lib = array_slice($lp, -1)[0];
-            $lp = array_slice($lp, 0, -1);
-            $dir = empty($lp) ? "" : implode("/", $lp);
-        } else {
-            //访问 /src/lib/[foo/bar/]lib_name[.js|css] 形式
-            $lib = $fn;
-            $dir = empty($lp) ? "" : implode("/", $lp);
-        }
-        //lib 名称获取错误
-        if (!isset($lib) || !Is::nemstr($lib)) return $this->responseCode(404);
-        //开关状态 写入 params 参数
-        if (!empty($sw)) {
-            foreach ($sw as $swi) {
-                $swv = strpos($swi,"!")===false;
-                $swk = $swv ? $swi : str_replace("!","",$swi);
-                $ps[$swk] = $swv;
-            }
-        }
-        //ext 写入 params 参数
-        if (Is::nemstr($ext)) {
-            $ps["export"] = $ext;
-        }
-
-        //创建 Lib 前端库资源实例
-        $libfp = ($dir=="" ? "" : $dir."/").$lib.".lib";
-        //调用 Resource::findLocal() 方法 查找对应的 *.lib 文件
-        $libf = Resource::findLocal($libfp);
-        //未找到 *.lib 文件
-        if (!file_exists($libf)) return $this->responseCode(404);
-        //创建 Lib 资源实例
-        $libo = Resource::create($libf, $ps);
-        if (!$libo instanceof Resource) {
-            //报错
-            throw new SrcException("$libfp 文件资源无法实例化", "resource/instance");
-        }
-        
-        //将 Response 输出类型 改为 src
-        Response::insSetType("src");
-        //输出资源
-        return $libo;
+        //调用 Lib::response() 方法 代理此请求
+        return Lib::response(...$args);
     }
 
     /**
@@ -202,92 +132,8 @@ class Src extends Module
      */
     public function themeView(...$args)
     {
-        //传入空参数，报 404
-        if (!Is::nemarr($args)) return $this->responseCode(404);
-        
-        //拼接请求的 路径字符串
-        $req = implode("/", $args);
-
-        //先检查一次请求的路径是否真实存在的 文件
-        $lfres = $this->localFileExistsed("theme/$req");
-        if ($lfres !== false) return $lfres;
-        
-        //解析对应的 后缀名|文件夹|文件名
-        $pi = pathinfo($req);
-        $ext = $pi["extension"] ?? "";
-        $dir = $pi["dirname"] ?? "";
-        $fn = $pi["filename"] ?? "";
-
-        //处理请求的资源上级路径
-        if (!Is::nemstr($dir) || in_array($dir, ["."])) $dir = "";
-
-        //处理请求资源的 后缀名
-        if (!Is::nemstr($ext)) $ext = "theme";
-        $ext = strtolower($ext);
-
-        //支持输出的 ext 格式
-        $exts = ["theme", "js", "css", "scss"];
-        //请求的 后缀名不支持，报 404
-        if (!in_array(strtolower($ext), $exts)) return $this->responseCode(404);
-
-        //请求的文件名为空，报 404
-        if (!Is::nemstr($fn)) return $this->responseCode(404);
-
-        //是否存在 .min.
-        $ismin = false;
-        if (substr(strtolower($fn), -4)===".min") {
-            $ismin = true;
-            $fn = substr($fn, 0, -4);
-        }
-
-        //首先定位 请求的主题 *.theme 文件，创建 Theme 主题资源实例
-        if ($ext === "theme") {
-            $thfp = substr($req, -6)===".theme" ? $req : $req.".theme";
-        } else {
-            $thfp = ($dir=="" ? "" : $dir."/").$fn.".theme";
-        }
-        //调用 Resource::findLocal() 方法 查找对应的 *.theme 文件
-        $thf = Resource::findLocal($thfp);
-        //未找到 *.theme 文件
-        if (!file_exists($thf)) return $this->responseCode(404);
-
-        //主题资源实例 的 params 参数
-        $ps = [];
-        if ($ismin) $ps["min"] = true;
-        if ($ext !== "theme") {
-            $ps["export"] = $ext;
-        }
-        
-        //创建 Theme 资源实例
-        $theme = Resource::create($thf, $ps);
-        if (!$theme instanceof Resource) {
-            //报错
-            throw new SrcException("$thfp 文件资源无法实例化", "resource/instance");
-        }
-
-        //根据请求的后缀名，决定输出的资源内容
-        if ($ext === "theme") {
-            //输出 主题编辑器 视图
-            //当前响应方法的 输出类默认为 view 无需修改
-            //Response::insSetType("view");
-            
-            //TODO: 创建 ThemeView 实例
-            return [
-                //使用 ThemeView 视图类
-                "view" => "view/ThemeView",
-                //传入 Theme 资源实例作为 视图类的 实例化参数
-                "params" => [
-                    "theme" => $theme
-                ]
-            ];
-
-        }
-        
-        //根据 ext 输出对应的 JS|CSS|svg 资源
-        //将 Response 输出类型 改为 src
-        Response::insSetType("src");
-        //输出资源
-        return $theme;
+        //调用 Theme::response() 方法 代理此请求
+        return Theme::response(...$args);
     }
 
     /**
@@ -306,98 +152,8 @@ class Src extends Module
      */
     public function iconView(...$args)
     {
-        //传入空参数，报 404
-        if (!Is::nemarr($args)) return $this->responseCode(404);
-        
-        //拼接请求的 路径字符串
-        $req = implode("/", $args);
-
-        //先检查一次请求的路径是否真实存在的 文件
-        $lfres = $this->localFileExistsed("icon/$req");
-        if ($lfres !== false) return $lfres;
-        
-        //解析对应的 后缀名|文件夹|文件名
-        $pi = pathinfo($req);
-        $ext = $pi["extension"] ?? "";
-        $dir = $pi["dirname"] ?? "";
-        $fn = $pi["filename"] ?? "";
-
-        //处理请求的资源上级路径
-        if (!Is::nemstr($dir) || in_array($dir, ["."])) $dir = "";
-
-        //处理请求资源的 后缀名
-        if (!Is::nemstr($ext)) $ext = "icon";
-        $ext = strtolower($ext);
-
-        //支持输出的 ext 格式
-        $exts = ["icon", "js", "css", "svg"];
-        //请求的 后缀名不支持，报 404
-        if (!in_array(strtolower($ext), $exts)) return $this->responseCode(404);
-
-        //如果请求的是 单个 svg 且 上级路径为空，报 404
-        if ($ext === "svg" && !Is::nemstr($dir)) return $this->responseCode(404);
-
-        //请求的文件名为空，报 404
-        if (!Is::nemstr($fn)) return $this->responseCode(404);
-
-        //是否存在 .min.
-        $ismin = false;
-        if (substr(strtolower($fn), -4)===".min") {
-            $ismin = true;
-            $fn = substr($fn, 0, -4);
-        }
-
-        //首先定位 请求的图标库 *.icon 文件，创建 Icon 图标库资源实例
-        if ($ext === "icon") {
-            $iconf = substr($req, -5)===".icon" ? $req : $req.".icon";
-        } else if ($ext === "svg") {
-            $iconf = $dir.".icon";
-        } else {
-            $iconf = ($dir=="" ? "" : $dir."/").$fn.".icon";
-        }
-        //调用 Resource::findLocal() 方法 查找对应的 *.icon 文件
-        $icf = Resource::findLocal($iconf);
-        //未找到 *.icon 文件
-        if (!file_exists($icf)) return $this->responseCode(404);
-
-        //icon 资源实例 的 params 参数
-        $ps = [];
-        if ($ismin) $ps["min"] = true;
-        if ($ext === "svg") {
-            $ps["icon"] = $fn;
-        } else {
-            $ps["export"] = $ext==="icon" ? "css" : $ext;
-        }
-        
-        //创建 icon 资源实例
-        $icon = Resource::create($icf, $ps);
-        if (!$icon instanceof Resource) {
-            //报错
-            throw new SrcException("$iconf 文件资源无法实例化", "resource/instance");
-        }
-
-        //根据请求的后缀名，决定输出的资源内容
-        if ($ext === "icon") {
-            //输出 图标库 列表视图
-            //当前响应方法的 输出类默认为 view 无需修改
-            //Response::insSetType("view");
-            
-            return [
-                //使用 视图页面 spf/view/iconset.php
-                "view" => "spf/assets/view/iconset.php",
-                //传入 Icon 资源实例作为视图页面参数
-                "params" => [
-                    "icon" => $icon
-                ]
-            ];
-
-        }
-        
-        //根据 ext 输出对应的 JS|CSS|svg 资源
-        //将 Response 输出类型 改为 src
-        Response::insSetType("src");
-        //输出资源
-        return $icon;
+        //调用 Icon::response() 方法 代理此请求
+        return Icon::response(...$args);
     }
 
 
@@ -447,6 +203,36 @@ class Src extends Module
      */
     public function srcTestApi()
     {
+        //$lcf = Resource::findLocal("lib/element-ui/element-ui-dark.css");
+        //var_dump($lcf);exit;
+
+
+        $path = [
+            "/data/vendor/cgyio/spf/src/assets/lib/vue.lib",
+            "/data/vendor/cgyio/resper/src/../../spf/src/assets/.foo.css",
+            "/data/ms/assets/theme/spf_ms.theme",
+            "/data/ms/library/foo.php",
+            "/data/ms/library/db/config/dbn.json",
+            "/data/ms/app/goods/assets/foo/bar.js",
+            "/data/ms/app/goods/assets/uploads/foo/bar.jpg",
+            "/data/ms/app/goods/library/db/config/dbn.json",
+            "/data/ms/app/goods/library/db/dbn.db",
+            "/data/ms/app/goods/library/foo.php",
+        ];
+        /*$rela = [];
+        foreach ($path as $pi) {
+            $rela[] = Path::rela($pi);
+        }*/
+        $urls = [];
+        foreach ($path as $pi) {
+            $urls[] = Url::src($pi);
+        }
+
+        var_dump($path);
+        //var_dump($rela);exit;
+        var_dump($urls);exit;
+
+
         $clrs = [
             "#fa0",
             "#fa07",

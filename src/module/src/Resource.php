@@ -52,6 +52,13 @@ class Resource
     public static $filePath = null;     //可选 null | ext | 其他任意路径形式字符串 foo/bar 首尾不应有 /
 
     /**
+     * 当前资源类型是否定义了 factory 工厂方法，如果是，则在实例化时，通过 工厂方法 创建资源实例，而不是 new 
+     * !! 针对存在 资源自定义子类 的情况，如果设为 true，则必须同时定义 factory 工厂方法
+     * !! 如果必须，子类可以覆盖此属性
+     */
+    public static $hasFactory = false;
+
+    /**
      * 根据 URI 请求参数，查找 并创建 Resource 资源实例
      * 资源管理类的 核心入口方法
      * @param Array|String $uri 字符串 或 数组
@@ -107,7 +114,15 @@ class Resource
                 //Resource 资源子类不存在
                 throw new SrcException("不支持或不存在的资源类型", "resource/parse");
             }
-            $res = new $cls($p);
+
+            //实例化资源
+            if ($cls::$hasFactory === true && method_exists($cls, "factory")) {
+                //定义的 factory 工厂方法，则使用 工厂方法 创建资源实例
+                $res = $cls::factory($p);
+            } else {
+                //使用 new
+                $res = new $cls($p);
+            }
             if (!$res instanceof Resource) {
                 //Resource 资源类实例化失败
                 $clsn = Cls::name($cls);
@@ -289,7 +304,7 @@ class Resource
          * 默认 可访问的 本地资源 路径在 SRC_PATH | VIEW_PATH | UPLOAD_PATH 下
          * 在 Src::$current->config->resource["access"] 参数中定义
          */
-        $dirs = Src::$current->config->resource["access"] ?? ["src", "view", "upload", "spf/assets", /*"spf/view"*/];
+        $dirs = Src::$current->config->resource["access"] ?? ["src", "view", "spf/assets",];
         //在允许访问的 dirs 文件夹下，可能还有指定的 特定路径
         $subdir = null;
         //如果查询的是 文件而不是文件夹 则需要查询此文件对应的 Resource 资源类是否定义了 本地文件保存的 特定路径

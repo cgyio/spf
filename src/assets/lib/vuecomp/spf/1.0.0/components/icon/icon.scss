@@ -1,0 +1,32 @@
+.cv-icon {
+    width: 1em; height: 1em;
+    //vertical-align: -0.15em;
+    //margin-top: 0.05em;
+    fill: currentColor;
+    overflow: hidden;
+    transition: all $ani-trans-dura;
+
+    &.icon-m {font-size: $size-icon;}
+    @each $sz in xxs,xs,s,l,xl,xxl,xxxl {
+        &.icon-#{$sz} {
+            font-size: map-get($sizeMap, icon-#{$sz});
+        }
+    }
+    @each $sz in 48,54,64,72,88,96 {
+        &.icon-#{$sz}px {
+            font-size: #{$sz}px;
+        }
+    } 
+
+    @each $cli in $colorListAll {
+        &.icon-#{$cli} {
+            color: map-get($colorMap, $cli);
+        }
+    }
+
+    @each $cli in d2,d1,l1,l2,l3 {
+        &.icon-fc-#{$cli} {
+            color: map-get($colorMap, fc-#{$cli});
+        }
+    }
+}

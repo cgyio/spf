@@ -1,0 +1,31 @@
+{
+    "lib": "spf",
+    "prefix": "sv",
+    "variable": "SpfVueCompLib",
+    "version": {
+        "@": "1.0.0",
+        "latest": "1.0.0"
+    },
+    "ext": ["js","css","scss","*"],
+    "switch": {
+        "dev": "__delete__",
+        "esm": true,
+        "browser": "__delete__",
+        "load": false
+    },
+
+    "cdn": "",
+    
+    "class": "module/src/resource/lib/VueCompLib",
+
+    "denpendency": [],
+
+    "theme": "spf/assets/theme/spf.theme",
+
+    "common": {
+        "js": [],
+        "css": [
+            "common/common.scss"
+        ]
+    }
+}

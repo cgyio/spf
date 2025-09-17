@@ -2,6 +2,6 @@
     "name": "spf",
     "version": "0.0.1",
     "use": {
-        
+        "foo": "spf/assets/theme/foo.scss"
     }
 }

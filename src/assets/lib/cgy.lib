@@ -1,0 +1,24 @@
+{
+    "lib": "cgy",
+    "variable": "cgy",
+    "version": {
+        "@": "2.2.1",
+        "latest": "2.2.1"
+    },
+    "ext": ["js"],
+    "switch": {
+        "dev": "__delete__",
+        "esm": "__delete__",
+        "browser": "__delete__",
+        "all": false,
+        "mod": false,
+
+        "localstorage": true,
+        "request": true,
+        "csstools": true
+    },
+
+    "cdn": "",
+    
+    "class": "module/src/resource/lib/JsModLib"
+}
