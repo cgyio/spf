@@ -13,21 +13,16 @@ use Spf\module\src\Stream;
 class Download extends Resource
 {
     /**
-     * 针对一些特殊的资源，例如 音频流|视频流 开启自定义的 getContent | export 方法
-     * 是否开启自定义 io 方法
-     * !! 有需要 自定义 io 方法的资源子类，覆盖这个属性
+     * 资源输出的最后一步，echo
+     * !! 覆盖父类
+     * @param String $content 可单独指定最终输出的内容，不指定则使用 $this->content
+     * @return Resource $this
      */
-    protected $customIO = true;
-
-    /**
-     * !! customIO == true 的特殊资源类型，可自定义 customExport 方法
-     * @param Array $params 可以在输出资源时，额外指定参数，与 export 方法参数一致
-     * @return void
-     */
-    protected function customExport($params=[])
+    protected function echoContent($content=null)
     {
         $stream = Stream::create($this->real);
         $stream->startDownload();
-        exit;
+        
+        return $this;
     }
 }

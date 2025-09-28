@@ -336,6 +336,34 @@ class ParsablePlain extends Plain
     }
 
     /**
+     * 针对本地资源，或此资源外部访问 url 的 前缀 urlpre
+     * 即 通过 urlpre/[$this->name] 可以直接访问到此资源
+     * !! 覆盖 Resource 父类方法，实现 ParsablePlain 类型资源的 外部访问 url 前缀的生成方法
+     * !! 此类型资源在 Src 模块中 拥有独立的 响应方法 theme|icon|lib 等
+     * @return String|null
+     */
+    public function getLocalResUrlPrefix()
+    {
+        /**
+         * 首先调用父类方法，将生成不包含 当前资源名的 路径
+         * 例如 有本地资源：    /data/ms/app/foo_app/assets/theme/spf.theme
+         * 生成的 url 前缀为：  https://domain/foo_app/src/theme
+         */
+        $urlpre = parent::getLocalResUrlPrefix();
+        if (!Is::nemstr($urlpre)) return null;
+
+        //获取当前资源的 名称
+        $resn = $this->getLocalResName();
+
+        /**
+         * 此类型资源的 外部访问 url 前缀，应包含 资源名称，即：
+         * https://domain/foo_app/src/theme/spf
+         */
+        return $urlpre."/".trim($resn, "/");
+
+    }
+
+    /**
      * 获取真实的 filePath 当前库指定要 保存到的 特殊路径
      * 根据 static::$filePath 设置值 来决定
      * @return String|null

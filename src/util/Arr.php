@@ -21,8 +21,13 @@ class Arr extends Util
             return [];
         } else if (is_array($var)) {
             return $var;
+        } elseif (is_int($var) || is_float($var)) {
+            //return self::mk("[\"".$var."\"]");
+            return [ $var ];
         } else if (is_string($var)) {
-            if (Is::json($var)) {
+            if (is_numeric($var)) {
+                return [ $var ];
+            } elseif (Is::json($var)) {
                 return Conv::j2a($var);
             } elseif (Is::query($var)) {
                 return Conv::u2a($var);
@@ -31,14 +36,9 @@ class Arr extends Util
             } elseif (false !== Is::explodable($var)) {
                 $split = Is::explodable($var);
                 return explode($split, $var);
-            //} elseif (is_numeric($var)) {
-            //    return self::mk("[\"".$var."\"]");
             } else {
                 return [ $var ];
             }
-        } elseif (is_int($var) || is_float($var)) {
-            //return self::mk("[\"".$var."\"]");
-            return [ $var ];
         } elseif (is_object($var)) {
             $rst = [];
             foreach ($var as $k => $v) {
@@ -325,6 +325,27 @@ class Arr extends Util
         
         //返回
         return $narr;
+    }
+
+    /**
+     * 针对关联数组 $a $b 返回 $a 中的某些键值，要求这些键在 $b 中也存在
+     * 类似于求交集，但是默认的 array_intersect 比较的是 值 而不是 键
+     * @param Array $a
+     * @param Array $b
+     * @return Array
+     */
+    public static function intersect($a=[], $b=[])
+    {
+        if (!Is::nemarr($a) || !Is::nemarr($b) || !Is::associate($a) || !Is::associate($b)) return [];
+        $n = array_filter($a, function($v,$k) use ($b) {
+            return isset($b[$k]);
+        }, ARRAY_FILTER_USE_BOTH);
+        /*$n = [];
+        foreach ($a as $k => $v) {
+            if (!isset($b[$k])) continue;
+            $n[$k] = $v;
+        } */
+        return $n;
     }
 
     /**

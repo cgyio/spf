@@ -290,7 +290,8 @@ class Is extends Util
     public static function remote($file = null)
     {
         if (!self::nemstr($file)) return false;
-        return false !== strpos($file, "://");
+        //return false !== strpos($file, "://");
+        return Url::isUrl($file);
     }
 
     /**

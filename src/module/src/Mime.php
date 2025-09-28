@@ -120,6 +120,12 @@ class Mime
 
     //预定义的可处理类型
     public static $processable = [
+        //框架内部直接支持 编译|合并|处理 的纯文本的 codex 代码类型文件
+        "codex" => [
+            "js","css","scss",
+            "vue",
+        ],
+        
         //纯文本文件
         "plain" => [
             "txt",

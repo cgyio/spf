@@ -253,4 +253,4 @@ request.init = cgy => { cgy.def( {
 
 } ) }
 
-export default request
+export default request;

@@ -67,6 +67,7 @@ use Spf\module\src\Resource;
 use Spf\module\src\resource\Lib;
 use Spf\module\src\resource\Theme;
 use Spf\module\src\resource\Scss;
+use Spf\module\src\resource\Js;
 use Spf\module\src\Mime;
 use Spf\module\src\SrcException;
 use Spf\util\Is;
@@ -203,6 +204,21 @@ class VueCompLib extends Lib
     protected static $exps = [
         "js", "css", "scss", "*",
     ];
+    
+    /**
+     * 定义 在 输出的 内容字符串中可使用的 字符串模板，以及其对应的 getCompLibInfo 数组中的数据 key
+     */
+   protected $tpls = [
+       //此组件所在组件库 外部访问的 url 前缀，通常用于 import url
+       "__URLPRE__" => "urlpre",
+       //组件库定义的 组件名称前缀，通常用于 style 样式代码中的 样式类名称
+       "__PRE__" => "pre",
+       //用于组件模板代码块中，代替 组件名称前缀，以便可以方便的 在不同的使用场景下，切换组件名称前缀
+       //例如：<PRE@-button>...</PRE@-button> 替换为 <pre-button>...</pre-button>
+       "PRE@" => "pre",
+       //"<@-" => ["lib/pre", "<%-"],
+       //"</@-" => ["lib/pre", "</%-"],
+   ];
 
     //当前请求的 库文件信息
     public $libfile = [
@@ -480,16 +496,81 @@ class VueCompLib extends Lib
      *  3   如果 esm===false 则调用 Vue.use() 方法
      * @return $this
      */
-    protected function buildEnvJs()
+    protected function buildCompEnvJs()
     {
-        //TODO：
+        //meta
+        $meta = $this->meta;
+        //组件库名称
+        $lib = $meta["lib"];
+        //组件库信息
+        $libi = $this->getCompLibInfo();
+
+        //收集 imports
+        $imports = [];
+        //收集 js 语句数组
+        $jsrows = [];
+
+        //查找 plugin 插件 js 文件
+        $pgf = $this->getInnerFilePath("plugin/$lib.js", true);
+        if (Is::nemstr($pgf) && file_exists($pgf)) {
+            //创建 plugin 主文件的 资源实例
+            $plugin = Resource::create($pgf, [
+                "export" => "js",
+                "lib" => $libi,
+                "inlib" => true,
+            ]);
+            if (!$plugin instanceof Resource) {
+                //实例化失败，报错
+                throw new SrcException("无法创建 $lib 插件资源实例", "resource/export");
+            }
+            //获取 imports 和 rows 内容行数组
+            $fjd = $plugin->getFormattedJsCode();
+            //释放资源
+            unset($plugin);
+
+            //imports
+            $inps = $fjd["imports"] ?? [];
+            //jsrows
+            $rows = $fjd["jsrows"] ?? [];
+
+            //合并
+            $this->combineJsRowsAndImports($inps, $rows, $imports, $jsrows, [
+                "合并插件 ".basename($pgf)." 文件",
+                "!! 不要手动修改 !!"
+            ]);
+        }
+
+
+
+        //rows
+        $this->rows = [];
+
+        //生成 imports 语句
+        if (Is::nemarr($imports)) {
+            foreach ($imports as $var => $url) {
+                $this->rowAdd("import $var from '$url';","");
+            }
+            $this->rowEmpty(1);
+        }
+
+        //合并 jsrows
+        $this->rowAdd($jsrows);
+
+        //esm
+
+        //生成 content
+        $this->content = $this->rowCnt();
 
         return $this;
     }
 
     /**
      * 将组件库 中多个 *.vue 单文件组件 编译为单个 js 文件
-     * 调用 Vue 资源类的 编译方法
+     *  0   依次生成 启用组件的资源实例，调用其 getFormattedJsCode 方式，生成 格式化的 js 代码
+     *  1   统一处理 import
+     *  2   依次合并 组件的 js 定义代码
+     *  3   依次生成调用 Vue.component 方法的代码
+     *  4   根据 esm 开关状态，生成 export 代码
      * @return $this
      */
     protected function buildCompJsFile()
@@ -519,16 +600,8 @@ class VueCompLib extends Lib
         //收集各组件的 js 定义语句
         $jsrows = [
             /*
-            "pre-foo-bar" => [
-                # 如果遇到同名 import 变量 但是 url 不同的，在此指定 新变量名，在 插入 rows 步骤，需要替换 这些变量
-                "importVars" => [
-                    "原变量名" => "新变量名",
-                ],
-
-                # 其他 getFormattedJsCode 返回的数据，除去 imports
-                ...
-            ],
-            ...
+            包含所有组件的 定义 js 语句 数组
+            包含必要的 注释
              */
         ];
         //收集 组件名 与 组件变量名 的 映射关系，用于 合并执行 Vue.component() 以及 export
@@ -571,39 +644,14 @@ class VueCompLib extends Lib
 
             //此组件变量名
             $vcv = $fjd["vcv"];
-            //imports
-            $inpi = $fjd["imports"] ?? [];
-            //需要更换的 import 变量名数组
-            $inpvars = [];
-            //依次插入 imports
-            if (Is::nemarr($inpi)) {
-                foreach ($inpi as $inpv => $inpu) {
-                    if (isset($imports[$inpv])) {
-                        //存在同变量名的 import
-                        if ($imports[$inpv] === $inpu) {
-                            //指向的 url 也相同，跳过
-                            continue;
-                        } else {
-                            //同名 import 但是 url 不同，更换新变量名
-                            $ninpv = $inpv."In".$vcv;
-                            //写入 imports
-                            $imports[$ninpv] = $inpu;
-                            //记录 变量名变更
-                            $inpvars[$inpv] = $ninpv;
-                            continue;
-                        }
-                    }
-                    //正常写入
-                    $imports[$inpv] = $inpu;
-                }
-            }
-            //去除 imports
-            unset($fjd["imports"]);
-            //保存 变量名变更记录
-            $fjd["importVars"] = $inpvars;
 
-            //保存到 jsrows
-            $jsrows[$compk] = $fjd;
+            //合并到 imports 和 jsrows
+            $inps = $fjd["imports"] ?? [];
+            $rows = $fjd["jsrows"] ?? [];
+            $this->combineJsRowsAndImports($inps, $rows, $imports, $jsrows, [
+                "定义组件 $vcv",
+                "!! 不要手动修改 !!",
+            ]);
 
             //保存到 vcns
             $vcns[$compk] = $vcv;
@@ -622,38 +670,7 @@ class VueCompLib extends Lib
 
         //依次处理 jsrows
         if (Is::nemarr($jsrows)) {
-            foreach ($jsrows as $compk => $jsc) {
-                $vcv = $jsc["vcv"];
-                $rows = $jsc["jsrows"] ?? [];
-                $css = $jsc["css"] ?? "";
-                //是否需要 替换 import 变量名
-                $inpvs = $jsc["importVars"] ?? [];
-                $needrpl = Is::nemarr($inpvs);
-                //插入 jsrows
-                $this->rowComment(
-                    "定义组件 $vcv",
-                    "!! 不要手动修改 !!",
-                );
-                $this->rowEmpty(1);
-                //准备要插入的 行数组
-                $nrows = [];
-                foreach ($rows as $i => $row) {
-                    //不插入空行
-                    if (!Is::nemstr($row)) continue;
-                    //替换 import 变量名
-                    if ($needrpl) {
-                        foreach ($inpvs as $ov => $nv) {
-                            $row = str_replace($ov, $nv, $row);
-                        }
-                    }
-                    $nrows[] = $row;
-                }
-                //插入
-                if (Is::nemarr($nrows)) {
-                    $this->rowAdd($nrows);
-                    $this->rowEmpty(3);
-                }
-            }
+            $this->rowAdd($jsrows);
         }
 
         //合并调用 Vue.component 方法
@@ -689,12 +706,16 @@ class VueCompLib extends Lib
         //合并 生成 content
         $this->content = $this->rowCnt();
 
+        //!! 已在 vue 资源实例中替换过，此处不需要模板替换
+        //$this->content = $this->replaceTplsInCnt();
+
         return $this;
     }
 
     /**
-     * 将多个 vue 单文件组件内部 css 以及对应的 scss 文件 编译为单个 scss 文件，然后编译为 css
-     * 如果指定了 theme 主题信息，则需要先调用 theme 主题资源实例，生成 通用 scss
+     * 将多个 vue 单文件组件相关的 css|scss 内容，合并编译为 css 内容
+     *  0   调用 buildCompScssFile 方法生成 scss 内容
+     *  1   调用 Scss::parseScss 编译 scss 生成 css 内容
      * @return $this
      */
     protected function buildCompCssFile()
@@ -704,15 +725,18 @@ class VueCompLib extends Lib
         $scssCnt = $this->content;
 
         //编译
-        //$cssCnt = Scss::parseScss($scssCnt, false);
-        //$this->content = $cssCnt;
+        $cssCnt = Scss::parseScss($scssCnt, false);
+        $this->content = $cssCnt;
 
         return $this;
     }
 
     /**
      * 将多个 vue 单文件组件内部 css 以及对应的 scss 文件 编译为单个 scss 文件
-     * 如果指定了 theme 主题信息，则需要先调用 theme 主题资源实例，生成 通用 scss
+     *  0   如果指定了 theme 主题信息，则需要先调用 theme 主题资源实例，生成 通用 scss
+     *  1   如果指定了 common["css"] 通用样式文件，则依次合并这些 css|scss 文件
+     *  2   依次合并启用的 组件对应的 scss 文件
+     *  3   依次合并启用的 组件中 <style>...</style> 中的内容
      * @return $this
      */
     protected function buildCompScssFile()
@@ -818,11 +842,12 @@ class VueCompLib extends Lib
         //收集组件对应的 scss 文件，可能存在多个组件使用一个 scss
         $compScss = [];
         //准备组件资源实例化参数
+        $libi = $this->getCompLibInfo();
         $vcps = [
             "export" => "js",
             "esm" => $esm,
             //当前组件库信息
-            "lib" => $this->getCompLibInfo(),
+            "lib" => $libi,
         ];
         //依次处理 comps 组件列表
         foreach ($comps as $compk => $compc) {
@@ -899,6 +924,9 @@ class VueCompLib extends Lib
         //合并 rows
         $this->content = $this->rowCnt();
 
+        //模板替换
+        $this->content = static::replaceTplsInCode($this->content, $this->tpls, $libi);   //$this->replaceTplsInCnt();
+
         return $this;
     }
 
@@ -924,6 +952,10 @@ class VueCompLib extends Lib
         $fps = [
             "export" => $ext,
             "esm" => $ps["esm"] ?? false,
+            //所有组件内部文件资源实例化参数中，都附加 组件库信息
+            "lib" => $this->getCompLibInfo(),
+            //增加一个 组件库内部文件的 标记
+            "inlib" => true,
         ];
 
         /**
@@ -932,16 +964,13 @@ class VueCompLib extends Lib
          */
         $fpi = pathinfo($file);
         if ($fpi["extension"]==="vue") {
-            //当前组件库信息
-            $libi = $this->getCompLibInfo();
             //根据 *.vue 路径 查找 组件名称 pre-foo-bar
             $vcn = $this->getCompNameByFilePath($file);
             if (!Is::nemstr($vcn)) {
                 //未找到对应的 组件名，报错
                 throw new SrcException("未找到组件 ".basename($file), "resource/export");
             }
-            $libi["vcn"] = $vcn;
-            $fps["lib"] = $libi;
+            $fps["lib"]["vcn"] = $vcn;
         }
 
         //创建资源实例
@@ -960,66 +989,110 @@ class VueCompLib extends Lib
     }
 
     /**
-     * TODO:
-     * 合并 dependency 中定义的 依赖组件库
-     * @return Array 
+     * 合并某个格式化的 js 文件内容，已拆分出 curImports 和 curJsrows 数组
+     * 将其合并到 现有的 imports 和 jsrows 数组
+     * !! 处理 import 冲突的情况
+     * @param Array $curImports 当前 js 内容中的 imports 数组
+     * @param Array $curJsrows 当前 js 内容中的 jsrows 数组
+     * @param Array $imports 已有的 imports 数组 引用
+     * @param Array $jsrows 已有的 jsrows 内容行数组 引用
+     * @param Array $comment js 行数组中插入的 注释 行数组
+     * @return Array 返回合并后的 imports 和 jsrows 数组
      *  [
-     *      "imports" => [
-     *          "mixinBase" => "mixins/base.js",
-     *          "Var" => "Path",
-     *          ...
-     *      ],
-     *      "jsrows" => [
-     *          "const PreFooBar = Vue.component('pre-foo-bar', {",
-     *          "...",
-     *          ...
-     *      ],
+     *      "imports" => [],
+     *      "jsrows" => []
      *  ]
      */
-    protected function buildInDependencyLibs()
+    protected function combineJsRowsAndImports($curImports, $curJsrows, &$imports, &$jsrows, $comment=[])
     {
+        //传入的参数检查
+        if (!Is::nemarr($curImports)) $curImports = [];
+        if (!Is::nemarr($curJsrows)) $curJsrows = [];
 
+        //合并 imports
+        //可能存在的 需要 替换的 import 变量名
+        $ivars = [
+            /*
+            "原变量名" => "新变量名",
+            ...
+            */
+        ];
+        if (Is::nemarr($curImports)) {
+            foreach ($curImports as $var => $url) {
+                //如果 不存在同名 import 直接添加
+                if (!isset($imports[$var])) {
+                    $imports[$var] = $url;
+                    continue;
+                }
+
+                //存在同名 import 则检查 url 是否一致
+                if ($imports[$var] === $url) {
+                    //url 也相同，表示这是同一个 import 资源，跳过
+                    continue;
+                }
+
+                //同变量名，但是不同 url 指向，这是一个 import 冲突
+
+                //首先反查 url 是否已存在于 imports 
+                if (in_array($url, array_values($imports))) {
+                    //url 已存在，表示已有别的 js 代码 import 了此 url，查找其 变量名
+                    $nvar = array_search($url, $imports);
+                    if (!isset($curImports[$nvar])) {
+                        //如果其他 js 代码的 import 变量名，不在此 js 代码的 imports 变量名列表中，则可以使用其他 js 代码的 import 变量名
+                        $ivars[$var] = $nvar;
+                        continue;
+                    }
+                }
+
+                //url 未被其他 js 代码 import 过，或者 其他 js 代码的 import 变量名，已被此 js 代码指向了 其他 url
+                //需要 变更 变量名
+                $nvar = $var."__".Str::nonce(8, false);
+                while (in_array($nvar, array_values($ivars)) || isset($curImports[$nvar]) || isset($imports[$nvar])) {
+                    //生成的 新变量名 必须唯一
+                    $nvar = $var."__".Str::nonce(8, false);
+                }
+                //写入 imports
+                $imports[$nvar] = $url;
+                //写入 ivars 记录变更
+                $ivars[$var] = $nvar;
+            }
+        }
+
+        //替换 curJsrows 中的 已变更的 变量名
+        if (Is::nemarr($ivars)) {
+            $glup = "__RN__";
+            $curjs = implode($glup, $curJsrows);
+            foreach ($ivars as $ovar => $nvar) {
+                $curjs = str_replace($ovar, $nvar, $curjs);
+            }
+            $curJsrows = explode($glup, $curjs);
+        }
+
+        //插入 注释
+        if (Is::nemarr($comment)) {
+            if (count($comment)===1) {
+                $comment[0] = "\/** ".$comment[0]." **\/";
+            } else {
+                $comment = array_map(function($crow) {
+                    return " * $crow";
+                }, $comment);
+                array_unshift($comment, "/**");
+                $comment[] = " */";
+            }
+            $comment[] = "";
+            //插入
+            $curJsrows = array_merge($comment, $curJsrows, ["","",""]);
+        }
+
+        //插入 jsrows
+        $jsrows = array_merge($jsrows, $curJsrows);
+
+        //返回
+        return [
+            "imports" => $imports,
+            "jsrows" => $jsrows
+        ];
     }
-
-    /**
-     * TODO:
-     * 合并当前组件库的 plugin 插件代码，构建 Vue.use() 语句
-     * @return Array
-     *  [
-     *      "imports" => [
-     *          "axios" => "/src/lib/axios.js",
-     *          "Var" => "Path",
-     *          ...
-     *      ],
-     *      "jsrows" => [
-     *          "const LibNamePlugin = {",
-     *          "...",
-     *          ...
-     *      ],
-     *  ]
-     */
-    protected function buildInPlugin()
-    {
-
-    }
-
-    /**
-     * TODO:
-     * 合并当前组件库关联的 SPF-Theme 主题的 cssvar 样式参数
-     * @return Array
-     *  [
-     *      "jsrows" => [
-     *          "const themeCssVar = {",
-     *          "...",
-     *          ...
-     *      ],
-     *  ]
-     */
-    protected function buildInThemeCssVars()
-    {
-
-    }
-
 
 
 

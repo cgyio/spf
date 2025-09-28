@@ -51,6 +51,7 @@ class Url extends SpecialUtil
     public $protocol = "";
     public $host = "";
     public $domain = "";
+    public $dir = "";
     public $full = "";
     public $uri = "";
     public $path = [];
@@ -97,6 +98,9 @@ class Url extends SpecialUtil
         $this->host = $ud["host"];
         //domain
         $this->domain = $ud["scheme"]."://".$ud["host"];
+        //dir 当前指向的文件的 上一级路径
+        $dir = implode("/", array_slice($this->path, 0, -1));
+        $this->dir = $this->domain.(Is::nemstr($dir) ? "/$dir" : "");
 
         //full
         $this->full = $url;
@@ -137,7 +141,7 @@ class Url extends SpecialUtil
     }
 
     /**
-     * 判断一个字符串是 有效的 url
+     * 判断一个字符串是 有效的 完整的 url
      * @param String $url
      * @return Bool
      */
@@ -156,6 +160,26 @@ class Url extends SpecialUtil
         if (self::$current instanceof Url) return self::$current;
         self::$current = new self();
         return self::$current;
+    }
+
+    /**
+     * 判断一个字符串是否 url 简写形式
+     * 以 / | // | ./ | ../ 开头的 路径字符串 视为 简写的 url
+     * @param String $url
+     * @return Bool
+     */
+    public static function isShortUrl($url)
+    {
+        if (!Is::nemstr($url)) return false;
+        $url = trim($url);
+        if (
+            substr($url, 0, 3) === "../" ||
+            in_array(substr($url, 0, 2), ["//","./"]) ||
+            substr($url, 0, 1) === "/"
+        ) {
+            return true;
+        }
+        return false;
     }
 
     
@@ -247,10 +271,17 @@ class Url extends SpecialUtil
         if (!Is::nemarr($accs)) return null;
 
         //当前本地路径是在 某个 app 路径下
+        $appdir = "app";
+        if (Env::$isInsed === true) {
+            $dirs = Env::$current->dir;
+            if (isset($dirs["app"])) $appdir = $dirs["app"];
+            $appdir = str_replace(["\\","/"], DS, $appdir);
+            $appdir = ltrim($appdir, DS);
+        }
         $inapp = false;
-        if (strpos($path, DS."app")!==false) {
+        if (strpos($path, DS.$appdir)!==false) {
             $inapp = true;
-            $parr = explode(DS."app", $path);
+            $parr = explode(DS.$appdir, $path);
             if (!isset($parr[1]) || !Is::nemstr($parr[1])) return null;
             $parr = explode(DS, $parr[1]);
             if (!isset($parr[1]) || !Is::nemstr($parr[1])) return null;
@@ -293,5 +324,32 @@ class Url extends SpecialUtil
         $url = Url::current();
         return $url->domain.$u;
 
+    }
+
+    /**
+     * 将传入的 shortUrl 补全为完整的 url
+     * @param String $url 必须是 以 / | // | ./ | ../ 开头的字符串
+     * @return String 完整的 url https://...
+     */
+    public static function fixShortUrl($url)
+    {
+        if (!Is::nemstr($url)) return $url;
+        if (!self::isShortUrl($url)) return $url;
+        $url = trim($url);
+
+        //当前 url
+        $uo = self::current();
+        $protocol = $uo->protocol;
+        $domain = $uo->domain;
+        $dir = $uo->dir;
+
+        if (substr($url, 0, 3) === "../") {
+            return Path::fix($dir."/".$url);
+        }
+
+        if (substr($url, 0, 2) === "//") return $protocol.":".$url;
+
+        if (substr($url, 0, 2) === "./") $url = substr($url, 1);
+        return $domain.$url;
     }
 }

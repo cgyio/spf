@@ -2,7 +2,7 @@
  * cv-**** 组件 form 表单项组件通用 mixin
  */
 
-import mixinBase from '/vue/@/mixins/base/base';
+import mixinBase from 'mixins/base';
 
 export default {
     mixins: [mixinBase],

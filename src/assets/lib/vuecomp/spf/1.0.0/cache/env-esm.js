@@ -1,3 +1,20 @@
+import cgy from 'https://ms.systech.work/src/lib/cgy.min.js';
+import globalMethods from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0/plugin/global.js';
+import mixin from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0/plugin/mixin.js';
+import instanceMethods from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0/plugin/instance.js';
+import directive from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0/plugin/directive.js';
+import comps from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0.js';
+import mixinEvtBus from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0/mixins/evt-bus.js';
+import mixinUiBase from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0/mixins/ui-base.js';
+import mixinUsrBase from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0/mixins/usr-base.js';
+import mixinNavBase from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0/mixins/nav-base.js';
+import mixinDbBase from 'https://ms.systech.work/src/lib/vuecomp/spf/1.0.0/mixins/db-base.js';
+
+/**
+ * 合并插件 spf.js 文件
+ * !! 不要手动修改 !!
+ */
+
 /**
  * Vue 2.* 插件 base
  * CGY-VUE 基础插件
@@ -12,21 +29,10 @@
 //需要 vue.2.7.9 支持
 //console.log(Vue);
 
-import cgy from '/src/lib/cgy.min.js';
 
-import globalMethods from 'plugin/global';
-import mixin from 'plugin/mixin';
-import instanceMethods from 'plugin/instance';
-import directive from 'plugin/directive';
 
 //加载此插件需要的 components 组件库，可加载多个组件库
-import comps from '__URLPRE__.js';
 
-import mixinEvtBus from 'mixins/evt-bus';
-import mixinUiBase from 'mixins/ui-base';
-import mixinUsrBase from 'mixins/usr-base';
-import mixinNavBase from 'mixins/nav-base';
-import mixinDbBase from 'mixins/db-base';
 
 //cgy 挂到 window 上
 window.cgy = cgy;
@@ -186,3 +192,5 @@ bs.install = function(Vue, options = {}) {
 }
 
 export default bs;
+
+

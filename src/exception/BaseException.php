@@ -138,7 +138,7 @@ class BaseException extends \Exception
      * @param Throwable|null $previous 异常链
      * @return void
      */
-    public function __construct($msg, $code, $extra=[], $previous=null)
+    public function __construct($msg, $code=E_USER_ERROR, $extra=[], $previous=null)
     {
         //根据 传入的 code( 异常码(不带前缀) 或 key-path ) 查找预定义的 异常信息
         $exception = static::getException($code);

@@ -1,0 +1,13 @@
+{
+    "__RESOURCE__": {
+        "comment": "表示此 json 文件是另一个类型的资源的主文件",
+        "class": "QrImage",
+        "opts": {
+            "ext": "png"
+        }
+    },
+
+    "params": {
+        
+    }
+}

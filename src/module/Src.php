@@ -14,14 +14,18 @@ use Spf\module\src\Fs;
 use Spf\module\src\resource\Lib;
 use Spf\module\src\resource\Theme;
 use Spf\module\src\resource\Icon;
+use Spf\module\src\resource\util\Merger;
+use Spf\module\src\resource\util\Esmer;
 use Spf\module\src\SrcException;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
 use Spf\util\Url;
+use Spf\util\Cls;
 use Spf\util\Conv;
 use Spf\util\Path;
 use Spf\util\Color;
+use Spf\util\Dsl;
 
 class Src extends Module 
 {
@@ -203,8 +207,82 @@ class Src extends Module
      */
     public function srcTestApi()
     {
-        //$lcf = Resource::findLocal("lib/element-ui/element-ui-dark.css");
-        //var_dump($lcf);exit;
+
+        /*$res = [
+            "params" => [
+                "foo" => false,
+                "bar" => 456,
+                "jaz" => "slot",
+                "merge" => ["str", "str2"],
+                "testUrl" => "",
+            ],
+            "jaz" => true,
+        ];
+        $res = (object)$res;
+
+        $opts = "?foo=false&bar<=123&SCOPE.jaz!=yes&(nemarr(merge)|nemarr(env.dir))&in_array('str', merge)&Url::isUrl(testUrl)|jaz=slot";
+
+        $dsl = new Dsl($res, "params");
+        $rtn = $dsl->exec($opts);
+
+        exit;*/
+
+        $jsf = Path::find("src/goods/icon/qyoms.js");
+        $jso = Resource::create($jsf, [
+            "noimport" => true
+        ]);
+
+        //var_dump($jso);
+        Response::insSetType("src");
+        return $jso;
+
+        exit;
+
+
+        $jso->merge(
+            //[
+            //    "esm" => true,
+            //],
+            
+            "spf/assets/lib/cgy/2.2.1/modules/csstools.js",
+            "spf/assets/lib/cgy/2.2.1/modules/request.js",
+        );
+        Response::insSetType("src");
+        return $jso;
+
+
+
+        $js = 'export const name = "Alice";export let name1 = "Alice";export name2 = "Alice";export var name3 = "Alice";export function greet() {return "Hello";}export class Person {constructor(name) {this.name = name;}}const gender = "female";function sayHi() {}export {gender,sayHi};export {gender as userGender,sayHi as greetUser};export foo;export default function() {return "This is a default export";}function myFunction() {}export default myFunction;export default class MyClass {}export default {gender,sayHi}export default {name: "Bob",age: 25};export default {mixin:[], props:{}, data(){return {}, methods:{},};export default {gender as userGender,sayHi as greetUser}';
+
+        $mts = Esmer::parseExportVars($js);
+        var_dump($mts);
+        exit;
+
+
+        //合并 js 文件
+        $jsfs = [
+            //"spf/assets/lib/vuecomp/spf/1.0.0/mixins/base.js",
+            "spf/assets/lib/vuecomp/spf/1.0.0/mixins/db-base.js",
+            "spf/assets/lib/vuecomp/spf/1.0.0/mixins/db-record.js",
+            "spf/assets/lib/vuecomp/spf/1.0.0/mixins/el-base.js",
+        ];
+
+        $res = Resource::create("spf/assets/lib/vuecomp/spf/1.0.0/mixins/base.js");
+        $cnt = $res->useFile(...$jsfs);
+        var_dump($cnt);
+        $jsfs = array_map(function($jsf) {
+            return Path::find($jsf);
+        }, $jsfs);
+        $merger = new Merger("js");
+        $merger->add(...$jsfs);
+        var_dump($merger->imports);
+        var_dump($merger->importRows);
+        var_dump($merger->rows);
+        var_dump($merger->mergedRows());
+
+        
+        
+        exit;
 
 
         $path = [

@@ -147,7 +147,7 @@ class Scss extends ParsablePlain
             $cnt = $compiler->compileString($scss)->getCss();
         } catch (\Exception $e) {
             //trigger_error("custom::Complie SCSS to CSS Error", E_USER_ERROR);
-            throw new SrcException("SCSS 文件编译为 CSS 发生错误", "resource/export");
+            throw new SrcException("SCSS 文件编译为 CSS 发生错误：".$e->getMessage(), "resource/export");
         }
         return $cnt;
     }

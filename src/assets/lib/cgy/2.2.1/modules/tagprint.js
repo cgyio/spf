@@ -1047,5 +1047,5 @@ tagprint.init = cgy => {
     } ); 
 }
 
-//export TagPrinter;
+
 export default tagprint;

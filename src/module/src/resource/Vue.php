@@ -334,8 +334,11 @@ class Vue extends ParsablePlain
         //meta 元数据
         $meta = $this->meta;
 
+        //调用 Plain::replaceTplsInCode 方法 替换字符串 模板
+        $cnt = static::replaceTplsInCode($cnt, $tpls, $meta);
+
         //依次执行模板替换
-        foreach ($tpls as $tpl => $tpv) {
+        /*foreach ($tpls as $tpl => $tpv) {
             if (Is::nemstr($tpv)) {
                 $data = Arr::find($meta, $tpv);
                 $stp = null;
@@ -352,7 +355,7 @@ class Vue extends ParsablePlain
             }
             //替换字符串
             $cnt = str_replace($tpl, $data, $cnt);
-        }
+        }*/
 
         //将替换后的 content 存入 vueContent
         $this->vueContent = $cnt;
@@ -558,16 +561,19 @@ class Vue extends ParsablePlain
         //url 前缀
         $urlpre = $libi["urlpre"] ?? null;
 
+        //调用 Js::fixImportUrl 方法
+        $iu = Js::fixImportUrl($iu, $urlpre);
+
         //替换 __URLPRE__
         //if (Is::nemstr($urlpre)) $iu = str_replace("__URLPRE__", trim($urlpre, "/"), $iu);
         //import 了一个相对路径，使用 urlpre 补齐
-        if (substr($iu,0,4)!=="http" && substr($iu,0,2)!=="//" && substr($iu,0,1)!=="/") {
+        /*if (substr($iu,0,4)!=="http" && substr($iu,0,2)!=="//" && substr($iu,0,1)!=="/") {
             $iu = trim($urlpre, "/")."/".$iu;
             //处理 ../
             $iu = Path::fix($iu);
         }
         //补全 js 后缀名
-        if (substr($iu, -3)!==".js") $iu .= ".js";
+        if (substr($iu, -3)!==".js") $iu .= ".js";*/
 
         //合并为完整 import 语句
         return "import $iv from '$iu';";

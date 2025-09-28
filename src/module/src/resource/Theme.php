@@ -429,6 +429,16 @@ class Theme extends ParsablePlain
      */
 
     /**
+     * 获取本地资源名称，即 主题名称
+     * !! 覆盖 Resource 父类方法
+     * @return String|null
+     */
+    public function getLocalResName()
+    {
+        return $this->meta["name"];
+    }
+
+    /**
      * 从 传入的 $_GET 参数，获取要输出的 mode []
      * @return Array mode 数组
      */

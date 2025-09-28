@@ -329,6 +329,43 @@ class Lib extends ParsablePlain
      */
 
     /**
+     * 获取本地资源名称，即 库名称
+     * !! 覆盖 Resource 父类方法
+     * @return String|null
+     */
+    public function getLocalResName()
+    {
+        return $this->meta["lib"];
+    }
+
+    /**
+     * 针对本地资源，或此资源外部访问 url 的 前缀 urlpre
+     * 即 通过 urlpre/[$this->name] 可以直接访问到此资源
+     * !! 覆盖 PasablePlain 父类方法，实现 Lib 类型资源的 外部访问 url 前缀的生成方法
+     * @return String|null
+     */
+    public function getLocalResUrlPrefix()
+    {
+        /**
+         * 首先调用父类方法，将生成不包含 当前资源名的 路径
+         * 例如 有本地资源：    /data/ms/app/foo_app/assets/lib/bar.lib
+         * 生成的 url 前缀为：  https://domain/foo_app/src/lib/bar
+         */
+        $urlpre = parent::getLocalResUrlPrefix();
+        if (!Is::nemstr($urlpre)) return null;
+
+        //获取当前 库资源的 版本号
+        $ver = $this->getLibVer();
+
+        /**
+         * 此类型资源的 外部访问 url 前缀，应包含 资源名称，即：
+         * https://domain/foo_app/src/lib/bar/1.0.0
+         */
+        return $urlpre."/".trim($ver, "/");
+
+    }
+
+    /**
      * 根据 *.lib 文件内容，处理 stdFoobar 标准参数结构
      * @param Array $ctx *.lib 文件内容
      * @return $this
@@ -549,14 +586,14 @@ class Lib extends ParsablePlain
     {
         //当前 url
         $url = Url::current();
-        $u = $url->full;
+        //$u = $url->full;
         //当前 库 名称，保存在 meta["lib"]
         $meta = $this->meta;
         $lib = $meta["lib"];
         //当前版本
         $ver = $this->getLibVer();
         //pattern
-        $pattern = "/(\/src\/lib\/.*".$lib.")/";
+        /*$pattern = "/(\/src\/lib\/.*".$lib.")/";
         //匹配当前 url
         $mt = preg_match($pattern, $u, $matches);
 
@@ -567,7 +604,7 @@ class Lib extends ParsablePlain
             $ua = explode($key, $u);
             //返回前缀
             return $ua[0].$key."/".$ver;
-        }
+        }*/
 
         //未匹配到 url 中的关键字符，尝试构建
         $ua = [];
@@ -586,6 +623,11 @@ class Lib extends ParsablePlain
         $sfp = $this->getSpecFilePath();
         if (!Is::nemstr($sfp) || strpos($sfp, "/")===false) $sfp = "lib";
         $ua[] = trim($sfp);
+        //截取当前库路径 在 sfp 文件夹下 的相对路径
+        $dir = dirname($this->real);
+        $dir = str_replace(DS,"/",$dir);
+        $dir = explode("/".$sfp."/", $dir)[1];
+        if (trim($dir,"/")!=="") $ua[] = trim($dir,"/");
         //当前的 库名称
         $ua[] = $lib;
         //当前版本

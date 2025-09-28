@@ -46,6 +46,9 @@ class Gets extends SpecialUtil
             $sec = Secure::str($v);
             $this->context[$k] = $sec->context;
         }
+
+        //fix
+        $this->context = self::fix($this->context);
     }
 
     /**
@@ -94,6 +97,41 @@ class Gets extends SpecialUtil
     public function has($key)
     {
         return isset($this->context[$key]);
+    }
+
+
+
+    /**
+     * 静态工具
+     */
+
+    /**
+     * 处理 $_GET 参数
+     * 将 true|false|null|yes|no 转为 bool
+     * 将 foo,bar 转为数组
+     * @param Array $gets
+     * @return Array 处理后的
+     */
+    public static function fix($gets=[])
+    {
+        if (!Is::nemarr($gets)) $gets = [];
+        $rtn = [];
+        foreach ($gets as $k => $v) {
+            if (Is::nemstr($v) && (Is::ntf($v) || in_array(strtolower($v), ["yes","no"]))) {
+                //将 true|false|null|yes|no 转为 bool
+                if (Is::ntf($v)) {
+                    eval("\$v = ".$v.";");
+                    if ($v!==true) $v = false;
+                } else {
+                    $v = strtolower($v) === "yes";
+                }
+            } else if (Is::explodable($v) !== false) {
+                // foo,bar  foo|bar  foo;bar ... 转为数组
+                $v = Arr::mk($v);
+            }
+            $rtn[$k] = $v;
+        }
+        return $rtn;
     }
 
 

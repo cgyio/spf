@@ -486,6 +486,22 @@ class Icon extends ParsablePlain
 
 
     /**
+     * 工具方法
+     */
+
+    /**
+     * 获取本地资源名称，即 图标库名称
+     * !! 覆盖 Resource 父类方法
+     * @return String|null
+     */
+    public function getLocalResName()
+    {
+        return $this->meta["iconset"];
+    }
+
+
+
+    /**
      * 静态方法
      */
 
