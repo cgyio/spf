@@ -6,6 +6,8 @@
 
 namespace Spf\module\src\resource\middleware;
 
+use Spf\module\src\Resource;
+use Spf\module\src\Mime;
 use Spf\module\src\resource\Codex;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -23,7 +25,7 @@ class ImportProcessor extends Processor
     /**
      * 可以指定 此处理器依赖的 其他处理器
      * 会在执行操作前检查 依赖的处理器 是否存在
-     * !! 如果需要，子类应覆盖此参数
+     * !! 覆盖父类
      */
     public static $dependency = [
         "RowProcessor",
@@ -43,9 +45,11 @@ class ImportProcessor extends Processor
             //import 语句开头标记
             "prefix" => "import ",
             //import 语法
-            "pattern" => "/import\s+([a-zA-Z0-9_\-]+)\s+from\s+['\"](.+)['\"];?/",
+            "pattern" => "/import\s+([a-zA-Z0-9_\-]+)\s+from\s+['\"]{1}(.+)['\"]{1};?/",
             //import 语句中包含的 参数
             "ptparams" => ["var", "url"],
+            //当前类型的代码，允许 import 的文件类型
+            "allow" => ["js"],
         ],
 
         //js 类型 与 default 一致
@@ -54,8 +58,9 @@ class ImportProcessor extends Processor
         //css|scss
         "css" => [
             "prefix" => "@import ",
-            "pattern" => "/@import\s+['\"](.+)['\"];?/",
+            "pattern" => "/@import\s+['\"]{1}(.+)['\"]{1};?/",
             "ptparams" => ["url"],
+            "allow" => ["css", "scss"],
         ],
         "scss" => "css",
     ];
@@ -72,6 +77,8 @@ class ImportProcessor extends Processor
     public $pattern = "";
     //import 语句中包含的 参数信息
     public $ptparams = [];
+    //当前类型的代码，允许 import 的文件类型
+    public $allow = [];
 
     //当前资源 import 了本地资源，储存这些本地资源路径
     public $local = [];
@@ -96,12 +103,15 @@ class ImportProcessor extends Processor
         $dft = $opts["default"];
         $eopt = $opts[$ext] ?? [];
         if (Is::nemstr($eopt)) $eopt = $opts[$eopt] ?? [];
-        $eopt = Arr::extend($dft, $eopt);
+        $eopt = Arr::extend($dft, $eopt, true);
         //写入处理参数
         $ks = array_keys($dft);
         foreach ($ks as $k) {
             if (isset($eopt[$k])) $this->$k = $eopt[$k];
         }
+
+        //执行一次 setImportParams 将资源类中定义的 $dftImportParams 写入 $this->importParams
+        $this->setImportParams();
 
         return $this;
     }
@@ -118,14 +128,8 @@ class ImportProcessor extends Processor
         $this->getImportsFromRows();
         //处理 import url 生成完整 url 或 真实本地文件路径
         $this->fixImportUrls();
-
-        //var_dump($this->resource->imports);
-        //var_dump($this->resource->rows);
-        //var_dump($this->PathProcessor);
-        $pather = $this->PathProcessor;
-        var_dump($pather->basePath());
-        var_dump($pather->url("module/csstools.js"));
-        exit;
+        //获取并缓存不含 import 语句的 内容行数组
+        $this->getNoImportRows();
 
         return true;
     }
@@ -137,29 +141,49 @@ class ImportProcessor extends Processor
      */
     protected function stageExport()
     {
-        //合并 资源实例的 rows 生成 content
-        $this->content = $this->rowCombine();
+        //当前资源的 import 参数状态 true|false|keep
+        $st = $this->status();
+        //var_dump($st);var_dump($this->resource->name);
 
-        return true;
+        //调用 RowProcessor 中间件 生成 content
+        $rower = $this->RowProcessor;
+        
+        //保持 原始 import 语句形式
+        if ($st === "keep") {
+            //!! 直接调用 RowProcessor 中间件的 stageExport
+            return $rower->callStageExport();
+        }
+
+        //准备要输出的 rows 行数组
+        $rows = [];
+        
+        if ($st === false) {
+            //import = false 删除导入语句 获取不含 import 语句的 rows
+            $rows = $this->getNoImportRows();
+        } else {
+            //import = true 处理导入语句，合并本地文件，合并所有行
+            $rows = $this->exportRows(true);
+        }
+
+        //var_dump($this->resource->imports);
+        //var_dump($rows);var_dump($this->resource->name);
+        
+        //记录原始 rows
+        $rower->clearRows();
+        //新的 rows 行数组 不为空时，添加到当前资源的 rows
+        if (Is::nemarr($rows)) {
+            //添加新的 rows 行数组
+            $rower->rowAdd($rows);
+        }
+
+        //!! 调用 RowProcessor 中间件的 stageExport
+        return $rower->callStageExport();
     }
 
-    /**
-     * export 阶段执行的操作
-     * !! 自定义的 stage 方法
-     * @return Bool
-     */
-    protected function stageTester()
-    {
-        var_dump($this->RowProcessor);
-        exit;
-
-        return true;
-    }
-
 
 
     /**
-     * 工具方法
+     * stage 工具方法
      */
 
     /**
@@ -175,7 +199,7 @@ class ImportProcessor extends Processor
         $prelen = strlen($prefix);
         $pslen = count($params);
         //rows
-        $rows = $this->resource->rows;
+        $rows = $this->RowProcessor->exportRows();
         //收集到的 imports 数组，不处理 url
         $imports = [];
         foreach ($rows as $row) {
@@ -217,69 +241,156 @@ class ImportProcessor extends Processor
      */
     protected function fixImportUrls()
     {
-        //参数
-        $params = $this->ptparams;
-        $pslen = count($params);
-        //ext
-        $ext = $this->ext;
-        //此资源的内部文件 路径前缀
-        $innerdir = $this->resource->getLocalResInnerPath("", false);
-        //此资源外部访问的 url 前缀
-        $urlpre = $this->resource->getLocalResUrlPrefix();
+        //如果 当前资源的导入参数 为 keep 表示 保持原始导入语句形式，此处不做处理
+        if ($this->status === "keep") return $this;
+
+        //res
+        $res = $this->resource;
+        //当前类型的代码，允许 import 的文件类型
+        $allow = $this->allow;
+        //需要调用 PathProcessor
+        $pather = $this->PathProcessor;
 
         //循环处理 imports 数组
-        return $this->eachImport(function($i, $ipc, $url, &$res) use ($ext, $innerdir, $urlpre) {
+        return $this->eachImport(function($i, $ipc, $url, &$res) use ($allow, &$pather) {
             //调用 通用的 import url 处理方法 处理 url
-            $url = static::fixUrl($url, $ext, $innerdir, $urlpre);
+            //url 中包含的 ext
+            $ext = pathinfo($url)["extension"];
+            if (Is::nemstr($ext) && !in_array($ext, $allow)) {
+                //要 import 的文件后缀名 不被支持，跳过
+                return true;
+            } 
+            if (!Is::nemstr($ext)) $ext = $res->ext;
+            //调用 PathProcessor 工具方法
+            $url = $pather->fixImportUrl($url, $ext);
+            //$url = static::fixUrl($url, $ext, $innerdir, $urlpre);
+
             if (!Is::nemstr($url)) return true;
             return $url;
         });
     }
 
     /**
+     * 在 与其他资源合并过程中 根据合并处理的结果，更新当前 $resource->imports 数组
+     * 还可能会修改 $resource->rows 例如：替换 import 变量名
+     * 资源合并处理的结果，一般是：
+     *  [
+     *      # 处理后的 新的 $resource->imports 数组
+     *      "imports" => [
+     *          # 带 import 变量名 形式
+     *          "变量名" => "资源路径 url",
+     *          # 如果 在与其他资源合并过程中，此 import 已有其他资源引用过，需要删除这个 import
+     *          "变量名" => "__delete__",
+     * 
+     *          # 不带变量名
+     *          "资源路径 url",
+     *          "__delete__",
+     *          
+     *          ...
+     *      ],
+     * 
+     *      # 需要 更新的 变量名 数组
+     *      "ivars" => [
+     *          "原变量名" => "新变量名",
+     *          ...
+     *      ],
+     * 
+     *      # 待扩展 其他功能
+     *      ...
+     *  ]
+     * @param Array $params 更新参数
+     * @return $this
+     */
+    public function updateImportsWhenMerge($params=[])
+    {
+        if (!Is::nemarr($params)) return $this;
+        //更新参数
+        $imports = $params["imports"] ?? [];
+        $ivars = $params["ivars"] ?? [];
+        $lfs = $params["lfs"] ?? [];
+
+        //先更新 $resource->imports
+        $imps = [];
+        foreach ($imports as $i => $ipc) {
+            //去除 __delete__
+            if ($ipc === "__delete__") continue;
+            //更新 变量名
+            if (isset($ivars[$i])) {
+                $imps[$ivars[$i]] = $ipc;
+            } else {
+                $imps[$i] = $ipc;
+            }
+        }
+        $this->resource->imports = $imps;
+
+        //再更新 $resource->rows 行数组中的 变量名
+        $rower = $this->RowProcessor;
+        if (Is::nemarr($ivars)) {
+            $rn = "__RN__";
+            $cnt = implode($rn, $rower->exportRows());
+            foreach ($ivars as $ovar => $nvar) {
+                $cnt = str_replace($ovar, $nvar, $cnt);
+            }
+            $nrows = explode($rn, $cnt);
+            //使用 RowProcessor 更新 $resource->rows
+            $rower->clearRows();
+            $rower->rowAdd($nrows);
+        }
+        
+        return $this;
+    }
+
+
+
+    /**
+     * 当前资源 内容行 rows 相关操作
+     * 依赖 RowProcessor 中间件
+     */
+
+    /**
      * 输出处理后的 包含 import 语句 以及 本地 import 资源的内容行 的 完整的 rows
-     * !! 如果 $this->resource->params["noimport"] === true 则 返回的 rows 不包含 import 语句 以及 不含本地 import 资源内容行
      * @param Bool $withImportRows 是否输出 import 语句行数组，默认 true
      * @param Array $params 可以传入额外的 输出参数，用于 import 本地资源时的实例化参数
      * @return Array 内容行数组
      */
     public function exportRows($withImportRows=true, $params=[])
     {
-        //noimport 参数
-        $noimp = $this->resource->params["noimport"] ?? false;
-
-        if ($noimp === true) {
-            //此资源被设置为 不处理任何 import 语句，直接返回 不带 import 语句的 内容行数组
-            return $this->getNoImportRows();
-        }
-
         //合并多个 行数组
 
         //import 语句行数组
         $importRows = $this->getImportRows();
+        //var_dump($importRows);var_dump($this->resource->name);var_dump("imp_1111");
         //本地 import 资源的 内容行数组
         $localRows = $this->getLocalImportRows($params);
+        //var_dump($localRows);var_dump($this->resource->name);var_dump("imp_2222");
         //除了 import 语句之外的 内容行数组
         $rows = $this->getNoImportRows();
+        //var_dump($rows);var_dump($this->resource->name);var_dump("imp_3333");
 
-        //开始合并
-        $rower = $this->resource->rower;
+        //开始合并 调用 RowProcessor 中间件
+        $rower = $this->RowProcessor;
         $rower->clearRows();
         if ($withImportRows===true && Is::nemarr($importRows)) {
             $rower->rowAdd($importRows);
-            $rower->rowEmpty(1);
         }
         if (Is::nemarr($localRows)) {
             $rower->rowAdd($localRows);
-            $rower->rowEmpty(1);
         }
         if (Is::nemarr($rows)) {
+            //如果存在外部 import 进来的其他资源内容，则添加当前资源内容的 comment 标记
+            if (Is::nemarr($localRows)) {
+                $rower->rowComment(
+                    $this->resource->name." 原始内容",
+                    "!! 不要手动修改 !!"
+                );
+                $rower->rowEmpty(1);
+            }
             $rower->rowAdd($rows);
-            $rower->rowEmpty(1);
+            $rower->rowEmpty(3);
         }
 
         //生成的 完整 rows
-        $rows = $rower->export();
+        $rows = $rower->exportRows();
 
         //恢复 原 $resource->rows
         $rower->restoreRows();
@@ -294,7 +405,7 @@ class ImportProcessor extends Processor
     public function getNoImportRows()
     {
         //rows
-        $rows = array_merge([], $this->resource->rows);
+        $rows = $this->RowProcessor->exportRows();
         
         //import 参数
         $prefix = $this->prefix;
@@ -333,6 +444,27 @@ class ImportProcessor extends Processor
     }
 
     /**
+     * 从 resource->imports 数组中筛选出 远程 import url 的 参数项目
+     * 与 getImportRows 方法相似，此方法返回的是 import 参数，而不是 语句
+     * @return Array 部分 resource->imports 数组内容
+     */
+    public function getImportSettings()
+    {
+        $imports = [];
+        $this->eachImport(function($i, $ipc, $url, &$res) use (&$imports) {
+            //如果 url 是本地文件，跳过
+            if (file_exists($url)) return true;
+            //直接写入 import 参数
+            if (is_numeric($i)) {
+                $imports[] = $res->imports[$i];
+            } else {
+                $imports[$i] = $res->imports[$i];
+            }
+        });
+        return $imports;
+    }
+
+    /**
      * 根据 $resource->imports 数组，获取其中的本地资源的 内容行数组，合并为单个 行数组
      * @param Array $params 可传入 本地 import 资源的实例化参数
      * @return Array 本地 import 资源的内容行数组
@@ -344,11 +476,14 @@ class ImportProcessor extends Processor
         //写入 importParams
         $this->setImportParams($params);
 
+        //调用 RowProcessor
+        $rower = $this->RowProcessor;
         //先缓存当前 $resource->rows 然后清空
-        $this->resource->rower->clearRows();
+        $rower->clearRows();
 
         //依次读取 $resource->imports 数组中的本地资源路径，创建资源实例
-        $this->eachImport(function($i, $ipc, $url, &$res) use ($params) {
+        $this->eachImport(function($i, $ipc, $url, &$res) use ($params, &$rower) {
+            //var_dump($i);var_dump($ipc);var_dump($url);
             //如果 url 不是本地文件，跳过
             if (!file_exists($url)) return true;
 
@@ -359,45 +494,67 @@ class ImportProcessor extends Processor
             $fps = $this->getImportParams($fext);
             //创建资源实例
             $ires = Resource::create($url, $fps);
-            if (!$ires instanceof Plain) {
+            if (!$ires instanceof Codex) {
                 //实例化失败，记录 comment
-                $res->rower->rowComment(
+                $rower->rowComment(
                     "资源 $fbn 无法实例化，未能成功 import",
                     "完整文件路径：$url"
                 );
-                $res->rower->rowEmpty(3);
+                $rower->rowEmpty(3);
                 return true;
             }
 
             //头部 comment
-            $res->rower->rowComment(
+            $rower->rowComment(
                 "import 本地资源 $fbn",
                 "!! 不要手动修改 !!"
             );
-            $res->rower->rowEmpty(1);
+            $rower->rowEmpty(1);
 
             //获取本地源的 内容行数组
             $im = "importLocal".Str::camel($fext, true)."File";
+            //var_dump($im);
             if (method_exists($this, $im)) {
                 //如果存在自定义的 import 方法
                 $this->$im($res, $ires);
             } else {
-                //不存在自定义 获取方法。直接使用 export 方法
-                $irows = $ires->importer->export();
-                $res->rower->rowAdd($irows);
-                $res->rower->rowEmpty(3);
+                //不存在自定义 获取方法。直接使用 ImportProcessor 中间件的 stageExport 方法
+                $ires->ImportProcessor->callStageExport();
+                $irows = $ires->RowProcessor->exportRows();
+                //var_dump($irows);var_dump("irows_0000");
+                //将 import 的本地资源的 rows 行数组添加到 当前资源 rows 数组中
+                $rower->rowAdd($irows);
+                $rower->rowEmpty(3);
             }
             //释放资源实例
             unset($ires);
         });
 
         //获取到的 所有可用的 本地 import 资源的 内容行数组
-        $rows = $this->resource->rower->export();
+        $rows = $rower->exportRows();
 
         //恢复原 $resource->rows
-        $this->resource->rower->restoreRows();
+        $rower->restoreRows();
 
         return $rows;
+    }
+
+
+
+    /**
+     * 处理 $resource->params 以及 importParams 参数相关操作
+     */
+
+    /**
+     * 获取 $resource->params["import"] 资源导入参数，默认 true
+     * @return Bool|String 返回 true|false 或者 'keep'
+     */
+    public function status()
+    {
+        $pi = $this->resource->params["import"] ?? true;
+        if (is_bool($pi)) return $pi;
+        if (!Is::nemstr($pi)) return true;
+        return "keep";
     }
 
     /**
@@ -407,7 +564,11 @@ class ImportProcessor extends Processor
      */
     public function setImportParams($params=[])
     {
-        $this->importParams = $params;
+        if (!Is::nemarr($params)) $params = [];
+        //可能存在的 $res->params["importParams"]
+        $importParams = $this->resource->params["importParams"] ?? [];
+        //合并后 保存到 $this->importParams
+        $this->importParams = Arr::extend($importParams, $params);
         return $this;
     }
 
@@ -425,13 +586,17 @@ class ImportProcessor extends Processor
         $ips = $this->importParams;
         //合并
         $ips = Arr::extend($dft, $ips);
-        //如果参数中 未包含 noimport 参数，则 默认 noimport = true 表示不继续执行 被 import 的本地资源内部的 import 语句
-        if (!isset($ips["noimport"])) $ips["noimport"] = true;
+        //默认 import = false 表示不继续执行 被 import 的本地资源内部的 import 语句
+        $ips["import"] = false;
+        //默认 merge = "" 表示被 import 的本地资源不合并其他资源
+        $ips["merge"] = "";
         //如果默认参数中 包含了 export 则确保其 = $ext
         if (isset($dft["export"])) $ips["export"] = $ext;
 
         return $ips;
     }
+
+
 
     /**
      * 循环 imports 数组，执行自定义方法

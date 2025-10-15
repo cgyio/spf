@@ -1,0 +1,27 @@
+{
+    "name": "animate",
+    "var": "animate",
+
+    "enableVersion": true,
+    "version": {
+        "@": "4.1.1",
+        "latest": "4.1.1"
+    },
+
+    "enableCache": true,
+    "cachePath": "cache",
+
+    "ext": ["css"],
+    
+    "root": "https://cdnjs.cloudflare.com/ajax/libs/animate.css",
+
+    "content": {
+        "4.1.1": {
+            "css": {
+                "default": {
+                    "file": "animate.min.css"
+                }
+            }
+        }
+    }
+}

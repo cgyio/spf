@@ -1,23 +1,14 @@
 <?php
 /**
- * 框架 Src 资源处理模块
- * Resource 资源类 Icon 子类
- * 继承自 ParsablePlain 纯文本类型基类，处理 *.icon 类型本地文件
+ * Compound 复合资源处理类 子类
+ * 定义 Icon 类型的 图标库 *.icon.json 本地图标库文件
  * 
  * Spf 框架视图图标库 *.icon 文件基于 iconfont.cn 阿里图标库的 Symbol 图标引用方式
- * icon 文件为包含图标库信息的 json 格式 !! 本地文件 !!，必须包含下列项目：
- *      iconfont        必须关联到阿里图标库的某个 Symbol 引用的 js 文件，例如：//at.alicdn.com/t/c/font_4910918_t1l430kzeb.js
+ * 图标库 *.icon.json 文件必须为本地文件 !!，必须包含下列项目：
+ *      root            必须关联到阿里图标库的某个 Symbol 引用的 js 文件，例如：//at.alicdn.com/t/c/font_4910918_t1l430kzeb.js
  *      iconset         此图标库的名称 foo-bar 形式，此名称将影响内部所有图标的 引用类名|单独访问的图标名，例如：内部图标名为 foo-bar-success
- *      multicolor      此图标库是否多色图标，默认 false
- *      created         此图标库所有数据已经缓存到本地的 标记，缓存后，将在 icon 文件中生成 glyphs 项目（关联数组）
- *      glyphs          保存图标库中所有图标 svg 代码的 关联数组，每个图标数据结构为：
- *          name        此图标的名称，不含 iconset 前缀，例如：success
- *          class       此图标的外部访问全名，也是以 css-class 调用时的 css 类名，例如：foo-bar-success
- *          svg         此图标的 svg 代码
- * 
- *      其他可选项目
- *      iconsize        此图标库中的图标的 默认尺寸，例如：24
- *      viewbox         此图标库 svg 文件的通用 viewbox 参数，与 iconsize 参数对应，例如：0 0 24 24
+ *      iconcss         此图标库使用的样式文件，默认使用 [框架 assets]/icon/base.css，可手动指定自定义的 css 文件
+ *      其他项目 与 通用 复合资源描述数据一致
  * 
  * Spf 框架视图 图标库的 使用方法：
  *   0  在 iconfont.cn 阿里图标库创建项目，收集需要的图标，生成 Symbol 方式的 js 文件
@@ -30,8 +21,8 @@
  *   5  可通过 //host/[path-to-icon]/foo-bar.icon?create=yes 强制刷新图标缓存，可在修改 阿里图标库 js 地址后刷新
  * 
  * Spf 框架视图 图标库 icon 文件的 解析|输出 方式：
- *   0  首次访问时，将远程获取 阿里图标库 js 文件，解析并得到库中所有图标的 name 以及 svg 代码，
- *   1  更新 icon 文件内容，创建 glyphs 项目数组，并 标记为 created = true ，再次访问时，将直接使用已解析的 图标列表 glyphs
+ *   0  首次访问时，将远程获取 阿里图标库 js 文件，解析并得到库中所有图标的 name 以及 svg 代码
+ *   1  首次访问将创建缓存文件 glyphs.json 和 [iconset].js ，再次访问时，将直接使用已缓存的 图标列表 glyphs
  *   2  根据 解析得到的（或缓存的）glyphs 数组，以及传入的 export|icon 参数，决定输出 js|css|svg 文件
  * 
  * 图标库中的 图标 依赖 阿里图标库--我的项目 来进行管理，也可以通过指定不同的 阿里 js 文件地址，让同一个图标库名称 指向 不同的 阿里图标库
@@ -39,63 +30,109 @@
 
 namespace Spf\module\src\resource;
 
-use Spf\App;
-use Spf\Response;
 use Spf\module\src\Resource;
-use Spf\module\src\Mime;
+use Spf\module\src\ResourceSeeker;
 use Spf\module\src\SrcException;
+use Spf\module\src\Mime;
+use Spf\Request;
+use Spf\Response;
 use Spf\util\Is;
-use Spf\util\Str;
 use Spf\util\Arr;
+use Spf\util\Str;
 use Spf\util\Cls;
-use Spf\util\Conv;
 use Spf\util\Path;
+use Spf\util\Conv;
+use Spf\util\Url;
 use Spf\util\Curl;
 
-class Icon extends ParsablePlain 
+class Icon extends Compound 
 {
     /**
-     * 当前的资源类型的本地文件，是否应保存在 特定路径下
-     * 指定的 特定路径 必须在 Src::$current->config->resource["access"] 中定义的 允许访问的文件夹下
-     *  null        表示不需要保存在 特定路径下，本地资源应在 [允许访问的文件夹]/... 路径下
-     *  "ext"       表示应保存在   [允许访问的文件夹]/[资源后缀名]/... 路径下
-     *  "foo/bar"   指定了 特定路径 foo/bar 表示此类型本地资源文件应保存在   [允许访问的文件夹]/foo/bar/... 路径下
-     * 默认 null 不指定 特定路径
-     * !! 覆盖父类
-     * !! 图标库 *.icon 文件 必须保存在 [允许访问的文件夹]/icon/... 路径下
+     * 定义 资源实例 可用的 params 参数规则
+     * 参数项 => 默认值
+     * !! 在父类基础上扩展
      */
-    public static $filePath = "ext";    //可选 null | ext | 其他任意路径形式字符串 foo/bar 首尾不应有 /
+    public static $stdParams = [
+        //输出某个具体的 图标 svg，此参数如果指定，则忽略 export 参数
+        "icon" => "",
+        
+    ];
+    
+    /**
+     * 针对此资源实例的 处理中间件
+     * 需要严格按照先后顺序 定义处理中间件
+     * !! 覆盖父类
+     */
+    public $middleware = [
+        //资源实例 构建阶段 执行的中间件
+        "create" => [
+            //使用资源类的 stdParams 标准参数数组 填充 params
+            "UpdateParams" => [],
+            //获取 资源实例的 meta 数据
+            "GetMeta" => [],
+            //compound 资源的主文件是 json 读取其内容
+            "GetJsonContent" => [],
+            //compound 资源初始化，读取 desc 资源描述数据，生成对应参数，并缓存到资源实例
+            "InitCompoundDesc" => [],
+            //从 缓存文件 或 阿里图标库远程 读取图标库内容，创建|更新 缓存文件，并将数据缓存到图标库实例
+            "GetIconContent" => [],
+        ],
 
+        //资源实例 输出阶段 执行的中间件
+        "export" => [
+            //更新 资源的输出参数 params
+            "UpdateParams" => [],
 
+            //根据 export 参数，创建|读取 子资源内容，创建子资源实例
+            "CreateSubResource" => [],
+
+            //调用 子资源实例 或 直接使用缓存内容，生成最终输出的 content
+            "CreateContent" => [
+                "break" => true,
+            ],
+        ],
+    ];
 
     /**
-     * 定义标准的 图标库参数格式
-     * !! 如果需要，子类可以覆盖此属性
+     * 定义 复合资源在其 json 主文件中的 资源描述数据的 标准格式
+     * !! 在父类基础上扩展
      */
-    protected static $stdIcon = [
-        //关联到阿里图标库的某个 Symbol 引用的 js 文件地址 通常以 //at.alicdn.com/t/c/... 开头
-        "iconfont" => "",
+    public static $stdDesc = [
         //此图标库的名称 foo-bar 形式，此名称将影响内部所有图标的 引用类名|单独访问的图标名，例如：内部图标名为 foo-bar-success
         "iconset" => "",
+
         //此图标库是否多色图标，默认 false
         "multicolor" => false,
-        //此图标库所有数据已经缓存到本地的 标记，缓存后，将在 icon 文件中生成 glyphs 项目（关联数组）
-        "created" => false,
-        //保存图标库中所有图标 svg 代码的 关联数组
-        "glyphs" => [],
 
-        /*
-        # 其他可选项目
+        //指定此图标库使用的 css 文件 默认使用 spf/assets/icon/base.css
+        "iconcss" => "spf/assets/icon/base.css",
 
-        # 此图标库中的图标的 默认尺寸
-        "iconsize" => 24,
+        //允许输出的 ext 类型数组，必须是 Mime 类中支持的后缀名类型
+        "ext" => ["js","css","svg"],
 
-        # 此图标库 svg 文件的通用 viewbox 参数
-        "viewbox" => "0 0 24 24",
+        /**
+         * 复合资源的根路径
+         *  0   针对本地的复合资源 Theme | Icon | Vcom | Lib 等类型：
+         *      此参数表示 此复合资源的本地保存路径，不指定则使用当前 *.ext.json 文件的 同级同名文件夹
+         *  1   针对远程复合资源 Cdn 类型：
+         *      此参数表示 cdn 资源的 url 前缀，不带版本号
+         * !! 此处的 根路径指定 阿里图标库的某个 Symbol 引用的 js 文件地址 通常以 //at.alicdn.com/t/c/... 开头
+         */
+        "root" => "",
 
-        ...
-        */
+
     ];
+
+    /**
+     * 定义复合资源 内部子资源的 描述参数
+     * !! 在父类基础上扩展
+     */
+    public static $stdSubResource = [
+        //子资源类型，可以是 static | dynamic   表示   静态的实际存在的 | 动态生成的   子资源内容
+        //!! Icon 子资源默认为 dynamic 类型
+        "type" => "dynamic",
+    ];
+
     //标准的 某个 图标的参数格式
     protected static $stdGlyph = [
         //此图标的名称，不含 iconset 前缀
@@ -106,249 +143,61 @@ class Icon extends ParsablePlain
         "svg" => "",
     ];
 
-    /**
-     * 定义 可用的 params 参数规则
-     * 参数项 => 默认值
-     * !! 覆盖父类
-     */
-    protected static $stdParams = [
-        //是否 强制不使用 缓存的 glyphs
-        "create" => false,
-        //输出文件的 类型 css|js|svg
-        "export" => "js",
-        //输出某个具体的 图标 svg，此参数如果指定，则忽略 export 参数
-        "icon" => "", 
-        
-        //其他可选参数，在指定要输出某个图标 svg 时，其他参数参考 svg 资源类
-        //...
-    ];
-
-    /**
-     * 定义支持的 export 类型，必须定义相关的 createFooContent() 方法
-     * 必须是 Mime 支持的 文件后缀名
-     * !! 覆盖父类
-     */
-    protected static $exps = [
-        "js", "css", "svg",
-    ];
-
-    //当前图标库的 元数据
-    public $meta = [
-        //包含 iconfont | iconset | multicolor | created ...
-    ];
-
     //当前图标库的 glyphs 图标列表 缓存
     public $glyphs = [];
+    //当前图标库的 js 代码缓存
+    public $jscode = "";
+
 
     
-
     /**
-     * 当前资源创建完成后 执行
-     * !! 覆盖父类
-     * @return Resource $this
+     * 资源实例内部定义的 stage 处理方法
+     * @param Array $params 方法额外参数
+     * @return Bool 返回 false 则终止 当前阶段 后续的其他中间件执行
      */
-    protected function afterCreated()
+    //GetIconContent 从 阿里图标库远程  或  缓存文件  中获取图标库内容数据
+    public function stageGetIconContent($params=[])
     {
-        //格式化 params 并根据 export 修改 ext|mime
-        $this->formatParams();
-        $ps = $this->params;
-        //指定要输出某个具体的图标 svg 的情况
-        if (isset($ps["icon"]) && Is::nemstr($ps["icon"])) {
-            $this->params["export"] = "svg";
+        //启用缓存
+        $cacheEnabled = $this->cacheEnabled();
+        //强制忽略缓存
+        $cacheIgnored = $this->cacheIgnored();
+
+        //启用缓存 且 未指定忽略缓存 的情况下，在资源内部 缓存路径下，查找 icon-content.json 文件
+        if ($cacheEnabled===true && $cacheIgnored!==true) {
+            //读取缓存的 icon-content
+            $icnt = $this->cacheGetIconContent();
+            if (Is::nemarr($icnt)) {
+                //缓存读取成功，已将缓存数据 添加到当前图标库实例
+                return true;
+            }
         }
 
-        //文件内容是 图标库的参数 json 数据，转为 Array
-        $ctx = Conv::j2a($this->content);
-        //合并 格式化为 标准图标库参数形式
-        $ctx = Arr::extend(static::$stdIcon, $ctx);
-        //是否已缓存
-        $created = $ctx["created"] ?? false;
-        if (!is_bool($created)) $created = false;
-
-        //获取元数据
-        $meta = [];
-        foreach ($ctx as $k => $v) {
-            if (in_array($k, ["glyphs"])) continue;
-            $meta[$k] = $v;
-        }
-        $this->meta = $meta;
-
-        //根据传入的参数 决定是否需要解析 阿里 js
-        if ($this->useCache() === true) {
-            //直接使用 已缓存的 glyphs
-            $this->glyphs = $ctx["glyphs"] ?? [];
-            //当前请求的 
-            return $this;
+        //从 阿里图标库 获取全部定义的 glyphs 以及 js 文件内容，将保存到实例，并 创建|更新 缓存
+        $get = $this->getAliIconContent();
+        if ($get !== true) {
+            //远程获取 阿里图标库数据 失败
+            throw new SrcException("远程获取图标库 ".$this->desc["iconset"]." 未得到正确的结果，或者未能正确写入缓存文件", "resource/getcontent");
         }
 
-        //开始解析 阿里图标库，并缓存得到的结果
-        $this->getIconfont($ctx);
-
-        //解析结束
-        return $this;
-        
-    }
-
-    /**
-     * 在输出资源内容之前，对资源内容执行处理
-     * !! 覆盖父类
-     * @param Array $params 可传入额外的 资源处理参数
-     * @return Resource $this
-     */
-    protected function beforeExport($params=[])
-    {
-        //合并额外参数
-        $this->extendParams($params);
-        $this->formatParams();
-
-        //创建输出内容
-        $this->createExportContent();
-
-        return $this;
+        return true;
     }
 
 
 
     /**
-     * 解析 阿里图标库 缓存得到的结果
-     * @param Array $ctx *.icon 文件数据
+     * 工具方法 解析复合资源内部 子资源参数，查找|创建 子资源内容
+     * 根据  子资源类型|子资源ext|子资源文件名  分别制定对应的解析方法
+     * !! Compound 子类可覆盖此方法
      * @return $this
      */
-    protected function getIconfont($ctx=[])
+    //创建 svg 子资源实例
+    protected function createDynamicSvgSubResource()
     {
-        if (!Is::nemarr($ctx)) return $this;
-
-        //开始解析 阿里 js
-        $iset = $ctx["iconset"] ?? null;
-        $alijsf = $ctx["iconfont"] ?? null;
-        $pctx = static::parseIconfont($iset, $alijsf);
-        if (!Is::nemarr($pctx)) {
-            //解析 阿里图标库文件 失败
-            throw new SrcException("解析图标库 ".$this->name." 发生错误，缺少必要参数", "resource/getcontent");
-        }
-        $glyphs = $pctx["glyphs"] ?? null;
-        $js = $pctx["js"] ?? null;
-        if (!Is::nemarr($glyphs) || !Is::nemstr($js)) {
-            //解析结果错误
-            throw new SrcException("解析图标库 ".$this->name." 未得到正确的结果", "resource/getcontent");
-        }
-        $this->glyphs = $glyphs;
-
-        //更新 *.icon 文件
-        $iconf = file_get_contents($this->real);
-        $iconarr = Conv::j2a($iconf);
-        $iconarr["created"] = true;
-        $iconarr["glyphs"] = $glyphs;
-        $iconjson = Conv::a2j($iconarr);
-        file_put_contents($this->real, $iconjson);
-
-        //创建 js 文件缓存
-        $jsf = $this->getCachePathByExt("js");
-        if (!file_exists($jsf)) {
-            //创建
-            Path::mkfile($jsf, $js);
-        } else {
-            //更新缓存的 js
-            file_put_contents($jsf, $js);
-        }
-
-        //创建 css 文件缓存
-        $css = null;
-        //当前图标库关联的 css 文件
-        $csf = $this->getCssPath();
-        if (file_exists($csf)) {
-            //创建 css|scss 资源实例
-            $cssres = Resource::create($csf, [
-                //scss 文件自动输出为 css
-                "export" => "css"
-            ]);
-            //调用 CSS|SCSS 资源实例的 export 方法获取 content
-            $css = $cssres->export([
-                "return" => true
-            ]);
-        } else {
-            //未找到文件，返回简易 spf-icon 样式
-            $css = ".spf-icon {width: 1em; height: 1em; vertical-align: -0.15em; fill: currentColor; overflow: hidden;}";
-        }
-        //css 缓存文件路径
-        $cssf = $this->getCachePathByExt("css");
-        if (!file_exists($cssf)) {
-            //创建
-            Path::mkfile($cssf, $css);
-        } else {
-            //更新缓存的 css
-            file_put_contents($cssf, $css);
-        }
-
-        return $this;
-    }
-
-
-
-    /**
-     * 不同 export 类型，生成不同的 content
-     * !! 子类可以根据 exps 中定义的可选值，实现对应的 createFooContent() 方法
-     * @return $this
-     */
-    //生成 CSS content
-    protected function createCssContent()
-    {
-        //图表库名称
-        $iset = $this->meta["iconset"];
-
-        //已经过解析，直接使用缓存
-        $cnt = $this->getCacheContent();
-        if (!Is::nemstr($cnt)) {
-            //报错
-            throw new SrcException("无法读取图标库 ".$iset." 对应的 CSS 文件", "resource/export");
-        }
-        
-        //创建 css|scss 资源实例，传入 params 作为参数
-        $cssres = Resource::create($iset.".css", Arr::extend($this->params, [
-            "create" => "__delete__",
-            "export" => "__delete__",
-            "icon" => "__delete__",
-            "content" => $cnt
-        ]));
-        //调用 CSS|SCSS 资源实例的 export 方法获取 content
-        $this->content = $cssres->export([
-            "return" => true
-        ]);
-
-        return $this;
-    }
-    //生成 JS content
-    protected function createJsContent()
-    {
-        //图表库名称
-        $iset = $this->meta["iconset"];
-        
-        //已经过解析，直接使用缓存
-        $cnt = $this->getCacheContent();
-        if (!Is::nemstr($cnt)) {
-            //报错
-            throw new SrcException("无法读取图标库 ".$iset." 对应的 JS 文件", "resource/export");
-        }
-        
-        //创建 css|scss 资源实例，传入 params 作为参数
-        $jsres = Resource::create($iset.".js", Arr::extend($this->params, [
-            "create" => "__delete__",
-            "export" => "__delete__",
-            "icon" => "__delete__",
-            "content" => $cnt
-        ]));
-        //调用 CSS|SCSS 资源实例的 export 方法获取 content
-        $this->content = $jsres->export([
-            "return" => true
-        ]);
-
-        return $this;
-    }
-    //生成 svg content
-    protected function createSvgContent()
-    {
-        //svg 不缓存，因为图标库包含大量 svg 图标
-        $icon = $this->params["icon"] ?? "";
+        //iset
+        $iset = $this->desc["iconset"];
+        //要输出的 图标
+        $icon = $this->params["icon"] ?? null;
         if (!Is::nemstr($icon)) {
             //未指定要输出的 图标
             throw new SrcException("未指定要输出的图标名称", "resource/export");
@@ -368,141 +217,254 @@ class Icon extends ParsablePlain
             throw new SrcException("图标 ".$icon." 无法生成 SVG 图标", "resource/export");
         }
 
-        //创建 Svg 资源类实例，需要注入 params 可能包含对 svg 进行处理的参数
-        $svg = Svg::create("$icon.svg", Arr::extend($this->params, [
-            "create" => "__delete__",
-            "export" => "__delete__",
-            "icon" => "__delete__",
-            "content" => $gsvg
-        ]));
-        //调用 Svg 实例的 export 方法获取 content
-        $this->content = $svg->export([
-            "return" => true
-        ]);
+        //创建 svg 资源
+        $svg = Resource::manual(
+            $gsvg,
+            "$iset-$icon.svg",
+            [
+                //ext
+                "ext" => "svg",
+                //belongTo
+                "belongTo" => $this,
+                //不忽略 $_GET
+                "ignoreGet" => false,
 
+            ]
+        );
+        if (!$svg instanceof Svg) {
+            throw new SrcException("图标 ".$icon." 无法生成 SVG 资源实例", "resource/export");
+        }
+
+        //保存到 subResource
+        $this->subResource = $svg;
+
+        return $this;
+    }
+    //创建 js 子资源实例
+    protected function createDynamicJsSubResource()
+    {
+        //已在 stageGetIconContent 阶段 从 阿里图标库 获取过 js 文件内容，直接使用
+        $this->content = $this->jscode;
+
+        return $this;
+    }
+    //创建 css 子资源实例
+    protected function createDynamicCssSubResource()
+    {
+        $desc = $this->desc;
+        $icss = $desc["iconcss"] ?? "spf/assets/icon/base.css";
+        //查找 css 文件
+        $csf = Path::find($icss, Path::FIND_FILE);
+        
+        if (file_exists($csf)) {
+            //创建 css|scss 资源实例
+            $this->subResource = Resource::create($csf, [
+                //scss 文件自动输出为 css
+                "export" => "css"
+            ]);
+        } else {
+            //未找到文件，返回简易 spf-icon 样式
+            $this->content = ".spf-icon {width: 1em; height: 1em; vertical-align: -0.15em; fill: currentColor; overflow: hidden;}";
+        }
+        
         return $this;
     }
 
 
 
     /**
-     * 缓存处理方法
+     * 工具方法 初始化复合资源 desc 工具
      */
 
     /**
-     * 根据 create 参数，判断是否需要读取缓存
-     * !! 如果需要，子类可以覆盖此方法
-     * @return Bool true 表示直接使用缓存内容，false 表示忽略缓存，生成内容
+     * 处理 export 参数，确保 export 输出类型，在 desc["ext"] 数组中
+     * !! 覆盖父类
+     * @return $this
      */
-    protected function useCache()
+    protected function initExport()
     {
+        $desc = $this->desc;
         $ps = $this->params;
-        $create = $ps["create"] ?? false;
-        $created = $this->meta["created"] ?? false;
 
-        //!! 不在根据 WEB_DEV 是否启用 来 决定是否使用缓存，仅通过 params["create"] 参数控制
-        //首先检查当前是否处于 开发模式，如果处于开发模式，则忽略缓存，生成资源内容
-        //if (Env::$isInsed === true) {
-        //    if (Env::$current->dev === true) return false;
-        //}
+        //支持的 ext 输出类型
+        $exts = $desc["ext"] ?? [];
 
-        return $create === false && $created === true;
-    }
-
-    /**
-     * 根据传入的参数，获取缓存文件的 路径，不论文件是否存在
-     * 缓存文件 默认保存在 当前资源文件路径下的 资源同名文件夹下
-     * !! 子类必须实现此方法
-     * @return String 缓存文件的 路径
-     */
-    protected function getCachePath()
-    {
-        //export 类型
-        $ext = $this->exportExt();
-        //仅缓存 js|css 文件，svg 文件不缓存
-        if ($ext === "svg") return null;
-        //此图标库的 js|css 缓存文件应保存在 *.icon 文件目录下，同名文件夹下的 同名 js|css 文件中
-        return $this->getCachePathByExt($ext);
-    }
-
-    /**
-     * 获取当前图标库的 js|css 缓存文件路径，不检查是否存在
-     * @param String $ext js|css
-     * @return String 
-     */
-    protected function getCachePathByExt($ext="js")
-    {
-        //此图标库的 js 缓存文件应保存在 *.icon 文件目录下，同名文件夹下的 同名 js 文件中
-        $real = $this->real;
-        $dir = dirname($real);
-        $iset = $this->meta["iconset"] ?? null;
-        if (!Is::nemstr($iset)) return null;
-        return $dir.DS.$iset.DS.$iset.".".$ext;
-    }
-
-    /**
-     * 查找当前图标库的 关联 css 文件路径
-     * 关联的 css 文件应保存在 *.icon 文件所在路径下，同名文件中的 同名 css|scss 文件
-     * 如果当前路径不存在，则依次在 应用icon目录 --> 网站icon目录 --> 框架icon目录 中查找 同名 css|scss 文件
-     * @return String|null
-     */
-    protected function getCssPath()
-    {
-        //iconset
-        $iset = $this->meta["iconset"] ?? null;
-        if (!Is::nemstr($iset)) return null;
-        //icon 文件实际路径
-        $real = $this->real;
-        $dir = dirname($real);
-
-        //要查找的 路径列表
-        $csfs = [];
-        //当前路径下的 css|scss 文件路径
-        $csfs[] = $dir.DS.$iset.DS.$iset.".css";
-        $csfs[] = $dir.DS.$iset.DS.$iset.".scss";
-        //当前应用的 icon 目录
-        if (App::$isInsed === true) {
-            $appk = App::$current::clsk();
-            if ($appk !== "base_app") {
-                $csfs[] = "src/$appk/icon/$iset/$iset.css";
-                $csfs[] = "src/$appk/icon/$iset/$iset.scss";
-            }
+        if (isset($ps["icon"]) && Is::nemstr($ps["icon"])) {
+            //如果指定了 params["icon"] 表示输出某个具体的 svg 图片，调整 export 为 svg
+            $this->params["export"] = "svg";
+            $this->setExt("svg");
+        } else if (!isset($ps["export"]) || !Is::nemstr($ps["export"])) {
+            //未指定 export 则使用第一个支持的 ext 类型作为输出类型
+            $this->params["export"] = $exts[0];
+            $this->setExt($exts[0]);
         }
-        //网站 icon 目录
-        $csfs[] = "src/icon/$iset/$iset.css";
-        $csfs[] = "src/icon/$iset/$iset.scss";
-        //框架 icon 目录
-        $csfs[] = "spf/assets/icon/$iset/$iset.css";
-        $csfs[] = "spf/assets/icon/$iset/$iset.scss";
-        //!! 最终提供兜底的 css 文件，此文件一定存在
-        $csfs[] = "spf/assets/icon/base.css";
 
-        //查找文件
-        $csf = Path::exists($csfs, false, Path::FIND_FILE);
-        if (!file_exists($csf)) return null;
-        return $csf;
+        if (!in_array(strtolower($this->ext), $exts)) {
+            //要输出的类型，不在支持的 ext 列表中，报错
+            throw new SrcException("当前复合资源 ".$this->resBaseName()." 不支持输出 ".$this->ext." 类型","resource/getcontent");
+        }
+
+        return $this;
     }
 
-
-
     /**
-     * 工具方法
+     * 将 desc 中指定的 root 参数，更新到资源实例中
+     * !! 覆盖父类
+     * @return $this
      */
-
-    /**
-     * 获取本地资源名称，即 图标库名称
-     * !! 覆盖 Resource 父类方法
-     * @return String|null
-     */
-    public function getLocalResName()
+    protected function initRoot()
     {
-        return $this->meta["iconset"];
+        $desc = $this->desc;
+        $root = $desc["root"] ?? null;
+
+        //指定的 root 必须是有效的 阿里图标库 symbol 引用的 js 文件地址
+        if (!Is::nemstr($root) || Mime::getExt($root)!=="js" || Resource::exists($root)!==true) {
+            //指定的 js 地址无效
+            throw new SrcException("当前图标库 ".$this->resBaseName()." 指定的阿里图标库 JS 文件路径无效", "resource/getcontent");
+        }
+
+        return $this;
+    }
+    
+    
+    
+    /**
+     * 工具方法 缓存处理工具
+     */
+
+    /**
+     * 根据传入的参数，生成缓存文件名
+     * !! 覆盖父类
+     * @return String|null 当前请求的子资源对应缓存文件的 文件名
+     */
+    public function cacheFileName()
+    {
+        if ($this->cacheEnabled() !== true) return null;
+
+        //desc
+        $desc = $this->desc;
+        $iset = $desc["iconset"] ?? null;
+        if (!Is::nemstr($iset)) return null;
+        //export ext
+        $ext = $this->ext;
+        
+        return "$iset.$ext";
+    }
+
+    /**
+     * 获取 glyphs.json 和 [iconset].js 缓存文件内容
+     * @return Array 从 阿里图标库 获取的 内容数据
+     *  [
+     *      "glyphs" => [],
+     *      "js" => ""
+     *  ]
+     */
+    public function cacheGetIconContent()
+    {
+        $iset = $this->desc["iconset"] ?? null;
+        if (!Is::nemstr($iset)) return null;
+
+        //缓存文件名
+        $glyfn = "glyphs.json";
+        $jsfn = "$iset.js";
+        $glyf = $this->cachePath($glyfn, true);
+        $jsf = $this->cachePath($jsfn, true);
+        if (!file_exists($glyf) || !file_exists($jsf)) return null;
+
+        //读取缓存
+        $glyphs = file_get_contents($glyf);
+        $jscode = file_get_contents($jsf);
+        if (!Is::nemstr($glyphs) || !Is::nemstr($jscode)) return null;
+
+        //解析
+        $glyphs = Conv::j2a($glyphs);
+        if (!Is::nemarr($glyphs)) return null;
+
+        //缓存到资源实例
+        $this->glyphs = $glyphs;
+        $this->jscode = $jscode;
+
+        return [
+            "glyphs" => $glyphs,
+            "jscode" => $jscode
+        ];
+    }
+
+    /**
+     * 保存 glyphs.json 和 [iconset].js 缓存文件
+     * @return Bool
+     */
+    public function cacheSaveIconContent()
+    {
+        $iset = $this->desc["iconset"] ?? null;
+        if (!Is::nemstr($iset)) return null;
+
+        //缓存文件名
+        $glyfn = "glyphs.json";
+        $jsfn = "$iset.js";
+        $glyf = $this->cachePath($glyfn);
+        $jsf = $this->cachePath($jsfn);
+
+        //要缓存的数据
+        $glyphs = $this->glyphs;
+        $jscode = $this->jscode;
+        if (!Is::nemarr($glyphs) || !Is::nemstr($jscode)) return false;
+        
+        //转换
+        $glyphs = Conv::a2j($glyphs);
+        
+        //写入缓存文件
+        return Path::mkfile($glyf, $glyphs) && Path::mkfile($jsf, $jscode);
+    }
+
+
+
+
+    /**
+     * 工具方法 getters 资源信息获取
+     */
+
+    /**
+     * 远程 获取此图标库中的 所有定义的 glyphs 数组  以及 js 文件内容
+     * 获取到后 创建|更新 缓存文件
+     * @return Bool 返回 获取成功 或 失败 状态
+     */
+    public function getAliIconContent()
+    {
+        //从 阿里图标库 获取全部定义的 glyphs
+        $desc = $this->desc;
+        $iset = $desc["iconset"] ?? null;
+        $root = $desc["root"] ?? null;
+        $pctx = static::parseAliIconfont($iset, $root);
+        if (!Is::nemarr($pctx)) {
+            //解析 阿里图标库文件 失败
+            throw new SrcException("解析图标库 $iset 发生错误，缺少必要参数", "resource/getcontent");
+        }
+        $glyphs = $pctx["glyphs"] ?? null;
+        $js = $pctx["jscode"] ?? null;
+        if (!Is::nemarr($glyphs) || !Is::nemstr($js)) {
+            //解析结果错误
+            throw new SrcException("解析图标库 $iset 未得到正确的结果", "resource/getcontent");
+        }
+        
+        //缓存到资源实例
+        $this->glyphs = $glyphs;
+        $this->jscode = $js;
+
+        //创建|更新 缓存
+        if ($this->cacheEnabled() === true) {
+            //缓存 icon-content.json
+            return $this->cacheSaveIconContent();
+        }
+
+        //返回结果
+        return true;
     }
 
 
 
     /**
-     * 静态方法
+     * 静态工具
      */
 
     /**
@@ -515,7 +477,7 @@ class Icon extends ParsablePlain
      *      "js" => 使用 本地名称处理后的 js 字符内容
      *  ]
      */
-    public static function parseIconfont($iset, $url)
+    public static function parseAliIconfont($iset, $url)
     {
         if (!Is::nemstr($iset) || !Is::nemstr($url)) return null;
 
@@ -569,136 +531,224 @@ class Icon extends ParsablePlain
         //输出解析结果
         return [
             "glyphs" => $glyphs,
-            "js" => $js
+            "jscode" => $js
         ];
     }
 
     /**
-     * 当前类型的 复合资源，可以在 Src 模块中定义 特有的 响应方法
-     * 例如：*.theme 资源 在 Src 模块中的 可以定义 特有的响应方法 themeView
-     * 响应方法将调用 此处定义的 方法逻辑
-     * !! 覆盖父类
-     * !! 此方法将直接操作 Response 响应实例，返回响应结果
-     * @param Array $args URI 路径数组
-     * @return Mixed
+     * 传入 foo/bar/pre-iconname 形式字符串，从中解析出对应的 图标库 json 路径，例如：
+     * 存在图标库  icon/foo/bar.icon.json ，其图标库前缀为 ico-bar 则：
+     *      传入 foo/ico-bar-success            -->  [ json=>"图标库文件真实路径", icon=>"success" ]
+     *      传入 foo/bar/danger                 -->  [ json=>"图标库文件真实路径", icon=>"danger" ]
+     *      传入 foo/bar/warning-fill           -->  [ json=>"图标库文件真实路径", icon=>"warning-fill" ]
+     *      传入 foo/bar/ico-bar-eye-close      -->  [ json=>"图标库文件真实路径", icon=>"eye-close" ]
+     * @param String $path
+     * @return Array|false 未找到图标库 返回 false，否则返回：
+     *  [
+     *      "json" => "真实存在的 图标库文件路径",
+     *      "icon" => "对应的 图标库内部图标名称"
+     *  ]
      */
-    public static function response(...$args)
+    public static function findByPath($path)
     {
-        /**
-         * 实现 Src 模块中的 Icon 特有响应方法
-         * 
-         * 请求方法：
-         * https://host/[app_name/]src/icon/[iconset]                       访问图标库 列表|查找|选用 页面
-         * https://host/[app_name/]src/icon/[iconset][.min].[js|css]        访问图标库 JS|CSS 文件
-         * https://host/[app_name/]src/icon/[iconset]/[icon-name].svg       访问图表库中的 单个图标 svg
-         */
+        if (!Is::nemstr($path)) return false;
 
-        //传入空参数，报 404
+        //拆分路径
+        $path = str_replace(["\\", DS], "/", $path);
+        $parr = explode("/", $path);
+        //pre-iconname 图标名字符串
+        $icfn = array_slice($parr, -1)[0];
+        $parr = array_slice($parr, 0, -1);
+
+        //首先查找一次 parr 路径是否指向真实存在的 图标库文件
+        if (Is::nemarr($parr)) {
+            $jsonp = implode("/", $parr).".icon.json";
+            $opts = ResourceSeeker::seek($jsonp);
+            if (Is::nemarr($opts)) {
+                //返回找到的 图标库信息
+                $icfp = $opts["real"];
+                //如果图标名不含 - 直接返回
+                if (strpos($icfn, "-")===false) {
+                    return [
+                        "json" => $icfp,
+                        "icon" => $icfn
+                    ];
+                }
+    
+                //创建临时 图标库实例
+                $ires = Resource::create($icfp);
+                //图标库前缀
+                $ipre = $ires->desc["iconset"];
+                $iprelen = strlen($ipre)+1;
+                //从图标名中 去除可能存在的 前缀，得到实际图标名
+                if (substr($icfn, 0, $iprelen) === "$ipre-") {
+                    $icfn = substr($icfn, $iprelen);
+                }
+                unset($ires);
+                //返回找到的数据
+                return [
+                    "json" => $icfp,
+                    "icon" => $icfn
+                ];
+            }
+        }
+
+        //如果 图标路径不指向某个真实存在的 图标库，且 图标名不含 - 连接符，则无法获取图标库
+        if (strpos($icfn, "-")===false) return false;
+
+        //图标库类型复合资源的 默认保存路径 
+        $dfp = static::$filePath;
+        if ($dfp === "ext") $dfp = Str::snake(Cls::name(static::class),"_");
+        if (Is::nemstr($dfp)) {
+            array_unshift($parr, $dfp);
+        }
+
+        //在本地查找 传入的 图标库所在路径 查找文件夹
+        $icdir = ResourceSeeker::seekLocal(implode("/", $parr), true);
+        if (!Is::nemstr($icdir)) return false;
+
+        //在这个文件夹下 查找所有可用的 图标库文件
+        $cdh = opendir($icdir);
+        $rtn = [
+            "json" => "",
+            "icon" => ""
+        ];
+        while (false !== ($fn = readdir($cdh))) {
+            if (in_array($fn, [".",".."]) || is_dir($icdir.DS.$fn)) continue;
+            if (substr($fn, -10)!==".icon.json") continue;
+            //创建临时 图标库资源实例
+            $icfp = $icdir.DS.$fn;
+            $ires = Resource::create($icfp);
+            //图标库前缀
+            $ipre = $ires->desc["iconset"];
+            $iprelen = strlen($ipre)+1;
+            if (substr($icfn, 0, $iprelen) === "$ipre-") {
+                $rtn["json"] = $icfp;
+                $rtn["icon"] = substr($icfn, $iprelen);
+                unset($ires);
+                break;
+            }
+            unset($ires);
+        }
+        closedir($cdh);
+
+        //找到图标库 则返回
+        if (Is::nemstr($rtn["json"])) return $rtn;
+        return false;
+    }
+
+    /**
+     * 定义处理 复合资源请求的 代理响应方法，在 Src 模块中，可使用此方法，响应前端请求
+     * !! 覆盖父类，实现 图标库 自有的 响应代理方法
+     * @param Array $args 前端请求 URI 数组
+     * @return Mixed 
+     */
+    public static function responseProxyer(...$args)
+    {
         if (!Is::nemarr($args)) {
             Response::insSetCode(404);
             return null;
         }
-        
-        //拼接请求的 路径字符串
-        $req = implode("/", $args);
 
-        //先检查一次请求的路径是否真实存在的 文件
-        $lfres = static::getLocalResource("icon/$req");
-        if ($lfres !== false) return $lfres;
-        
-        //解析对应的 后缀名|文件夹|文件名
-        $pi = pathinfo($req);
-        $ext = $pi["extension"] ?? "";
-        $dir = $pi["dirname"] ?? "";
-        $fn = $pi["filename"] ?? "";
+        /**
+         * 此处定义 图标库 自有的 代理响应方法
+         * 按以下规则，对请求进行解析：  针对 图标库  [accessable-path]/foo/bar.icon.json
+         *      https://host/src/icon/foo/bar/@/default.js          -->  /src/foo/bar.icon?ver=@&file=default@export=js
+         *      https://host/src/icon/foo/bar/default.js            -->  /src/foo/bar.icon?ver=@&file=default@export=js
+         *      https://host/src/icon/foo/bar/latest/default.css    -->  /src/foo/bar.icon?ver=latest&file=default&export=css
+         *      https://host/src/icon/foo/bar/1.2.3/success.svg     -->  /src/foo/bar.icon?ver=1.2.3&file=default&icon=success
+         *      https://host/src/icon/foo/bar/success.svg           -->  /src/foo/bar.icon?ver=@&file=default&icon=success
+         *      图标库 图标前缀为 icopre 则可以这样访问 内部 svg 图标
+         *      https://host/src/icon/foo/[bar/]icopre-success.svg  -->  /src/foo/bar.icon?ver=@&file=default&icon=success
+         */
+        //拼接 URI
+        $uri = implode("/", $args);
+        if (strpos($uri, "/")===false) $uri = "/".$uri;
 
-        //处理请求的资源上级路径
-        if (!Is::nemstr($dir) || in_array($dir, ["."])) $dir = "";
-
-        //处理请求资源的 后缀名
-        if (!Is::nemstr($ext)) $ext = "icon";
-        $ext = strtolower($ext);
-
-        //支持输出的 ext 格式
-        $exts = ["icon", "js", "css", "svg"];
-        //请求的 后缀名不支持，报 404
-        if (!in_array(strtolower($ext), $exts)) {
+        //匹配 URI 中包含的 json 文件路径，以及 file.export 参数
+        preg_match_all("/(.*)\/([a-zA-Z0-9-_.]+\.[a-zA-Z0-9]+)/", $uri, $mts);
+        if (!isset($mts[2]) || empty($mts[2]) || !Is::nemstr($mts[2][0])) {
+            //未匹配到有效的 请求参数
             Response::insSetCode(404);
             return null;
         }
+        //匹配到的 复合资源 json 文件路径
+        $cfp = $mts[1][0];
+        //匹配到的 请求的 file.export
+        $efp = $mts[2][0];
 
-        //如果请求的是 单个 svg 且 上级路径为空，报 404
-        if ($ext === "svg" && !Is::nemstr($dir)) {
-            Response::insSetCode(404);
-            return null;
-        }
-
-        //请求的文件名为空，报 404
-        if (!Is::nemstr($fn)) {
-            Response::insSetCode(404);
-            return null;
-        }
-
-        //是否存在 .min.
-        $ismin = false;
-        if (substr(strtolower($fn), -4)===".min") {
-            $ismin = true;
-            $fn = substr($fn, 0, -4);
-        }
-
-        //首先定位 请求的图标库 *.icon 文件，创建 Icon 图标库资源实例
-        if ($ext === "icon") {
-            $iconf = substr($req, -5)===".icon" ? $req : $req.".icon";
-        } else if ($ext === "svg") {
-            $iconf = $dir.".icon";
+        //处理 json 文件路径中 可能包含的 version 信息
+        preg_match_all("/\/(@|latest|((\.?[0-9]+\.?)+)){1}/", $cfp, $cmts);
+        if (!isset($cmts[1]) || empty($cmts[1]) || !Is::nemstr($cmts[1][0])) {
+            //未匹配到 version 使用默认
+            $ver = "@";
         } else {
-            $iconf = ($dir=="" ? "" : $dir."/").$fn.".icon";
+            //匹配到 version
+            $ver = $cmts[1][0];
+            //从 json 路径中 去除 version 信息
+            $cfp = str_replace($cmts[0][0], "", $cfp);
         }
-        //调用 Resource::findLocal() 方法 查找对应的 *.icon 文件
-        $icf = Resource::findLocal($iconf);
-        //未找到 *.icon 文件
-        if (!file_exists($icf)) {
+        
+        //整理 匹配到的 资源请求参数
+        $params = [
+            "ver" => $ver
+        ];
+        
+        if (substr($efp, -4) === ".svg") {
+            //!! 针对 直接访问 *.svg 图标库内部某个 svg 图标的情况
+
+            //icon 参数
+            $icon = substr($efp, 0, -4);
+            //根据传入的 文件路径 和 图标名，查找 图标库路径和 图标真实名
+            $icop = (!Is::nemstr($cfp) ? "" : $cfp."/").$icon;
+            //var_dump($icop);
+            $icoi = static::findByPath($icop);
+            if ($icoi === false) {
+                //未找到图标库
+                Response::insSetCode(404);
+                return null;
+            }
+            //var_dump($icoi);
+            //更新图标库路径
+            $cfp = $icoi["json"];
+            $params["icon"] = $icoi["icon"];
+
+        } else {
+            //处理 请求的 file.export 得到 params["file"] ["export"]
+            preg_match_all("/([a-zA-Z0-9-_.]+)\.([a-zA-Z0-9]+)/", $efp, $emts);
+            if (!isset($emts[1]) || empty($emts[1]) || !Is::nemstr($emts[1][0])) {
+                //未匹配到有效的 file 和 export 参数，使用默认
+                $std = static::$stdParams;
+                $file = $std["file"];
+                $export = $std["export"];
+            } else {
+                //匹配到有效的 file 和 export 参数
+                $file = $emts[1][0];
+                $export = $emts[2][0];
+            }
+            $params["file"] = $file;
+            $params["export"] = $export;
+
+            //查找 复合资源的 json 文件路径
+            $cfp = rtrim($cfp, "/").".icon.json";
+        }
+
+        //var_dump($params);
+        //var_dump($cfp);
+        //exit;
+        
+        //尝试创建 复合资源实例
+        $res = Resource::create($cfp, $params);
+        if (!$res instanceof Compound) {
+            //无法创建资源实例
             Response::insSetCode(404);
             return null;
         }
+        //var_dump($res);
 
-        //icon 资源实例 的 params 参数
-        $ps = [];
-        if ($ismin) $ps["min"] = true;
-        if ($ext === "svg") {
-            $ps["icon"] = $fn;
-        } else {
-            $ps["export"] = $ext==="icon" ? "css" : $ext;
-        }
-        
-        //创建 icon 资源实例
-        $icon = Resource::create($icf, $ps);
-        if (!$icon instanceof Resource) {
-            //报错
-            throw new SrcException("$iconf 文件资源无法实例化", "resource/instance");
-        }
+        //返回创建好的 资源实例
+        return $res;
 
-        //根据请求的后缀名，决定输出的资源内容
-        if ($ext === "icon") {
-            //输出 图标库 列表视图
-            //当前响应方法的 输出类默认为 view 无需修改
-            Response::insSetType("view");
-            
-            return [
-                //使用 视图页面 spf/view/iconset.php
-                "view" => "spf/assets/view/iconset.php",
-                //传入 Icon 资源实例作为视图页面参数
-                "params" => [
-                    "icon" => $icon
-                ]
-            ];
 
-        }
-        
-        //根据 ext 输出对应的 JS|CSS|svg 资源
-        //将 Response 输出类型 改为 src
-        Response::insSetType("src");
-        //输出资源
-        return $icon;
     }
 }

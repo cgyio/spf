@@ -6,11 +6,11 @@
  * 基于 Spf 框架内部的 核心类实例的 数据，将遵循特定语法的 DSL 语句，转译为 可执行的 php 语句，最终执行并返回结果
  * 
  * 例如：
- *      ?env.config.dir[app]!=app&nemarr(env.dir) 将被解析为：
+ *      ?env.config.dir[app]!=app&nemarr(env.dir)&!nemstr(env.dir[app]) 将被解析为：
  *          ?           表示返回值为 布尔值
- *          语句解析为：  return Env::$current->config->dir["app"] !== "app" && Is::nemarr(Env::$current->dir)
+ *          语句解析为：  return Env::$current->config->dir["app"] !== "app" && Is::nemarr(Env::$current->dir) && Is::nemstr(Env::$current->dir["app"]) === false
  * 
- * 如果指定了 默认数据源为 Env::$current 则可以简写为：?dir[app]!=app&nemarr(dir)
+ * 如果指定了 默认数据源为 Env::$current 则可以简写为：?dir[app]!=app&nemarr(dir)&!nemstr(dir[app])
  * 
  * !! 创建 DSL 实例必须在 所有核心类都已完成实例化之后
  */
@@ -59,6 +59,13 @@ class Dsl
                 "fn" => "/((__FCN__)\((__ARG__)\))__END__/U",
                 //结尾的 function(...args) 形式
                 "fn_end" => "/((__FCN__)\((__ARG__)\))$/U",
+
+                //调用方法，然后比较结果的 util.is::fooBar('string', foo.bar)>=123
+                //开始|中间
+                "fneq" => "/((__FCN__)\((__ARG__)\)(__LOGIC__)(__VAL__))__END__/U",
+                //结尾的 function(...args) 形式
+                "fneq_end" => "/((__FCN__)\((__ARG__)\)(__LOGIC__)(__VAL__))$/U",
+
             ],
         ],
     ];
@@ -69,8 +76,8 @@ class Dsl
     protected static $clause = [
         //变量名 正则  foo.bar | foo.bar[jaz.tom] | foo.bar[jaz].tom
         "var" => "[a-zA-Z0-9_.[\]]+",
-        //方法名 正则  util.is::fooBar(...) | app.fooBar(...) | fooBar(...)
-        "fcn" => "[a-zA-Z0-9_:.]+",
+        //方法名 正则  util.is::fooBar(...) | !app.fooBar(...) | fooBar(...)
+        "fcn" => "[a-zA-Z0-9_:.!]+",
         //值 正则
         "val" => "[a-zA-Z0-9_.' ]+",
         //方法参数 正则
@@ -148,7 +155,7 @@ class Dsl
             "parsed" => $parsed,
         ];
         $rtn = $this->$em($dsl, $parsed);
-        var_dump($this->history[$dsl]);
+        //var_dump($this->history[$dsl]);
 
         return $rtn;
     }
@@ -342,6 +349,32 @@ class Dsl
     {
         return $this->parseBoolFn($mts);
     }
+    //解析 bool->clause->fneq 子句
+    protected function parseBoolFneq($mts=[])
+    {
+        $rtn = [];
+        foreach ($mts[0] as $i => $mti) {
+            //字句片段
+            $sk = $mts[1][$i];
+            //返回值
+            $rtn[$sk] = [
+                //方法名
+                "func" => $this->parseFunc($mts[2][$i]),
+                //参数
+                "args" => $this->parseArgs($mts[3][$i]),
+                //值
+                "val" => $this->parseVal($mts[5][$i]),
+                //比较逻辑符号
+                "logic" => $this->parseLogic($mts[4][$i]),
+            ];
+        }
+        return $rtn;
+    }
+    //解析 bool->clause->fneq_end 子句
+    protected function parseBoolFneqEnd($mts=[])
+    {
+        return $this->parseBoolFneq($mts);
+    }
 
 
 
@@ -402,7 +435,8 @@ class Dsl
             $prop = explode(".", explode("[", $clause)[0])[0];
             if (Is::nemarr($this->sourceProperties)) {
                 foreach ($this->sourceProperties as $sprop) {
-                    if (isset($this->source->$sprop[$prop])) {
+                    //if (isset($this->source->$sprop[$prop])) { //存在 =null 问题
+                    if (in_array($prop, array_keys($this->source->$sprop))) {
                         $clause = "\$this->source->".$sprop."['".$prop."']".substr($clause, strlen($prop));
                         $hasprop = true;
                         break;
@@ -464,7 +498,18 @@ class Dsl
     protected function parseFunc($clause)
     {
         if (!Is::nemstr($clause)) return $clause;
-        if (function_exists($clause)) return $clause;
+        //如果以 ! 开头
+        $reverse = substr($clause, 0,1)==="!" ? true : false;
+        if ($reverse) $clause = substr($clause, 1);
+
+        //首先直接检查是否存在 函数名
+        if (function_exists($clause)) return ($reverse ? "!" : "").$clause;
+        /**
+         * 针对 empty,isset 不是函数，而是 语言结构的 情况，手动排除
+         */
+        $specs = ["empty","isset"];
+        if (in_array($clause, $specs)) return ($reverse ? "!" : "").$clause;
+
         //替换 关键字
         $haskw = $this->parseKeyword($clause);
         if ($haskw !== false) {
@@ -491,7 +536,7 @@ class Dsl
 
         //. --> ->
         $clause = str_replace(".","->", $clause);
-        return $clause;
+        return ($reverse ? "!" : "").$clause;
     }
     //解析 方法参数
     protected function parseArgs($clause)
@@ -536,22 +581,33 @@ class Dsl
         //从 parsed 数组中拆分对应语句 生成 eval 语句
         $evals = [];
         foreach ($parsed as $ctp => $clauses) {
-            $iseq = substr($ctp, 0, 2)==="eq";
             foreach ($clauses as $sk => $clc) {
-                if ($iseq) {
+                if (substr($ctp, 0, 2)==="eq") {
                     $var = $clc["var"];
                     $lgc = $clc["logic"];
                     $val = $clc["val"];
                     $evals[$sk] = "$var $lgc $val";
-                } else {
+                } else if (substr($ctp, 0, 4)==="fneq") {
                     $func = $clc["func"];
                     $args = $clc["args"];
-                    $evals[$sk] = "$func($args)";
+                    $lgc = $clc["logic"];
+                    $val = $clc["val"];
+                    $evals[$sk] = "$func($args) $lgc $val";
+                } else if (substr($ctp, 0, 2)==="fn") {
+                    $func = $clc["func"];
+                    $args = $clc["args"];
+                    //处理 ! 开头的 方法名
+                    if (substr($func, 0,1)==="!") {
+                        $evals[$sk] = substr($func, 1)."($args) === false";
+                    } else {
+                        $evals[$sk] = "$func($args)";
+                    }
                 }
             }
         }
         //写入 history
         $this->history[$dsl]["evals"] = $evals;
+        //var_dump($evals);
 
         //依次执行 eval 语句，将得到的结果 替换到 dsl 语句中
         $evaldsl = $this->history[$dsl]["syntax"]["dsl"];

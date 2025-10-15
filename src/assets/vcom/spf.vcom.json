@@ -1,0 +1,34 @@
+{
+    "__RESOURCE__": {
+        "class": "Vcom",
+        "opts": {}
+    },
+
+    "name": "spf",
+    "enableVersion": true,
+    "version": {
+        "@": "1.0.0",
+        "latest": "1.0.0"
+    },
+
+    "enableCache": true,
+    "cachePath": "cache",
+
+    "ext": ["js","css","scss"],
+
+    "root": "spf/assets/vcom",
+
+    "content": {
+        "1.0.0": {
+            "js": {
+                "default": {
+                    "type": "dynamic",
+                    "file": "base.js",
+                    "params": {
+    
+                    }
+                }
+            }
+        }
+    }
+}

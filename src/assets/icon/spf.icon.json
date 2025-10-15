@@ -1,0 +1,41 @@
+{
+    "name": "spf",
+    "iconset": "spf",
+    "multicolor": false,
+    "iconcss": "spf/assets/icon/base.css",
+
+    "ext": ["js","css","svg"],
+    
+    "enableVersion": true,
+    "version": {
+        "@": "1.0.0",
+        "latest": "1.0.0"
+    },
+
+    "enableCache": true,
+    "cachePath": "cache",
+    
+    "root": "https://at.alicdn.com/t/c/font_5008440_ptbpt0c9var.js",
+
+    "content": {
+        "1.0.0": {
+            "js": {
+                "default": {
+                    "params": {}
+                }
+            },
+            "css": {
+                "default": {
+                    "disableCache": true,
+                    "params": {}
+                }
+            },
+            "svg": {
+                "default": {
+                    "disableCache": true,
+                    "params": {}
+                }
+            }
+        }
+    }
+}

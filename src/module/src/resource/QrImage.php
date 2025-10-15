@@ -23,6 +23,14 @@ class QrImage extends Image
      * !! 覆盖父类
      */
     public static $stdParams = [
+        /**
+         * 可在资源实例化时，指定 一个 Compound 复合资源 作为此资源的 parentResource 
+         * !! 此参数无法通过 url 传递，只能在资源实例化时，手动传入
+         */
+        "belongTo" => null,
+        //是否忽略 $_GET 参数
+        "ignoreGet" => false,
+        
         //等比缩放，默认 100  
         "zoom" => false,
         //缩放并裁剪，例如：原图 1920*1080 输入裁剪参数 1920x1200 最终输出尺寸 1728*1080 放大到 1920*1200
@@ -82,7 +90,7 @@ class QrImage extends Image
 
 
     /**
-     * 资源实力内部定义的 stage 处理方法
+     * 资源实例内部定义的 stage 处理方法
      * @param Array $params 方法额外参数
      * @return Bool 返回 false 则终止 当前阶段 后续的其他中间件执行
      */

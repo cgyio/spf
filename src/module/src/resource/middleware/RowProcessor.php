@@ -39,6 +39,9 @@ class RowProcessor extends Processor
         "html" => [
             "cm" => ["<!-- ", "    ", " -->"],
         ],
+
+        "xml" => "html",
+        "svg" => "html",
     ];
 
     /**
@@ -75,7 +78,7 @@ class RowProcessor extends Processor
         $dft = $opts["default"];
         $eopt = $opts[$ext] ?? [];
         if (Is::nemstr($eopt)) $eopt = $opts[$eopt] ?? [];
-        $eopt = Arr::extend($dft, $eopt);
+        $eopt = Arr::extend($dft, $eopt, true);
         //写入处理参数
         $ks = array_keys($dft);
         foreach ($ks as $k) {
@@ -112,21 +115,8 @@ class RowProcessor extends Processor
     protected function stageExport()
     {
         //合并 资源实例的 rows 生成 content
-        $this->content = $this->rowCombine();
-
-        return true;
-    }
-
-    /**
-     * export 阶段执行的操作
-     * !! 自定义的 stage 方法
-     * @return Bool
-     */
-    protected function stageTester()
-    {
-        var_dump($this->RowProcessor);
-        exit;
-
+        $this->resource->content = $this->rowCombine();
+        
         return true;
     }
 
@@ -146,12 +136,16 @@ class RowProcessor extends Processor
 
         //content
         $cnt = $res->content;
-        if (!Is::nemstr($cnt)) return $this;
+        if (!Is::nemstr($cnt)) {
+            $this->resource->rows = [];
+            return $this;
+        }
+
         $rows = explode($this->rn, $cnt);
         //原始 行数组
         if (!Is::nemarr($this->originRows)) $this->originRows = array_merge([],$rows);
         //行数组
-        $res->rows = array_merge([], $rows);
+        $this->resource->rows = array_merge([], $rows);
 
         return $this;
     }
@@ -186,10 +180,20 @@ class RowProcessor extends Processor
         $his = $this->historyRows;
         if (!Is::nemarr($his)) return $this;
         $rows = array_slice($his, -1)[0];
-        if (!Is::nemarr($rows)) return $this;
-        $this->resource->rows = array_merge([], $rows);
         $this->historyRows = array_slice($his, 0, -1);
+        if (!is_array($rows)) return $this;
+        $this->resource->rows = array_merge([], $rows);
         return $this;
+    }
+
+    /**
+     * 输出当前 rows
+     * @return Array
+     */
+    public function exportRows()
+    {
+        $rows = array_merge([], $this->resource->rows);
+        return $rows;
     }
 
 

@@ -6,6 +6,8 @@
 
 namespace Spf\module\src;
 
+use Spf\module\src\resource\middleware\Processor;
+use Spf\module\src\resource\middleware\MergeProcessor;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -112,11 +114,15 @@ class ResourceMiddleware
             $cp = static::$cacheProperty;
             if (Is::nemstr($cp) && isset($res->$cp)) {
                 $mido = $res->$cp;
+                //更新 params
+                if (Is::nemarr($params)) {
+                    $mido->params = Arr::extend($mido->params, $params);
+                }
             }
         }
 
         //未设置缓存 或 未读取到缓存的实例 则创建 中间件实例
-        $mido = new static($res, $params);
+        if (empty($mido)) $mido = new static($res, $params);
 
         //执行 handle 方法
         $rtn = $mido->handle();
@@ -151,6 +157,7 @@ class ResourceMiddleware
         //严格按顺序执行中间件处理
         foreach ($mids as $cls => $mps) {
             //处理 "FooBar [#|?]foo_bar" 形式的 中间件名称调用
+            $cmd = null;
             if (strpos($cls, " ")!==false) {
                 $cls = preg_replace("/\s+/", " ", $cls);
                 $clsarr = explode(" ", $cls);
@@ -160,6 +167,8 @@ class ResourceMiddleware
 
             //注入 params
             $ps = Arr::extend($mps, $params);
+            //params 中包含的 break 参数，默认 false
+            $break = $ps["break"] ?? false;
 
             //处理 条件中间件 FooBar ?... 形式
             if (isset($cmd) && Is::nemstr($cmd) && substr($cmd, 0,1) === "?") {
@@ -172,10 +181,14 @@ class ResourceMiddleware
             $clsp = static::cls($cls);
             if (Is::nemstr($clsp)) {
                 //中到对应中间件的 类全称 开始调用中间件 处理资源实例
+                //!! 针对 Processor 类型中间件，注入默认的 stage 参数
+                if (is_subclass_of($clsp, Processor::class)) {
+                    if (!isset($ps["stage"])) $ps["stage"] = $midType;
+                }
                 //执行中间件的 handle 方法 可能是实例化一个新的中间件实例  或  使用已缓存的实例
                 $rtn = $clsp::execHandle($res, $ps);
                 //如果处理方法 返回 false 则终止后续处理
-                if ($rtn === false) break;
+                if ($rtn === false || $break === true) break;
                 continue;
             }
 
@@ -185,7 +198,7 @@ class ResourceMiddleware
                 //目标资源实例中 定义了对应的 stage 方法，调用此方法
                 $rtn = $res->$stm($ps);
                 //如果处理方法 返回 false 则终止后续处理
-                if ($rtn === false) break;
+                if ($rtn === false || $break === true) break;
                 continue;
             }
 

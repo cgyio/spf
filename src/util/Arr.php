@@ -55,9 +55,10 @@ class Arr extends Util
     /**
      * Array 深拷贝，内部的 Array 项执行递归拷贝，确保后续操作不会影响原数组
      * @param Array|Mixed $arr 要拷贝的 对象，可以是 标量|Array|Object|...
+     * @param Bool $copyObject 是否 拷贝 Object 类型，默认 false 则直接返回引用
      * @return Array
      */
-    public static function copy($arr = [])
+    public static function copy($arr = [], $copyObject=false)
     {
         //标量直接返回
         if (is_scalar($arr) || is_null($arr)) return $arr;
@@ -74,6 +75,9 @@ class Arr extends Util
 
         //对象类型：克隆并递归拷贝所有属性（包括私有/保护属性）
         if (is_object($arr)) {
+            //如果 copyObject === false 则直接返回 引用
+            if ($copyObject===false) return $arr;
+
             //特殊对象处理：Closure 无法深拷贝
             if ($arr instanceof \Closure) {
                 //!! 不报错，直接返回原值
@@ -407,18 +411,30 @@ class Arr extends Util
      * 多维数组递归合并，新值替换旧值，like jQuery extend
      * @param Array $old
      * @param Array $new
+     * @param Bool $replaceIndexedArray 额外指定两个 indexed 数组的合并方式，默认 false 合并去重，true 使用新的 替换 旧的
      * @return Array
      */
-    public static function extend($old = [], $new = []) 
+    //public static function extend($old = [], $new = [], $replaceIndexedArray=false) 
+    public static function extend(...$args) 
     {
-        if (func_num_args()>2) {
-            $args = func_get_args();
+        if (count($args)>=1 && is_bool(array_slice($args, -1)[0])) {
+            $replaceIndexedArray = array_slice($args, -1)[0];
+            $args = array_slice($args, 0, -1);
+        } else {
+            //两个 indexed 数组的默认合并方式：合并去重
+            $replaceIndexedArray = false;
+        }
+
+        $arglen = count($args);
+        if ($arglen>2) {
             $old = self::copy($args[0]);
-            for ($i=1; $i<count($args); $i++) {
+            for ($i=1; $i<$arglen; $i++) {
                 $old = self::extend($old, $args[$i]);
             }
             return $old;
         } else {
+            $old = $arglen>=1 ? $args[0] : [];
+            $new = $arglen>=2 ? $args[1] : [];
             if (!Is::nemarr($new)) return self::copy($old);
             if (!Is::nemarr($old)) return self::copy($new);
             $old = self::copy($old);
@@ -430,14 +446,22 @@ class Arr extends Util
                 }
                 if (is_array($v) && is_array($new[$k])) {
                     if (Is::indexed($v) && Is::indexed($new[$k])) {	
-                        /**
-                         * 新旧值均为数字下标数组
-                         * 合并数组，并去重
-                         * !! 当数组的值为{}时，去重报错
-                         * !! 添加 SORT_REGULAR 参数，去重时不对数组值进行类型转换
-                         */
+                        //复制新值
                         $nv = self::copy($new[$k]);
-                        $old[$k] = array_unique(array_merge($v, $nv), SORT_REGULAR);
+                        if ($replaceIndexedArray === false) {
+                            /**
+                             * 新旧值均为数字下标数组
+                             * 合并数组，并去重
+                             * !! 当数组的值为{}时，去重报错
+                             * !! 添加 SORT_REGULAR 参数，去重时不对数组值进行类型转换
+                             */
+                            $old[$k] = array_unique(array_merge($v, $nv), SORT_REGULAR);
+                        } else {
+                            /**
+                             * 使用 新的数组 替换 旧的数组
+                             */
+                            $old[$k] = $nv;
+                        }
                     } else {
                         //递归 extend
                         $old[$k] = self::extend($v, $new[$k]);

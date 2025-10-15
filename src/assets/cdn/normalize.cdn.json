@@ -1,0 +1,29 @@
+{
+    "name": "normalize",
+    "var": "normalize",
+
+    "enableVersion": true,
+    "version": {
+        "@": "3.0.1",
+        "latest": "3.0.1"
+    },
+
+    "enableCache": true,
+    "cachePath": "cache",
+
+    "ext": ["css"],
+    
+    "root": "https://cdnjs.cloudflare.com/ajax/libs/modern-normalize",
+    "cdn_comment": "modern-normalize 可兼容最新版本 Chrome|Safari|Firefox",
+
+    "content": {
+        "3.0.1": {
+            "css": {
+                "default": {
+                    "file": "modern-normalize.min.css",
+                    "params": {}
+                }
+            }
+        }
+    }
+}

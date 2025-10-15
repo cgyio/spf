@@ -1,125 +1,145 @@
 <?php
 /**
- * 框架 Src 资源处理模块
- * Resource 资源类 Icon 子类
- * 继承自 ParsablePlain 纯文本类型基类，处理 *.scss 类型本地文件
+ * Codex 类型资源类
+ * 处理 SCSS 文件资源
  */
 
 namespace Spf\module\src\resource;
 
-use Spf\App;
-use Spf\module\src\Resource;
-use Spf\module\src\Mime;
 use Spf\module\src\SrcException;
+use Spf\Request;
+use Spf\Response;
+use Spf\module\src\Mime;
 use Spf\util\Is;
-use Spf\util\Str;
 use Spf\util\Arr;
-use Spf\util\Cls;
-use Spf\util\Conv;
+use Spf\util\Str;
 use Spf\util\Path;
+use Spf\util\Conv;
+use Spf\util\Url;
 
 use ScssPhp\ScssPhp\Compiler as scssCompiler;
 use ScssPhp\ScssPhp\OutputStyle as scssOutputStyle;
 
-class Scss extends ParsablePlain 
+class Scss extends Codex
 {
     /**
-     * 当前资源类型是否定义了 factory 工厂方法，如果是，则在实例化时，通过 工厂方法 创建资源实例，而不是 new 
-     * !! 针对存在 资源自定义子类 的情况，如果设为 true，则必须同时定义 factory 工厂方法
-     * !! 覆盖父类
-     * 
-     * 复合资源默认开启 工厂方法，允许在当前 *.theme|*.icon|*.lib|... 文件中定义 class 项目，指向自定义的 ParsablePlain 子类
-     */
-    public static $hasFactory = false;
-
-    /**
-     * 此类型纯文本资源的 注释符 [ 开始符号, 每行注释的开头符号, 结尾符号 ]
-     * !! 覆盖父类
-     */
-    public $cm = ["/**", " * ", " */"];
-
-    /**
-     * 此类型的纯文本资源，如果可用 import 语句，则 指定 import 语法
-     * 默认 为 null，表示不处理 或 不适用 import 语法
-     * js 文件的 import 语句不在此处处理，直接输出
-     * !! 各子类可以定义各自的 import 语句语法 正则
-     */
-    public $importPattern = "/@import\s+['\"](.+)['\"];?/";
-
-    /**
-     * 定义 可用的 params 参数规则
+     * 定义 资源实例 可用的 params 参数规则
      * 参数项 => 默认值
-     */
-    protected static $stdParams = [
-        //是否 强制不使用 缓存的 glyphs
-        "create" => false,
-        //输出文件的 类型 css|scss
-        "export" => "css",
-        //可指定要合并输出的 其他 scss 文件
-        "use" => "",
-        //是否忽略 @import 默认 false
-        "noimport" => false,
-        //...
-    ];
-
-    /**
-     * 定义支持的 export 类型，必须定义相关的 createFooContent() 方法
-     * 必须是 Mime 支持的 文件后缀名
      * !! 覆盖父类
      */
-    protected static $exps = [
-        "css", "scss",
+    public static $stdParams = [
+
+        /**
+         * !! 无法通过 url 传递 的参数，只能在此资源实例化时 手动传入
+         */
+        //可在资源实例化时，指定当前的 Codex 资源是否属于某个 Compound 复合资源的 内部资源
+        /*"belongTo" => null,
+        //是否忽略 $_GET 参数
+        "ignoreGet" => false,
+        //可额外定义此资源的 中间件，这些额外的中间件 将在资源实例化时，附加到预先定义的中间件数组后面
+        "middleware" => [
+            //create 阶段
+            "create" => [],
+            //export 阶段
+            "export" => [],
+        ],
+        //import 资源时 被导入资源的实例化参数，将与 dftImportParams 合并
+        "importParams" => [],
+        //合并资源时的 被合并资源的实例化参数，将与 dftMergeParams 合并
+        "mergeParams" => [],*/
+
+        /**
+         * 其他参数
+         */
+        //可指定实际输出的 资源后缀名 可与实际资源的后缀名不一致，例如：scss 文件可指定输出为 css
+        "export" => "scss",
+        //代码导入参数，true:处理导入(合并本地资源|补齐远程资源地址)，false:删除所有导入语句，'keep':导入语句保持原始形式
+        //"import" => true,
+        //代码合并参数，可指定要合并输出的 其他本地资源文件，文件名|文件路径，如果不带 ext 则使用 $this->ext
+        //"merge" => [],
+        
+    ];
+    
+    /**
+     * 针对此资源实例的 处理中间件
+     * 需要严格按照先后顺序 定义处理中间件
+     * !! 覆盖父类
+     */
+    public $middleware = [
+        //资源实例 构建阶段 执行的中间件
+        "create" => [
+            //使用资源类的 stdParams 标准参数数组 填充 params
+            "UpdateParams" => [],
+            //获取 资源实例的 meta 数据
+            "GetMeta" => [],
+            //获取 资源的 content
+            "GetContent" => [],
+            //内容行处理器
+            "RowProcessor" => [
+                "stage" => "create"
+            ],
+            //import 处理 有条件执行
+            "ImportProcessor" => [
+                "stage" => "create"
+            ],
+            //条件执行 资源合并
+            "MergeProcessor ?!empty(merge)" => [
+                "stage" => "create"
+            ],
+            //去除 scss 代码中的 charset 语句
+            "StripScssCharset" => [
+                "break" => true
+            ],
+        ],
+
+        //资源实例 输出阶段 执行的中间件
+        "export" => [
+            //更新 资源的输出参数 params
+            "UpdateParams" => [],
+            
+            //条件执行 合并生成 content
+            "ImportProcessor ?import!=keep&empty(merge)" => [
+                "stage" => "export"
+            ],
+            "RowProcessor ?import=keep&empty(merge)" => [
+                "stage" => "export"
+            ],
+            "MergeProcessor ?!empty(merge)" => [
+                "stage" => "export"
+            ],
+            //调用 scss 解析工具
+            "ParseScssContent ?export=css" => [
+                "break" => true
+            ],
+        ],
     ];
 
 
-
+    
     /**
-     * 当前资源创建完成后 执行
-     * !! 覆盖父类，如果需要，Plain 子类可以覆盖此方法
-     * @return Resource $this
+     * 资源实例内部定义的 stage 处理方法
+     * @param Array $params 方法额外参数
+     * @return Bool 返回 false 则终止 当前阶段 后续的其他中间件执行
      */
-    protected function afterCreated()
+    //StripScssCharset 去除 scss 代码中的 charset 语句
+    public function stageStripScssCharset($params=[])
     {
-        //调用 Plain 父类的默认方法
-        return $this->plainAfterCreated();
-    }
-
-    /**
-     * 在输出资源内容之前，对资源内容执行处理
-     * !! 覆盖父类，如果需要，Plain 子类可以覆盖此方法
-     * @param Array $params 可传入额外的 资源处理参数
-     * @return Resource $this
-     */
-    protected function beforeExport($params=[])
-    {
-        //调用 Plain 父类的默认方法
-        return $this->plainBeforeExport($params);
-    }
-
-
-
-    /**
-     * 不同 export 类型，生成不同的 content
-     * !! 子类可以根据 exps 中定义的可选值，实现对应的 createFooContent() 方法
-     * @return $this
-     */
-    //生成 CSS content
-    protected function createCssContent()
-    {
-        //解析 scss 为 css，默认不压缩
-        $this->content = static::parseScss($this->content, false);
-        //去除所有 可能存在的 @charset 头
         $this->content = static::stripCharset($this->content);
-        //在开头增加 @charset 头
-        $this->content = "@charset \"UTF-8\";\n\n".$this->content;
-        return $this;
+        return true;
     }
-    //生成 SCSS content
-    protected function createScssContent()
+    //ParseScss 将 scss content 解析为 css
+    public function stageParseScssContent($params=[])
     {
-        //去除可能存在的 @charset
-        $this->content = static::stripCharset($this->content);
-        return $this;
+        //scss 文件内容
+        $cnt = $this->content;
+        $exp = $this->params["export"] ?? "scss";
+        //如果指定输出 css
+        if ($exp === "css") {
+            //解析 scss 默认不压缩，由 Codex 类统一处理代码压缩
+            $this->content = static::parseScss($cnt, false);
+        }
+        
+        return true;
     }
 
 

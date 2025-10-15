@@ -21,5 +21,35 @@ use Spf\util\Url;
 
 class Plain extends Resource
 {
-    
+    /**
+     * 针对此资源实例的 处理中间件
+     * 需要严格按照先后顺序 定义处理中间件
+     * !! 覆盖父类
+     */
+    public $middleware = [
+        //资源实例 构建阶段 执行的中间件
+        "create" => [
+            //使用资源类的 stdParams 标准参数数组 填充 params
+            "UpdateParams" => [],
+            //获取 资源实例的 meta 数据
+            "GetMeta" => [],
+            //获取 资源的 content
+            "GetContent" => [],
+            //内容行处理器
+            "RowProcessor" => [
+                "stage" => "create"
+            ],
+        ],
+
+        //资源实例 输出阶段 执行的中间件
+        "export" => [
+            //更新 资源的输出参数 params
+            "UpdateParams" => [],
+
+            "RowProcessor" => [
+                "stage" => "export",
+                "break" => true,
+            ],
+        ],
+    ];
 }

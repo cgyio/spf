@@ -1,8 +1,7 @@
 <?php
 /**
- * 框架 Src 资源处理模块
- * Resource 资源类 Svg 子类
- * 继承自 Plain 纯文本类型基类，处理 *.svg 类型本地文件
+ * Plain 纯文本资源类 子类
+ * 处理 Svg 类型本地文件
  */
 
 namespace Spf\module\src\resource;
@@ -21,7 +20,7 @@ class Svg extends Plain
      * 参数项 => 默认值
      * !! 子类应覆盖此属性，定义自己的 params 参数规则
      */
-    protected static $stdParams = [
+    public static $stdParams = [
         //fill 修改 svg 中某些路径的 颜色
         "fill" => "",   // f00-f00--f00  -->  按路径顺序，分别指定颜色
 
@@ -33,10 +32,47 @@ class Svg extends Plain
     ];
     
     /**
-     * 此类型纯文本资源的 注释符 [ 开始符号, 每行注释的开头符号, 结尾符号 ]
-     * !! 子类必须覆盖此属性
+     * 针对此资源实例的 处理中间件
+     * 需要严格按照先后顺序 定义处理中间件
+     * !! 覆盖父类
      */
-    public $cm = ["<!--", "  ", "-->"];
+    public $middleware = [
+        //资源实例 构建阶段 执行的中间件
+        "create" => [
+            //使用资源类的 stdParams 标准参数数组 填充 params
+            "UpdateParams" => [],
+            //获取 资源实例的 meta 数据
+            "GetMeta" => [],
+            //获取 资源的 content
+            "GetContent" => [],
+            //内容行处理器
+            "RowProcessor" => [
+                "stage" => "create"
+            ],
+            //拆分 path 数组
+            "SplitPathes" => [],
+        ],
+
+        //资源实例 输出阶段 执行的中间件
+        "export" => [
+            //更新 资源的输出参数 params
+            "UpdateParams" => [],
+
+            //应用修改操作
+            "ApplyModify" => [],
+
+            //如果要输出 pathes
+            "CreatePathesJson ?pathes=true" => [
+                "break" => true,
+            ],
+
+            //正常输出
+            "RowProcessor ?pathes=false" => [
+                "stage" => "export",
+                "break" => true,
+            ],
+        ],
+    ];
 
     /**
      * 通用的 svg 代码头
@@ -50,62 +86,14 @@ class Svg extends Plain
     ];
 
 
+    
     /**
-     * 当前资源创建完成后 执行
-     * !! 覆盖父类
-     * @return Resource $this
+     * 资源实例内部定义的 stage 处理方法
+     * @param Array $params 方法额外参数
+     * @return Bool 返回 false 则终止 当前阶段 后续的其他中间件执行
      */
-    protected function afterCreated()
-    {
-        //格式化 params 
-        $this->formatParams();
-
-        //拆分 svg 路径到 pathes 数组
-        $this->splitPathes();
-
-        return $this;
-    }
-
-    /**
-     * 在输出资源内容之前，对资源内容执行处理
-     * !! 覆盖父类
-     * @param Array $params 可传入额外的 资源处理参数
-     * @return Resource $this
-     */
-    protected function beforeExport($params=[])
-    {
-        //合并额外参数
-        $this->extendParams($params);
-        $this->formatParams();
-
-        //分别处理 params 中的参数
-        foreach ($this->params as $k => $v) {
-            //查找对应的 apply 方法
-            $m = "apply".Str::camel($k, true);
-            if (method_exists($this, $m)) {
-                $this->$m();
-            }
-        }
-
-        //pathes
-        if ($this->params["pathes"] === true) {
-            //调整输出文件格式为 json
-            $this->ext = "json";
-            $this->mime = Mime::getMime("json");
-            //准备 content
-            $this->content = Conv::a2j([
-                "pathes" => $this->pathes
-            ]);
-        }
-
-        return $this;
-    }
-
-    /**
-     * 将 svg 中的 <path ...></path> 拆分为数组 缓存到 pathes
-     * @return $this
-     */
-    protected function splitPathes()
+    //SplitPathes 将 svg 代码按 path 路径拆分为数组，保存到 $this->pathes 属性
+    public function stageSplitPathes($params=[])
     {
         $ctx = $this->content;
         $this->pathes = [];
@@ -115,7 +103,42 @@ class Svg extends Plain
             $pa = str_replace("</svg>","",$pai);
             $this->pathes[] = "<path".$pa;
         }
-        return $this;
+
+        return true;
+    }
+    //ApplyModify 根据传入的 params 参数，依次对 svg 代码执行处理，如：修改颜色 
+    public function stageApplyModify($params=[])
+    {
+        foreach ($this->params as $k => $v) {
+            //查找对应的 apply 方法
+            $m = "apply".Str::camel($k, true);
+            if (method_exists($this, $m)) {
+                $this->$m();
+            }
+        }
+        //修改后 更新 RowProcessor
+        $rower = $this->RowProcessor;
+        //清空
+        $rower->clearRows();
+        //重新执行 stageCreate
+        $rower->callStageCreate();
+
+        return true;
+    }
+    //CreatePathesJson 要输出 path 数组时，生成 json 数据
+    public function stageCreatePathesJson($params=[])
+    {
+        if ($this->params["pathes"] !== true) return true;
+
+        //调整输出文件格式为 json
+        $this->setExt("json");
+        
+        //准备 content
+        $this->content = Conv::a2j([
+            "pathes" => $this->pathes
+        ]);
+
+        return true;
     }
 
 

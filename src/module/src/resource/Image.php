@@ -28,6 +28,14 @@ class Image extends Resource
      * !! 覆盖父类
      */
     public static $stdParams = [
+        /**
+         * 可在资源实例化时，指定 一个 Compound 复合资源 作为此资源的 parentResource 
+         * !! 此参数无法通过 url 传递，只能在资源实例化时，手动传入
+         */
+        "belongTo" => null,
+        //是否忽略 $_GET 参数
+        "ignoreGet" => false,
+        
         //等比缩放，默认 100  
         "zoom" => false,
         //缩放并裁剪，例如：原图 1920*1080 输入裁剪参数 1920x1200 最终输出尺寸 1728*1080 放大到 1920*1200
@@ -38,6 +46,14 @@ class Image extends Resource
         "mark" => "",   //TODO:
         //灰度
         "gray" => false,
+
+        //可额外定义此资源的 中间件，这些额外的中间件 将在资源实例化时，附加到预先定义的中间件数组后面
+        "middleware" => [
+            //create 阶段
+            "create" => [],
+            //export 阶段
+            "export" => [],
+        ],
     ];
 
     /**

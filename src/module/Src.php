@@ -11,11 +11,7 @@ use Spf\Response;
 use Spf\Module;
 use Spf\module\src\Resource;
 use Spf\module\src\Fs;
-use Spf\module\src\resource\Lib;
-use Spf\module\src\resource\Theme;
-use Spf\module\src\resource\Icon;
-use Spf\module\src\resource\util\Merger;
-use Spf\module\src\resource\util\Esmer;
+use Spf\module\src\resource\Compound;
 use Spf\module\src\SrcException;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -72,9 +68,24 @@ class Src extends Module
      */
     public function default(...$args)
     {
+        if (!Is::nemarr($args)) {
+            Response::insSetCode(404);
+            return null;
+        }
+
+        //首先尝试 使用 Compound 复合资源代理响应方法
+        if (count($args)>1) {
+            //指向的 复合资源类 ext
+            $ext = $args[0];
+            if (static::hasExt($ext) !== false) {
+                //存在的 复合资源 ext
+                return Compound::responseProxyer(...$args);
+            }
+        }
+
         //根据 URI 参数，解析并获取 资源
         $resource = Resource::create($args);
-        //var_dump(get_class($resource));exit;
+        
         //返回得到的资源，将在 Response::export() 方法中自动调用资源输出
         return $resource;
     }
@@ -99,66 +110,6 @@ class Src extends Module
     /**
      * 针对 特定类型资源的 响应方法
      */
-
-    /**
-     * view
-     * @desc 输出前端库文件JS|CSS
-     * @auth false
-     * @pause false
-     * 
-     * 请求方法：
-     * https://host/[app_name/]src/lib/[foo/bar/][lib_name][.js|css]
-     * https://host/[app_name/]src/lib/[foo/bar/][lib_name]/[dev!-esm|esm|...].[js|css]
-     * https://host/[app_name/]src/lib/[foo/bar/][lib_name]/[@|latest|1.2.3][.js|css]
-     * https://host/[app_name/]src/lib/[foo/bar/][lib_name]/[@|latest|1.2.3]/[esm|...].[js|css]
-     * 
-     * @param Array $args url 参数
-     * @return Mixed
-     */
-    public function libView(...$args)
-    {
-        //调用 Lib::response() 方法 代理此请求
-        return Lib::response(...$args);
-    }
-
-    /**
-     * view
-     * @desc 输出主题资源JS|CSS|SCSS
-     * @auth false
-     * @pause false 资源输出不受WEB_PAUSE影响
-     * 
-     * 请求方法：
-     * https://host/[app_name/]src/theme/[theme_name]                       访问 主题编辑器
-     * https://host/[app_name/]src/theme/[theme_name][.min].[js|css|scss]   访问图标库 JS|CSS|SCSS 文件
-     * 
-     * @param Array $args url 参数
-     * @return Mixed
-     */
-    public function themeView(...$args)
-    {
-        //调用 Theme::response() 方法 代理此请求
-        return Theme::response(...$args);
-    }
-
-    /**
-     * view
-     * @desc 输出图标库资源JS|CSS|svg
-     * @auth false
-     * @pause false 资源输出不受WEB_PAUSE影响
-     * 
-     * 请求方法：
-     * https://host/[app_name/]src/icon/[iconset]                       访问图标库 列表|查找|选用 页面
-     * https://host/[app_name/]src/icon/[iconset][.min].[js|css]        访问图标库 JS|CSS 文件
-     * https://host/[app_name/]src/icon/[iconset]/[icon-name].svg       访问图表库中的 单个图标 svg
-     * 
-     * @param Array $args url 参数
-     * @return Mixed
-     */
-    public function iconView(...$args)
-    {
-        //调用 Icon::response() 方法 代理此请求
-        return Icon::response(...$args);
-    }
 
 
 
@@ -227,9 +178,9 @@ class Src extends Module
 
         exit;*/
 
-        $jsf = Path::find("src/goods/icon/qyoms.js");
+        $jsf = Path::find("spf/assets/test.js");
         $jso = Resource::create($jsf, [
-            "noimport" => true
+            "import" => "keep"
         ]);
 
         //var_dump($jso);

@@ -1,0 +1,64 @@
+{
+    "name": "element-ui",
+    "var": "Element",
+
+    "enableVersion": true,
+    "version": {
+        "@": "2.15.14",
+        "latest": "2.15.14"
+    },
+
+    "enableCache": true,
+    "cachePath": "cache",
+
+    "ext": ["js","css","ttf","woff"],
+    
+    "root": "https://cdnjs.cloudflare.com/ajax/libs/element-ui",
+
+    "content": {
+        "2.15.14": {
+            "js": {
+                "esm-browser": {
+                    "file": "index.min.js",
+                    "params": {
+                        "esm": true
+                    }
+                },
+                "default": {
+                    "file": "index.min.js",
+                    "params": {
+                        "esm": false
+                    }
+                }
+            },
+            "css": {
+                "default": {
+                    "type": "static",
+                    "file": "element-ui-light.css",
+                    "fix": [
+                        "IconFonts"
+                    ]
+                },
+                "dark": {
+                    "type": "static",
+                    "file": "element-ui-dark.css",
+                    "fix": [
+                        "IconFonts"
+                    ]
+                }
+            },
+            "ttf": {
+                "default": {
+                    "type": "static",
+                    "file": "fonts/element-icons.ttf"
+                }
+            },
+            "woff": {
+                "default": {
+                    "type": "static",
+                    "file": "fonts/element-icons.woff"
+                }
+            }
+        }
+    }
+}

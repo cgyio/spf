@@ -29,6 +29,7 @@ use Spf\module\src\SrcException;
 use Spf\module\src\ResourceMiddleware;
 use Spf\util\Is;
 use Spf\util\Str;
+use Spf\util\Cls;
 
 class Processor extends ResourceMiddleware 
 {
@@ -43,6 +44,9 @@ class Processor extends ResourceMiddleware
          * 因为 processor 处理器可以执行同一类型的 处理操作，这些操作 在 create|export 阶段都会执行
          */
         "stage" => "create",
+
+        //是否 中断当前阶段 剩余的中间件 继续执行
+        "break" => false,
         
         //forDev 断点标记，标记后将在此中间件执行完成后 退出脚本
         "exit" => false,
@@ -77,7 +81,11 @@ class Processor extends ResourceMiddleware
         parent::__construct($res, $params);
 
         //执行 处理器内部的初始化方法，处理器子类必须实现这个方法，执行一些初始化动作
-        $this->initialize();
+        $self = $this->initialize();
+        if (!$self instanceof Processor) {
+            //此中间件无法初始化，报错
+            throw new SrcException("无法创建 Processor 中间件 ".static::$cacheProperty." 的实例", "resource/getcontent");
+        }
     }
 
     /**
@@ -90,6 +98,14 @@ class Processor extends ResourceMiddleware
     {
         //根据 params["stage"] 参数，分别执行对应 process 方法
         $stage = $this->params["stage"];
+
+        /**
+         * forDev 当前资源如果定义了 params["dumpProcessor"] 则输出 当前 Processor 的 类名
+         */
+        $dump = $this->resource->params["dumpProcessor"] ?? false;
+        if ($dump === true) {
+            var_dump(Cls::name(static::class)."::stage".Str::camel($stage, true)."( ".basename($this->resource->real)." )");
+        }
 
         //检查依赖项
         if (Is::nemarr(static::$dependency)) {
@@ -113,10 +129,17 @@ class Processor extends ResourceMiddleware
         //执行 对应的 process 方法
         $rtn = $this->$m();
 
+        //如果标记了 break 则返回 false 终止 当前阶段(create|export) 后续中间件继续执行
+        if (isset($this->params["break"]) && $this->params["break"] === true) {
+            return false;
+        }
+
         /**
          * !! 如果传入了 断点标记 exit 将在执行完此中间件的 stage 方法后 退出脚本
          */
         if (isset($this->params["exit"]) && $this->params["exit"] === true) {
+            var_dump(static::class." 中间件执行完成后 终止脚本");
+            var_dump($this->resource);
             exit;
         }
 
@@ -173,6 +196,33 @@ class Processor extends ResourceMiddleware
          */
         $pins = $this->getProcessor($key);
         if (!empty($pins)) return $pins;
+
+        return null;
+    }
+    /**
+     * __call 方法
+     */
+    public function __call($key, $args)
+    {
+        /**
+         * 手动执行 某个 stage 方法
+         * $this->callStageFooBar(...)  -->  $this->stageFooBar(...)
+         */
+        if (substr($key, 0,9) === "callStage") {
+            $stm = "stage".substr($key, 9);
+            if (method_exists($this, $stm)) return $this->$stm(...$args);
+        }
+
+        /**
+         * 读取目标资源实例的 params 参数 ***Rps
+         * $this->fooBarRps(null)  -->  $this->resource->params["fooBar"] ?? null
+         */
+        if (substr($$ket, -3) === "Rps") {
+            $psk = substr($key, 0, -3);
+            $rps = $this->resource->params;
+            return $rps[$psk] ?? (empty($args) ? null : $args[0]);
+        }
+
 
         return null;
     }

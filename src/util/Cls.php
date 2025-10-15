@@ -157,6 +157,38 @@ class Cls extends Util
         if ($camel) return Str::camel($isk, true);
         return $isk;
     }
+
+    /**
+     * 获取给定类的 继承链，返回数组： [ 给定类全称, 父类全称, 祖父类全称, ... ] 直到没有父类为止
+     * @param String|Object $cls 类全称 或 类实例
+     * @return Array [ 给定类全称, 父类全称, 祖父类全称, 曾祖父类全称, ... ]
+     */
+    public static function inheritanceChain($cls)
+    {
+        if (!Is::nemstr($cls) && !is_object($cls)) return [];
+        if (is_object($cls)) {
+            $cls = get_class($cls);
+            if (!Is::nemstr($cls)) return [];
+        }
+
+        $chain = [];
+        $cur = $cls;
+
+        while (true) {
+            //检查类是否存在
+            if (!class_exists($cur) && !interface_exists($cur)) break;
+            
+            $chain[] = $cur;
+            
+            //获取父类
+            $parentClass = get_parent_class($cur);
+            if ($parentClass === false) break;
+            
+            $cur = $parentClass;
+        }
+
+        return $chain;
+    }
     
     /**
      * 取得 ReflectionClass
@@ -323,6 +355,32 @@ class Cls extends Util
         //方法名格式 驼峰，首字母小写
         $method = Str::camel($method, false);
         return in_array($method, $ms);
+    }
+
+    /**
+     * 判断子类是否 覆盖（重写）了 父类中的某个方法
+     * @param String $cls 子类全称 或 可以使用 Cls::find 查找的类路径
+     * @param String $method 要判断是否重写的 方法名
+     * @param String $fcls 父类全称 或 可以使用 Cls::find 查找的类路径
+     * @return Bool
+     */
+    public static function isMethodOverride($cls, $method, $fcls)
+    {
+        $cls = Cls::find($cls);
+        $fcls = Cls::find($fcls);
+        if (!class_exists($cls) || !class_exists($fcls)) return false;
+
+        //获取 ReflectionClass
+        $rcls = Cls::ref($cls);
+        $rfcls = Cls::ref($fcls);
+        if (!$rcls->hasMethod($method) || !$rfcls->hasMethod($method)) return false;
+
+        //获取 ReflectionMethod
+        $rm = $rcls->getMethod($method);
+        $rfm = $rfcls->getMethod($method);
+
+        //比较 子类和父类 中的 method 方法定义的类名是否一致，如果一致，表示子类是继承父类的 method 没有重写
+        return $rm->getDeclaringClass()->getName() !== $rfm->getDeclaringClass()->getName();
     }
     
     /**

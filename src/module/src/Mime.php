@@ -248,7 +248,7 @@ class Mime
 
     /**
      * 根据文件 ext，获取 processable 类型 包括：
-     * plain,image,video,audio,office, default
+     * codex,plain,image,video,audio,office, default
      * @param String $ext extension
      * @return String | null
      */

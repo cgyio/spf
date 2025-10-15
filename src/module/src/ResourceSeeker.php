@@ -9,6 +9,7 @@ namespace Spf\module\src;
 use Spf\Request;
 use Spf\App;
 use Spf\module\Src;
+use Spf\module\src\resource\Json;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -42,6 +43,19 @@ final class ResourceSeeker
     ];
 
     /**
+     * 定义某些后缀名 可以 export 的 其他后缀名
+     * 例如：
+     *      访问 foo/bar.css    可以指向：foo/bar.scss?export=css
+     * 在 查找本地资源时，需要根据此处的定义，查找不同后缀名的文件是否存在
+     */
+    protected static $exportExts = [
+        "vue" => ["js","css","vue"],
+        "scss" => ["css", "scss"],
+    ];
+
+
+
+    /**
      * 核心工具方法 入口
      */
 
@@ -72,9 +86,6 @@ final class ResourceSeeker
         if (strpos($uri, ".min.")!==false) {
             $opts["params"]["min"] = true;
         }
-        //params 合并 $_GET
-        $gets = Request::$current->gets->ctx();
-        $opts["params"] = Arr::extend($opts["params"], $gets);
 
         return $opts;
     }
@@ -84,6 +95,18 @@ final class ResourceSeeker
     /**
      * 静态工具
      */
+
+    /**
+     * 外部使用 $stdResourceOpts 填充 资源实例化参数
+     * @param Array $params 外部传入的 参数
+     * @return Array 填充后的 实例化参数
+     */
+    public static function fixOpts($params=[])
+    {
+        if (!Is::nemarr($params)) $params = [];
+        $params = Arr::extend(static::$stdResourceOpts, $params);
+        return $params;
+    }
 
     /**
      * 根据传入的 参数，解析得到 可用的 路径字符串 
@@ -187,6 +210,11 @@ final class ResourceSeeker
             $ext = Mime::getExt($path);
             if (Is::nemstr($ext)) {
                 $ext = strtolower($ext);
+                if ($ext === "json") {
+                    //json 文件可能是某个复合资源，需要单独处理，获取复合资源对应的 ext
+                    $comExt = Json::getCompoundExtFromJsonPath($path);
+                    if (Is::nemstr($comExt)) $ext = $comExt;
+                }
                 //获取当前路径 path 指向的 Resource 资源类全称
                 $rescls = Resource::resCls($ext);
                 //获取当前 Resource 资源类 指定的 本地文件必须保存在的 特定路径
@@ -252,28 +280,84 @@ final class ResourceSeeker
     {
         //在允许访问的 路径下 查找此文件
         $fp = self::seekLocal($path);
-        if (!Is::nemstr($fp)) {
-            //尝试增加 .json 后缀，因为有些资源可能其主文件是 json 格式
-            $jsf = $path.".json";
-            $fp = self::seekLocal($jsf);
-            if (!Is::nemstr($fp)) return false;
+
+        //找到本地文件，直接返回
+        if (Is::nemstr($fp)) {
+            return [
+                "type" => "local",
+                "ext" => Mime::getExt($fp),
+                "real" => $fp,
+            ];
         }
-        
-        //找到文件，表示这是本地资源，准备参数
-        return [
-            "type" => "local",
-            "ext" => Mime::getExt($fp),
-            "real" => $fp,
-        ];
+
+        /**
+         * 处理 exportExts 中的定义
+         * 例如：请求资源 foo/bar.css  则需要查找 foo/bar.scss?export=css
+         */
+        $pext = pathinfo($path)["extension"];
+        $parr = explode(".$pext", $path);
+        if (Is::nemstr($pext)) {
+            $pext = strtolower($pext);
+            foreach (static::$exportExts as $eext => $eexts) {
+                if (!in_array($pext, $eexts)) continue;
+                $npath = implode(".$eext", $parr);
+                $fp = self::seekLocal($npath);
+
+                //找到 对应的本地文件，要修改 params 参数
+                if (Is::nemstr($fp)) {
+                    return [
+                        "uri" => $npath,
+                        "type" => "local",
+                        "ext" => Mime::getExt($fp),
+                        "real" => $fp,
+                        "params" => [
+                            "export" => $pext
+                        ],
+                    ];
+                }
+            }
+        }
+
+        /**
+         * 处理 *.*.json 形式的 本地资源，有些资源可能其主文件是 json 格式
+         * 例如：请求资源 foo/bar.custom  则需要查找 foo/bar.custom.json 文件
+         */
+        //尝试增加 .json 后缀
+        $jsf = $path.".json";
+        $fp = self::seekLocal($jsf);
+        //找到 json 文件，直接返回，将通过 JsonFactory 工厂方法 转发到 对应的 资源类
+        if (Is::nemstr($fp)) {
+            return [
+                "uri" => $jsf,
+                "type" => "local",
+                "ext" => Mime::getExt($fp),
+                "real" => $fp,
+            ];
+        }
+
+        //未找到本地资源
+        return false;
     }
     //判断是否 远程资源
     protected static function isRemoteSource($path)
     {
         $ouri = trim($path, "/");
-        //以 http|https 开头
+
+        //直接传入了完整 url
+        if (strpos($ouri, "://")!==false) {
+            //检查远程文件是否存在
+            if (Resource::exists($ouri)!==true) return false;
+            return [
+                "type" => "remote",
+                "ext" => Mime::getExt($ouri),    //$fi["ext"],
+                "real" => $ouri
+            ];
+        }
+
+        //传入了 http(s)/host.com/foo/bar 形式 以 http|https 开头
         $uarr = explode("/", $ouri);
         if (!in_array(strtolower($uarr[0]), ["http","https"])) return false;
-        //构建远程资源 url
+        //需要 构建远程资源 url
         $uarr[0] = $uarr[0].":/";
         $real = implode("/", $uarr);
         //检查远程文件是否存在

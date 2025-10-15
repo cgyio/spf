@@ -1,5 +1,5 @@
 <template>
-    <PRE@-el-date-picker
+    <PRE@el-date-picker
         v-model="cacheValue"
         :type="type"
         popper-class="cv-el-pop"
@@ -10,11 +10,11 @@
         @change="whenChange"
         @blur="whenBlur"
         @focus="whenFocus"
-    ></PRE@-el-date-picker>
+    ></PRE@el-date-picker>
 </template>
 
 <script>
-import mixinBase from '/vue/@/mixins/base/base';
+import mixinBase from '../../mixins/base/base';
 
 export default {
     mixins: [mixinBase],
@@ -68,7 +68,7 @@ export default {
 </script>
 
 <style>
-.__PRE__-el-date-picker-wrap {
+.__PRE__el-date-picker-wrap {
     overflow: hidden;
 }
 </style>

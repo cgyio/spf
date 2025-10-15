@@ -15,7 +15,8 @@ use Spf\App;
 use Spf\module\Src;
 use Spf\exception\BaseException;
 use Spf\module\src\resource\Builder;
-use Spf\module\src\resource\util\Paramer;
+use Spf\module\src\resource\Compound;
+use Spf\module\src\resource\middleware\UpdateParams;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -56,18 +57,28 @@ class Resource
     public static $filePath = null;     //可选 null | ext | 其他任意路径形式字符串 foo/bar 首尾不应有 /
 
     /**
-     * 当前资源类型是否定义了 factory 工厂方法，如果是，则在实例化时，通过 工厂方法 创建资源实例，而不是 new 
-     * !! 针对存在 资源自定义子类 的情况，如果设为 true，则必须同时定义 factory 工厂方法
-     * !! 如果必须，子类可以覆盖此属性
-     */
-    //public static $hasFactory = false;
-
-    /**
      * 定义 资源实例 可用的 params 参数规则
      * 参数项 => 默认值
      * !! 子类应覆盖此属性，定义自己的 params 参数规则
      */
-    public static $stdParams = [];
+    public static $stdParams = [
+        /**
+         * 可在资源实例化时，指定 一个 Compound 复合资源 作为此资源的 parentResource 
+         * !! 此参数无法通过 url 传递，只能在资源实例化时，手动传入
+         */
+        "belongTo" => null,
+
+        //是否忽略 $_GET 参数
+        "ignoreGet" => false,
+
+        //可额外定义此资源的 中间件，这些额外的中间件 将在资源实例化时，附加到预先定义的中间件数组后面
+        "middleware" => [
+            //create 阶段
+            "create" => [],
+            //export 阶段
+            "export" => [],
+        ],
+    ];
 
     /**
      * 根据 URI 请求参数，查找 并创建 Resource 资源实例
@@ -101,7 +112,13 @@ class Resource
             $opts = ResourceSeeker::seek($uri);
             //没有匹配到任何资源，返回 null 不是错误，不报错
             if (!Is::nemarr($opts)) return null;
+            //合并 $_GET 参数，如果指定了 ignoreGet=true 则不合并
+            $opts["params"] = UpdateParams::mergeGetParams($opts["params"]);
             //合并 传入的 params
+            if (isset($params["middleware"])) {
+                if (Is::nemarr($params["middleware"])) $opts["middleware"] = array_merge([],$params["middleware"]);
+                unset($params["middleware"]);
+            }
             if (Is::nemarr($params)) $opts["params"] = Arr::extend($opts["params"], $params);
 
             //根据 opts 实例化参数，创建资源实例
@@ -131,7 +148,7 @@ class Resource
         }
 
         //准备此临时资源的 实例化参数 opts
-        $opts = array_merge([], ResourceSeeker::$stdResourceOpts);
+        $opts = ResourceSeeker::fixOpts([]);
 
         //准备上下文信息
         if (Is::nemstr($context)) {
@@ -161,6 +178,8 @@ class Resource
                 "ext" => $context->ext,
                 "real" => $context->real,
             ]);
+            //额外创建 context 参数
+            $opts["context"] = $context;
         }
 
         //params 
@@ -171,9 +190,12 @@ class Resource
             unset($params["ext"]);
             if (Mime::support($ext)) $opts["ext"] = $ext;
         }
+        if (isset($params["middleware"])) {
+            if (Is::nemarr($params["middleware"])) $opts["middleware"] = array_merge([],$params["middleware"]);
+            unset($params["middleware"]);
+        }
         //合并 $_GET
-        $gets = Request::$current->gets->ctx();
-        $params = Arr::extend($params, $gets);
+        $params = UpdateParams::mergeGetParams($params);
 
         //合并到 opts
         $opts = Arr::extend($opts, [
@@ -398,13 +420,35 @@ class Resource
         $this->sourceType = $type;
         $this->params = $params;
 
+        //额外处理 手动创建的 情况
+        if ($type === "create") {
+            //如果 opts 中包含 context 参数
+            $ctx = $opts["context"] ?? null;
+            if (isset($ctx) && $ctx instanceof Resource) {
+                //将 手动创建的资源的 上下文关联资源实例 保存到当前资源实例中
+                $this->contextResource = $opts["context"];
+            }
+        }
+
+        //处理额外传入的 middleware
+        $mids = $opts["middleware"] ?? [];
+        $cmids = $mids["create"] ?? [];
+        $emids = $mids["export"] ?? [];
+        if (Is::nemarr($cmids)) $this->middleware["create"] = array_merge($this->middleware["create"], $cmids);
+        if (Is::nemarr($emids)) $this->middleware["export"] = array_merge($this->middleware["export"], $emids);
+        if (isset($opts["middleware"])) unset($opts["middleware"]);
+
         //手动调用 通用的 资源处理中间件（都是 Processor 类型的中间件，会在资源实例内部缓存）
         $pcs = [
+            //处理父级资源实例
+            "ParentProcessor" => [
+                "stage" => "create"
+            ],
             //处理资源路径相关操作
-            "PathProcessor",
+            "PathProcessor" => [],
         ];
-        foreach ($pcs as $pc) {
-            ResourceMiddleware::manual($pc, $this);
+        foreach ($pcs as $pc => $pps) {
+            ResourceMiddleware::manual($pc, $this, $pps);
         }
 
         //启动 create 阶段的资源中间件 处理序列  将 opts 参数 作为中间件处理参数 注入
@@ -537,18 +581,23 @@ class Resource
         $isCreated = $this->sourceType === "create";
         if ($isCreated === true) {
             //针对手动创建的 资源实例
-            $params["content"] = $this->content;
-        } else if (isset($params["content"])) {
+            $content = $this->content;
+            //查找可能存在的 手动创建资源的 上下文关联资源实例
+            $context = isset($this->contextResource) ? $this->contextResource : null;
+            if (empty($context)) $context = $this->uri;
+            if (!$context instanceof Resource && !Is::nemstr($context)) return null;
+            //手动创建 资源实例
+            $res = Resource::manual($content, $context, $params);
+        } else {
             //其他类型资源
-            unset($params["content"]);
+            if (isset($params["content"])) unset($params["content"]);
+            //原始调用 uri
+            $uri = $this->uri;
+            if (!Is::nemstr($uri)) return null;
+            //创建 新资源实例
+            $res = Resource::create($uri, $params);
         }
-
-        //原始调用 uri
-        $uri = $this->uri;
-        if (!Is::nemstr($uri) && $isCreated !== true) return null;
-
-        //创建新资源实例
-        $res = Resource::create($uri, $params);
+        
         if (!$res instanceof Resource) {
             //资源 clone 出错，报错，阻止继续操作
             throw new SrcException($this->name." 的克隆,未知", "resource/instance");
@@ -588,6 +637,16 @@ class Resource
     }
 
     /**
+     * 获取当前资源的 原始 ext
+     * @return String $this->originExt
+     */
+    public function getOriginExt()
+    {
+        if (!isset($this->originExt) || !Is::nemstr($this->originExt)) return $this->ext;
+        return $this->originExt;
+    }
+
+    /**
      * 获取当前资源的 名称 foo_bar 形式，通常是 不带后缀的文件名
      * !! 特殊类型的资源，可以覆盖此方法，实现自有的 资源名称获取方法
      * @return String|null
@@ -621,118 +680,55 @@ class Resource
         return null;
     }
 
-
-
     /**
-     * 针对本地资源 路径处理 相关方法
+     * 获取此资源实例中 缓存的 Processor 类型中间件
+     * @param String $clsp 中间件类名|类路径|类全称  RowProcessor 可简写为 row
+     * @return Processor|null
      */
-
-    /**
-     * 获取本地资源的 名称，不含后缀名
-     * !! 子类可覆盖此方法，例如 ParsablePlain 类型资源的 名称，不一定是 文件名
-     * @return String|null
-     */
-    public function getLocalResName()
+    public function getProcessor($clsp)
     {
-        if ($this->sourceType !== "local") return null;
-        if (!Is::nemstr($this->real)) return null;
-        //默认返回 资源文件的 文件名
-        $pi = pathinfo($real);
-        return $pi["filename"] ?? null;
-    }
-
-    /**
-     * 针对本地资源，获取资源的 所在文件路径 或 路径下的 子文件|子文件夹 路径
-     * !! 子类可覆盖此方法
-     * @param String $subpath 可拼接指定的 子路径
-     * @param Bool $exists 是否检查 路径是否存在，如果 true 且 路径不存在，则返回 null
-     * @return String|null
-     */
-    public function getLocalResInnerPath($subpath="", $exists=false)
-    {
-        if ($this->sourceType !== "local") return null;
-        if (!Is::nemstr($this->real)) return null;
-        //当前资源所在 文件夹 路径
-        $dir = dirname($this->real);
-        //拼接 path
-        if (Is::nemstr($subpath)) {
-            $path = $dir.DS.str_replace(["/","\\"], DS, $subpath);
-        } else {
-            $path = $dir;
+        $cls = ResourceMiddleware::cls($clsp);
+        if (!class_exists($cls)) {
+            $nclsp = Str::camel($clsp, true)."Processor";
+            $cls = ResourceMiddleware::cls($nclsp);
+            if (!class_exists($cls)) return null;
         }
-
-        //如果不检查是否存在
-        if ($exists !== true) return $path;
-
-        return file_exists($path) ? $path : null;
+        //获取 处理器定义的 属性名
+        $cp = $cls::$cacheProperty;
+        if (!Is::nemstr($cp) || !isset($this->$cp)) return null;
+        return $this->$cp;
+    }
+    public function hasProcessor($clsp)
+    {
+        $proc = $this->getProcessor($clsp);
+        return !empty($proc) && $proc instanceof ResourceMiddleware;
     }
 
+
+
     /**
-     * 针对本地资源，或此资源外部访问 url 的 前缀 urlpre
-     * 即 通过 urlpre/[$this->name] 可以直接访问到此资源
-     * 例如：
-     * 有本地资源：             /data/ms/app/foo_app/assets/bar/jaz.js
-     * 相对地址为：             src/foo_app/bar/jaz.js 
-     * 最终生成的 url 前缀为：   https://domain/foo_app/src/bar
-     * !! 子类可覆盖此方法，例如 ParsablePlain 类型资源 有不同的 url 访问规则
-     * @return String|null
+     * __get
      */
-    public function getLocalResUrlPrefix()
+    public function __get($key)
     {
-        if ($this->sourceType !== "local") return null;
-        if (!Is::nemstr($this->real)) return null;
-        //文件 basename
-        $basename = basename($this->real);
-        //本地资源路径 转为 相对路径
-        $rela = Path::rela($this->real);
-        if (!Is::nemstr($rela)) return null;
-        //相对路径 数组
-        $relarr = explode("/", trim($rela,"/"));
+        /**
+         * 判断是否存在 FooProcessor
+         * $resource->hasFooProcessor  -->  $resource->hasProcessor("FooProcessor") === true
+         * $resource->hasFoo  -->  $resource->hasProcessor("foo") === true
+         */
+        if (substr($key, 0,3)==="has") {
+            $proc = substr($key, 3);
+            $prco = $this->$proc;
+            return !empty($prco) && $prco instanceof ResourceMiddleware;
+        }
 
         /**
-         * !! 只有 Src::$current->config->resource["access"] 中定义的 路径 可以被 url 访问到
+         * $resource->PathProcessor  -->  $resource->getProcessor("PathProcessor")
          */
-        $access = [];
-        if (Src::$isInsed === true) {
-            $access = Src::$current->config->resource["access"] ?? [];
-        }
-        if (!Is::nemarr($access)) return null;
-        $accessable = false;
-        foreach ($access as $aci) {
-            $acilen = strlen($aci);
-            if (substr($rela, 0, $acilen) === $aci) {
-                //去除 路径 前缀
-                $rela = substr($rela, $acilen);
-                $accessable = true;
-                break;
-            }
-        }
-        if ($accessable !== true) return null;
+        $proc = $this->getProcessor($key);
+        if (!is_null($proc)) return $proc;
 
-        //当前 url
-        $uo = Url::current();
-
-        //生成 urlpre
-        $ua = [];
-        $ua[] = $uo->domain;
-        //app
-        if (App::$isInsed === true) {
-            $appk = App::$current::clsk();
-            if ($appk !== "base_app") {
-                $ua[] = $appk;
-                //去除 rela 相对路径中的 appk
-                if (strpos($rela, $appk."/") !== false) {
-                    $rela = str_replace($appk."/", "", $rela);
-                }
-            }
-        }
-        //src
-        $ua[] = "src";
-        //去除 rela 相对路径中的 文件名 basename
-        $rela = str_replace($basename, "", $rela);
-        $ua[] = trim($rela, "/");
-
-        return implode("/", $ua);
+        return null;
     }
 
 
@@ -827,33 +823,4 @@ class Resource
         }
         return $fi;
     }
-
-    /**
-     * 计算调用路径，  realPath 转换为 relative
-     * @return String
-     */
-    /*public static function toUri($realPath = "")
-    {
-        $realPath = str_replace("/", DS, $realPath);
-        $relative = Path::relative($realPath);
-        if (is_null($relative)) return "";
-        return $relative;
-    }*/
-
-    /**
-     * 计算调用路径，realPath 转换为 /src/foo/bar...
-     */
-    /*public static function toSrcUrl($realpath = "")
-    {
-        $relative = self::toUri($realpath);
-        if ($relative=="") return "";
-        $rarr = explode(DS, $relative);
-        $spc = explode("/", str_replace(",","/",ASSET_DIRS));
-        //$spc = array_merge($spc,["app","cphp"]);
-        $spc = array_merge($spc,["app","atto"]);
-        $nrarr = array_diff($rarr, $spc);
-        $src = implode("/", $nrarr);
-        $src = "/src".($src=="" ? "" : "/".$src);
-        return $src;
-    }*/
 }
