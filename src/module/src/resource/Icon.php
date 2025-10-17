@@ -468,6 +468,22 @@ class Icon extends Compound
      */
 
     /**
+     * 外部直接读取图标库 json 文件，并返回传入的 key 值
+     * @param String $json *.icon.json 文件真实路径
+     * @param String $key 要查询的图标库参数 key 可用 Arr::find 方法查找
+     * @return Mixed
+     */
+    public static function getIconDesc($json, $key="")
+    {
+        if (!Is::nemstr($json) || !file_exists($json)) return null;
+        $desc = file_get_contents($json);
+        $desc = Conv::j2a($desc);
+        if (!is_array($desc)) return null;
+        //通过 Arr::find 查找
+        return Arr::find($desc, $key);
+    }
+
+    /**
      * 远程读取 阿里图标库 Symbol js 文件，并解析得到 glyphs 数组
      * @param String $iset 此图标库的 本地名称
      * @param String $url js 文件的 远程地址
@@ -575,16 +591,16 @@ class Icon extends Compound
                     ];
                 }
     
-                //创建临时 图标库实例
-                $ires = Resource::create($icfp);
+                //如果图标名包含 - 则尝试去除图标名中的前缀部分
                 //图标库前缀
-                $ipre = $ires->desc["iconset"];
+                $ipre = static::getIconDesc($icfp, "iconset");
+                if (!Is::nemstr($ipre)) $ipre = "";
                 $iprelen = strlen($ipre)+1;
                 //从图标名中 去除可能存在的 前缀，得到实际图标名
                 if (substr($icfn, 0, $iprelen) === "$ipre-") {
                     $icfn = substr($icfn, $iprelen);
                 }
-                unset($ires);
+                
                 //返回找到的数据
                 return [
                     "json" => $icfp,
@@ -603,34 +619,38 @@ class Icon extends Compound
             array_unshift($parr, $dfp);
         }
 
-        //在本地查找 传入的 图标库所在路径 查找文件夹
-        $icdir = ResourceSeeker::seekLocal(implode("/", $parr), true);
-        if (!Is::nemstr($icdir)) return false;
+        //在本地查找 传入的 图标库所在路径 查找文件夹 返回所有存在的文件夹
+        $icdirs = ResourceSeeker::seekLocal(implode("/", $parr), true, true);
+        if (!Is::nemarr($icdirs)) return false;
 
-        //在这个文件夹下 查找所有可用的 图标库文件
-        $cdh = opendir($icdir);
+        //在这些文件夹下 查找所有可用的 图标库文件
         $rtn = [
             "json" => "",
             "icon" => ""
         ];
-        while (false !== ($fn = readdir($cdh))) {
-            if (in_array($fn, [".",".."]) || is_dir($icdir.DS.$fn)) continue;
-            if (substr($fn, -10)!==".icon.json") continue;
-            //创建临时 图标库资源实例
-            $icfp = $icdir.DS.$fn;
-            $ires = Resource::create($icfp);
-            //图标库前缀
-            $ipre = $ires->desc["iconset"];
-            $iprelen = strlen($ipre)+1;
-            if (substr($icfn, 0, $iprelen) === "$ipre-") {
-                $rtn["json"] = $icfp;
-                $rtn["icon"] = substr($icfn, $iprelen);
-                unset($ires);
-                break;
+        foreach ($icdirs as $icdir) {
+            $cdh = opendir($icdir);
+            while (false !== ($fn = readdir($cdh))) {
+                if (in_array($fn, [".",".."]) || is_dir($icdir.DS.$fn)) continue;
+                if (substr($fn, -10)!==".icon.json") continue;
+                //获取此图标库的 前缀
+                $icfp = $icdir.DS.$fn;
+                //图标库前缀
+                $ipre = static::getIconDesc($icfp, "iconset");
+                if (!Is::nemstr($ipre)) continue;
+                $iprelen = strlen($ipre)+1;
+                if (substr($icfn, 0, $iprelen) === "$ipre-") {
+                    $rtn["json"] = $icfp;
+                    $rtn["icon"] = substr($icfn, $iprelen);
+                    unset($ires);
+                    break;
+                }
             }
-            unset($ires);
+            closedir($cdh);
+
+            //只返回找到的 第一个 资源
+            if (Is::nemstr($rtn["json"])) break;
         }
-        closedir($cdh);
 
         //找到图标库 则返回
         if (Is::nemstr($rtn["json"])) return $rtn;
@@ -660,6 +680,9 @@ class Icon extends Compound
          *      https://host/src/icon/foo/bar/success.svg           -->  /src/foo/bar.icon?ver=@&file=default&icon=success
          *      图标库 图标前缀为 icopre 则可以这样访问 内部 svg 图标
          *      https://host/src/icon/foo/[bar/]icopre-success.svg  -->  /src/foo/bar.icon?ver=@&file=default&icon=success
+         * 
+         *      可进入图标库预览视图
+         *      https://host/src/icon/foo/bar/[@|latest|1.0.0/]preview.html
          */
         //拼接 URI
         $uri = implode("/", $args);
@@ -703,31 +726,42 @@ class Icon extends Compound
             $icop = (!Is::nemstr($cfp) ? "" : $cfp."/").$icon;
             //var_dump($icop);
             $icoi = static::findByPath($icop);
+            //var_dump($icoi);exit;
             if ($icoi === false) {
                 //未找到图标库
                 Response::insSetCode(404);
                 return null;
             }
-            //var_dump($icoi);
             //更新图标库路径
             $cfp = $icoi["json"];
             $params["icon"] = $icoi["icon"];
 
         } else {
-            //处理 请求的 file.export 得到 params["file"] ["export"]
-            preg_match_all("/([a-zA-Z0-9-_.]+)\.([a-zA-Z0-9]+)/", $efp, $emts);
-            if (!isset($emts[1]) || empty($emts[1]) || !Is::nemstr($emts[1][0])) {
-                //未匹配到有效的 file 和 export 参数，使用默认
-                $std = static::$stdParams;
-                $file = $std["file"];
-                $export = $std["export"];
+
+            if ($efp === "preview.html") {
+                //进入 图标库 预览视图
+                $preview = true;
             } else {
-                //匹配到有效的 file 和 export 参数
-                $file = $emts[1][0];
-                $export = $emts[2][0];
+                //处理 请求的 file.export 得到 params["file"] ["export"]
+                preg_match_all("/([a-zA-Z0-9-_.]+)\.([a-zA-Z0-9]+)/", $efp, $emts);
+                if (!isset($emts[1]) || empty($emts[1]) || !Is::nemstr($emts[1][0])) {
+                    //未匹配到有效的 file 和 export 参数，使用默认
+                    $std = static::$stdParams;
+                    $file = $std["file"];
+                    $export = $std["export"];
+                } else {
+                    //匹配到有效的 file 和 export 参数
+                    $file = $emts[1][0];
+                    $export = $emts[2][0];
+                }
+                //如果 file 中包含 .min
+                if (strpos($file, ".min")!==false) {
+                    $file = str_replace(".min","", $file);
+                    $params["min"] = true;
+                }
+                $params["file"] = $file;
+                $params["export"] = $export;
             }
-            $params["file"] = $file;
-            $params["export"] = $export;
 
             //查找 复合资源的 json 文件路径
             $cfp = rtrim($cfp, "/").".icon.json";
@@ -745,6 +779,22 @@ class Icon extends Compound
             return null;
         }
         //var_dump($res);
+
+        //进入预览试图
+        if ($preview === true) {
+            
+            //修改 当前响应方法的 输出类为 view 视图
+            Response::insSetType("view");
+            
+            return [
+                //使用 视图页面 spf/view/iconset.php
+                "view" => "spf/assets/view/iconset.php",
+                //传入 Icon 资源实例作为视图页面参数
+                "params" => [
+                    "icon" => $res
+                ]
+            ];
+        }
 
         //返回创建好的 资源实例
         return $res;

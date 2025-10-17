@@ -52,6 +52,7 @@ class Url extends SpecialUtil
     public $host = "";
     public $domain = "";
     public $dir = "";
+    public $basename = "";
     public $full = "";
     public $uri = "";
     public $path = [];
@@ -101,6 +102,8 @@ class Url extends SpecialUtil
         //dir 当前指向的文件的 上一级路径
         $dir = implode("/", array_slice($this->path, 0, -1));
         $this->dir = $this->domain.(Is::nemstr($dir) ? "/$dir" : "");
+        //当前 url 指向的 basename 文件名，含后缀
+        $this->basename = array_slice($this->path, -1)[0];
 
         //full
         $this->full = $url;

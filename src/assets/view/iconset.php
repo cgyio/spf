@@ -12,14 +12,14 @@ namespace Spf\view;
 use Spf\util\Is;
 
 //图标库元数据
-$meta = $icon->meta();
+$desc = $icon->desc;
 //图标库名称 foo-bar 形式
-$iset = $meta["iconset"] ?? "";
+$iset = $desc["iconset"] ?? "";
 //是否多色
-$mcolor = $meta["multicolor"] ?? false;
+$mcolor = $desc["multicolor"] ?? false;
 
 //图表库中所有 图标的 name 
-$glyphs = $icon->glyphs();
+$glyphs = $icon->glyphs;
 if (!Is::nemarr($glyphs)) $glyphs = [];
 $icons = array_keys($glyphs);
 

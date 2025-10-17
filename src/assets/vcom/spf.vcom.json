@@ -1,31 +1,62 @@
 {
-    "__RESOURCE__": {
-        "class": "Vcom",
-        "opts": {}
-    },
-
     "name": "spf",
-    "enableVersion": true,
+    "var": "SpfVcom",
+    "prefix": "sv",
+
     "version": {
         "@": "1.0.0",
         "latest": "1.0.0"
     },
 
-    "enableCache": true,
-    "cachePath": "cache",
+    "required": [
+        "button", "icon", "logo",
+        "jsoner-*",
+        "el-*"
+    ],
+    "loadmode": {
+        "basic": [
+            "navbar", "desktop-*"
+        ]
+    },
 
-    "ext": ["js","css","scss"],
-
-    "root": "spf/assets/vcom",
+    "ext": ["js","css","vue","scss"],
 
     "content": {
         "1.0.0": {
             "js": {
                 "default": {
-                    "type": "dynamic",
-                    "file": "base.js",
+                    "comment": "输出使用 ESM 导出的所有组件的定义代码，包含样式插入语句",
+                    "params": {}
+                },
+                "esm-browser": {
+                    "comment": "输出使用 ESM 导出的插件定义代码，所有组件都被定义为全局组件，外部只需要 use 此插件即可完成环境准备",
+                    "params": {}
+                }
+            },
+
+            "css": {
+                "default": {
+                    "comment": "输出组件库样式文件，已应用主题，以及组件库指定的需要合并的所有样式文件",
+                    "params": {}
+                }
+            },
+
+            "scss": {
+                "default": {
+                    "comment": "输出组件库样式的原始 SCSS 代码，未经编译的原始代码",
                     "params": {
-    
+                        "export": "scss",
+                        "ignoreGet": true
+                    }
+                }
+            },
+
+            "vue": {
+                "default": {
+                    "comment": "输出组件库中某个组件的原始 vue 代码",
+                    "params": {
+                        "export": "vue",
+                        "ignoreGet": true
                     }
                 }
             }

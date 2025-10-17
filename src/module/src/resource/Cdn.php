@@ -64,7 +64,7 @@ class Cdn extends Compound
      * @return $this
      */
     //dynamic 动态创建 子资源内容
-    protected function createDynamicSubResource($opts=[])
+    protected function createDynamicSubResource()
     {
         /**
          * 拼接 $desc["root"]/[version]/export-file-name.exportExt 得到远程 cdn 文件地址
@@ -113,6 +113,28 @@ class Cdn extends Compound
         //缓存子资源实例 到 $this->subResource 属性
         $this->subResource = $subres;
         
+        return $this;
+    }
+
+
+
+    /**
+     * 工具方法 初始化复合资源 desc 工具
+     */
+
+    /**
+     * 将 desc 中指定的 root 参数，更新到资源实例中
+     * @return $this
+     */
+    protected function initRoot()
+    {
+        $desc = $this->desc;
+        $root = $desc["root"] ?? null;
+        if (!Is::nemstr($root) || $this->PathProcessor->isRemote($root)!==true) {
+            //未指定 远程 cdn 地址  或  指定的地址不正确，报错
+            throw new SrcException("当前 CDN 库 ".$this->resName().".cdn.json 中未指定有效的 CDN 网址", "resource/getcontent");
+        }
+
         return $this;
     }
 

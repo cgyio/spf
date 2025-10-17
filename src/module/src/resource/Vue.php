@@ -26,28 +26,22 @@ class Vue extends Codex
      * !! 覆盖父类
      */
     public static $stdParams = [
-
-        /**
-         * !! 无法通过 url 传递 的参数，只能在此资源实例化时 手动传入
-         */
-        //可在资源实例化时，指定当前的 Codex 资源是否属于某个 Compound 复合资源的 内部资源
-        //!! *.vue 可以属于某个组件库，此处传入组件库资源实例
-        /*"belongTo" => null,
-        //是否忽略 $_GET 参数
-        "ignoreGet" => false,
-        //可额外定义此资源的 中间件，这些额外的中间件 将在资源实例化时，附加到预先定义的中间件数组后面
-        "middleware" => [
-            //create 阶段
-            "create" => [],
-            //export 阶段
-            "export" => [],
-        ],*/
-
-        /**
-         * 其他参数
-         */
         //可指定实际输出的 资源后缀名 可与实际资源的后缀名不一致，例如：scss 文件可指定输出为 css
         "export" => "vue",
+        
+        //独立使用此 *.vue 组件时，需要传入一个 组件名前缀
+        "prefix" => "sv",
+
+        /**
+         * 输出 js 代码时的 开关参数，可选值：true|false|stand-alone
+         * 当参数为 stand-alone 时，表示 只有在 此组件不属于某个组件库时，参数才 === true
+         */
+        //是否自动使用 Vue.component(...) 注册组件
+        "regist" => "stand-alone",
+        //是否输出 样式注入 的 js 代码
+        "inject" => "stand-alone",
+        //是否输出 esm 导出语句
+        "esm" => "stand-alone",
         
     ];
     
@@ -104,6 +98,30 @@ class Vue extends Codex
         "vcv" => "",
         //组件定义阶段，js 变量名，通常为 defineFooBarJaz
         "def" => "",
+
+        //针对组件库的 特殊路径字符串
+        "dirnames" => [
+            "component" => "",
+            "mixin" => "",
+            "plugin" => "",
+            "common" => "",
+        ],
+
+        //针对组件库的 特殊路径对应的 真实文件夹路径
+        "dirs" => [
+            "component" => "",
+            "mixin" => "",
+            "plugin" => "",
+            "common" => "",
+        ],
+
+        //针对组件库的 特殊路径对应的 url 前缀
+        "urls" => [
+            "component" => "",
+            "mixin" => "",
+            "plugin" => "",
+            "common" => "",
+        ],
     ];
 
     /**
@@ -119,6 +137,35 @@ class Vue extends Codex
         "__VCN__" => "vcn",
         //此组件的 变量名 PreFooBar 形式，用于 js 代码中
         "__VCV__" => "vcv",
+
+        //针对组件库的 特殊路径字符串模板
+        //component 文件夹名
+        "__COMPONENT__" => "dirnames/component",
+        //mixin 文件夹名
+        "__MIXIN__" => "dirnames/mixin",
+        //plugin 文件夹名
+        "__PLUGIN__" => "dirnames/plugin",
+        //common 文件夹名
+        "__COMMON__" => "dirnames/common",
+
+        //component 文件夹真实路径
+        "__DIR_COMPONENT__" => "dirs/component",
+        //mixin 文件夹真实路径
+        "__DIR_MIXIN__" => "dirs/mixin",
+        //plugin 文件夹真实路径
+        "__DIR_PLUGIN__" => "dirs/plugin",
+        //common 文件夹真实路径
+        "__DIR_COMMON__" => "dirs/common",
+
+        //component 文件夹 url 前缀
+        "__URL_COMPONENT__" => "urls/component",
+        //mixin 文件夹 url 前缀
+        "__URL_MIXIN__" => "urls/mixin",
+        //plugin 文件夹 url 前缀
+        "__URL_PLUGIN__" => "urls/plugin",
+        //common 文件夹 url 前缀
+        "__URL_COMMON__" => "urls/common",
+
     ];
 
     /**
@@ -143,7 +190,9 @@ class Vue extends Codex
         "resource" => null,
         //import 语句数组
         "importRows" => [],
-        //除了 import 之外的 语句数组
+        //注册组件 语句
+        "regRows" => [],
+        //除了 import 和 注册语句 之外的 语句数组
         "rows" => [],
         //组件变量名
         "var" => [
@@ -155,7 +204,14 @@ class Vue extends Codex
         ],
     ];
     //样式代码块 创建为临时资源实例
-    public $style = null;
+    public $style = [
+        //css 创建为临时资源实例
+        "resource" => null,
+        //样式注入语句
+        "rows" => [],
+        //样式代码 minify
+        "content" => "",
+    ];
     //自定义语言块 可通过 <foo>...</foo> 自定义代码块
     public $custom = []; 
 
@@ -174,8 +230,18 @@ class Vue extends Codex
     //GetVueCompName 获取当前 *.vue 组件的 名称参数，保存到 vueCompName
     public function stageGetVueCompName($params=[])
     {
+        //如果是单独使用 *.vue 组件，必须传入一个组件前缀 默认 sv
+        if ($this->insideVcom() === false) {
+            $ps = $this->params;
+            if (!isset($ps["prefix"]) || !Is::nemstr($ps["prefix"])) {
+                $this->params["prefix"] = "sv";
+            }
+        }
+
+        //获取组件必须的 元数据
         $vn = $this->getVueCompName();
         $this->vueCompName = Arr::extend($this->vueCompName, $vn);
+
         return true;
     }
     //FixVueCodeBeforeParse 在解析 vue 文件之前，处理代码，例如：字符串模板替换 等
@@ -226,6 +292,9 @@ class Vue extends Codex
             return false;
         }
 
+        //当前请求的组件 是否在某个组件库中
+        //$insideVcom = $this->insideVcom() !== false;
+
         //开始修改 script js 代码，增加必须的 组件定义|样式注入 代码段
         //先执行一次 export 确保 js 资源内容正确生成
         //$script->export([
@@ -260,26 +329,36 @@ class Vue extends Codex
         }
 
         //组件定义语句 Vue.component('foo-bar', {...} ) 
-        $rows[] = "";
-        $rows[] = "let $vcv = Vue.component('$vcn', $def);";
+        $regRows = [];
+        $regRows[] = "let $vcv = Vue.component('$vcn', $def);";
 
         //注入 style 到 head
-        if (isset($this->style) && $this->style instanceof Codex) {
-            $style = $this->style->export([
+        $styres = $this->style["resource"] ?? null;
+        if (isset($styres) && $styres instanceof Codex) {
+            $style = $styres->export([
                 "return" => true
             ]);
-            //minify
-            $style = static::minifyCnt($style, "css");
-            //注入 head
-            $stv = $vcv."Sty";
-            $rows[] = "";
-            $rows[] = "let $stv = document.createElement('div');";
-            $rows[] = "$stv.innerHtml = '<style>$style</style>';";
-            $rows[] = "document.querySelector('head').appendChild($stv.childNodes[0]);";
+            if (Is::nemstr($style)) {
+                //生成 样式注入 代码
+                $stv = $vcv."Sty";
+                $styrows = [];
+                $styrows[] = "";
+                $styrows[] = "let $stv = document.createElement('div');";
+                $styrows[] = "$stv.innerHtml = '<style>$style</style>';";
+                $styrows[] = "document.querySelector('head').appendChild($stv.childNodes[0]);";
+                //保存
+                $this->style["rows"] = $styrows;
+                //输出 样式注入 代码
+                if ($this->paramsStandAlone("inject") === true) {
+                    $rows[] = "";
+                    $rows = array_merge($rows, $styrows);
+                }
+            }
         }
 
         //保存修改
         $this->script["importRows"] = $importRows;
+        $this->script["regRows"] = $regRows;
         $this->script["rows"] = $rows;
 
         //修改 js 临时资源实例
@@ -289,8 +368,17 @@ class Vue extends Codex
         $rower->rowEmpty(1);
         $rower->rowAdd($rows);
         $rower->rowEmpty(1);
+
+        //根据 $params["regist"] 决定是否插入 注册语句
+        if ($this->paramsStandAlone("regist") === true) {
+            $rower->rowAdd($regRows);
+            $rower->rowEmpty(1);
+        }
+
         //增加 esm 导出语句
-        $rower->rowAdd("export default $vcv;","");
+        if ($this->paramsStandAlone("esm") === true) {
+            $rower->rowAdd("export default $vcv;","");
+        }
 
         //生成 content
         $jscnt = $rower->rowCombine();
@@ -378,8 +466,8 @@ class Vue extends Codex
             "import" => true,   //"keep",
             //不合并其他文件
             "merge" => "",
-            //启用 esm 导出，如果此组件属于某个组件库，则不启用 esm 导出，将由组件库资源内部自行处理 esm 导出语句
-            "esm" => $this->ParentProcessor->hasParent()!==true,    //true,
+            //需要处理导出语句
+            "esm" => true,
             //esm 导出时的 变量名
             "var" => $vns["def"],
         ]);
@@ -402,6 +490,8 @@ class Vue extends Codex
     {
         //解析
         $temp = static::parseStaticNode($this->vueContent, "style");
+        //minify
+        $temp = static::minifyCnt($temp, "css");
         if (!Is::nemstr($temp)) return $this;
 
         //将解析得到的 css 代码，创建为 临时资源，保存到 $this->style 中
@@ -421,7 +511,11 @@ class Vue extends Codex
         }
         
         //保存解析结果
-        $this->style = $style;
+        $this->style = [
+            "resource" => $style,
+            "rows" => [],
+            "content" => $temp,
+        ];
 
         return $this;
 
@@ -460,6 +554,37 @@ class Vue extends Codex
      */
 
     /**
+     * 判断当前请求的 vue 组件是否属于某个组件库，是则返回 组件库实例，否则返回 false
+     * @return Vcom|false
+     */
+    public function insideVcom()
+    {
+        $parenter = $this->ParentProcessor;
+        //判断
+        if ($parenter->hasParent()!==true) return false;
+        $pres = $this->parentResource;
+        if (!$pres instanceof Vcom) return false;
+        return $pres;
+    }
+
+    /**
+     * 根据 此组件是否属于某个组件库，来返回对应的 params 中的开关参数
+     * @param String $arg 参数名称  如：regist|inject|esm 等
+     * @return Bool
+     */
+    public function paramsStandAlone($arg)
+    {
+        if (!Is::nemstr($arg)) return false;
+        $ps = $this->params;
+        $ap = $ps[$arg] ?? null;
+        //参数可选值
+        if ($ap !== "stand-alone" && !is_bool($ap)) return false;
+        //如果是 stand-alone
+        if ($ap === "stand-alone") return $this->insideVcom() === false;
+        return $ap;
+    }
+
+    /**
      * 获取当前 *.vue 组件的 组件名 foo-bar-jaz 形式，需要判断是否属于某个组件库
      * @return Array 组件名
      *  [
@@ -475,20 +600,26 @@ class Vue extends Codex
         $pather = $this->PathProcessor;
         $base = $pather->basePath();
 
-        //ParentProcessor
-        $parenter = $this->ParentProcessor;
         //当前组件 属于某个组件库，调用组件库的 getVueCompName 方法，需要传入当前 *.vue 文件的绝对路径
-        if ($parenter->hasParent()===true) {
-            $pres = $this->parentResource;
-            $pre = $pres->getVueCompNamePre();
-            $vcn = $pres->getVueCompName($base);
-            $vcv = Str::camel($vcn, true);
-            return [
-                "pre" => $pre,
-                "vcv" => $vcv,
-                "vcn" => $vcn,
-                "def" => "define".$vcv
-            ];
+        if (false !== ($pres = $this->insideVcom())) {
+            $pre = $pres->desc["prefix"];   //$pres->getVueCompNamePre();
+            //通过所在 组件库资源实例的 getCompInfoByVuePath 方法，获取指定 *.vue 文件路径的 组件的 组件参数
+            $vcinfo = $pres->getCompInfoByVuePath($base);
+            //通过所在 组件库资源实例的 resVcomInfo 方法，获取组件库的 相关参数
+            $vcompc = $pres->resVcomInfo();
+            if (Is::nemarr($vcinfo)) {
+                $vcn = $vcinfo["vcn"];
+                $vcv = $vcinfo["vcv"];
+                return [
+                    "pre" => $pre,
+                    "vcv" => $vcv,
+                    "vcn" => $vcn,
+                    "def" => "define".$vcv,
+                    "dirnames" => $vcompc["dirnames"],
+                    "dirs" => $vcompc["dirs"],
+                    "urls" => $vcompc["urls"],
+                ];
+            }
         }
 
         //连接符
@@ -498,7 +629,7 @@ class Vue extends Codex
         $fn = pathinfo($base)["filename"];
         $fn = Str::snake($fn, $glue);
         $fn = trim($fn, $glue);
-        $parr = explode("components", $pather->updir());
+        $parr = explode("component", $pather->updir());
         $pre = "";
         if (count($parr)>1) {
             $path = array_slice($parr, -1)[0];
@@ -519,13 +650,39 @@ class Vue extends Codex
         }
 
         //拼接
-        $vcn = implode($glue, $nvcn);
+        $vcn = $this->params["prefix"].$glue.implode($glue, $nvcn);
         $vcv = Str::camel($vcn, true);
+
+        //当前 *.vue 文件父路径 转为 url
+        $dir = dirname($base);
+        $furl = Url::src($dir, true);
+
         return [
-            "pre" => "",
+            "pre" => $this->params["prefix"],
             "vcv" => $vcv,
             "vcn" => $vcn,
-            "def" => "define".$vcv
+            "def" => "define".$vcv,
+
+            "dirnames" => [
+                "component" => "component",
+                "mixin" => "mixin",
+                "plugin" => "plugin",
+                "common" => "common"
+            ],
+
+            "dirs" => [
+                "component" => $dir.DS."component",
+                "mixin" => $dir.DS."mixin",
+                "plugin" => $dir.DS."plugin",
+                "common" => $dir.DS."common"
+            ],
+
+            "urls" => [
+                "component" => "$furl/component",
+                "mixin" => "$furl/mixin",
+                "plugin" => "$furl/plugin",
+                "common" => "$furl/common"
+            ],
         ];
 
     }

@@ -61,6 +61,9 @@ class Compound extends Resource
         "export" => "",
         //要输出的 复合资源内部文件的 文件名，在资源 desc["content"][version][ext] 数组中定义的 文件名，不一定是真实存在的文件
         "file" => "default",
+
+        //直接输出本地库中的 内部文件，通过指定 inner 参数
+        "inner" => "",
         
     ];
     
@@ -230,6 +233,21 @@ class Compound extends Resource
     //CreateSubResource 根据传入的参数，查找|读取|创建 子资源内容，生成子资源实例，保存到 subResource 属性
     public function stageCreateSubResource($params=[])
     {
+        //如果指定了 要输出 本地库内部文件
+        $ps = $this->params;
+        $inner = $ps["inner"] ?? "";
+        if (Is::nemstr($inner) || Is::nemarr($inner)) {
+            //获取要输出的 内部资源实例
+            $ires = $this->resInnerResource();
+            if (!$ires instanceof Resource) {
+                //报错
+                throw new SrcException("当前复合资源 ".$this->resBaseName()." 未找到要输出的内部资源 $inner", "resource/getcontent");
+            }
+            //将内部资源实例 作为 subResource
+            $this->subResource = $ires;
+            return true;
+        }
+
         //子资源名称
         $fn = $this->subResourceName;
         //子资源 描述参数
@@ -332,14 +350,14 @@ class Compound extends Resource
         $opts = $this->subResourceOpts;
         //子资源参数中定义的 fixFooBarBeforeExport 方法数组
         $fixes = $opts["fix"] ?? [];
-        if (!Is::nemarr($fixes) || !Is::indexed($fixes)) return $this;
-
-        //依次执行 fix 方法，这些方法必须在 此资源类中被定义
-        foreach ($fixes as $fixm) {
-            $m = "fix".$fixm."BeforeExport";
-            if (method_exists($this, $m)) {
-                //执行这些 fix 方法，可能会修改最终输出内容 content
-                $this->$m();
+        if (Is::nemarr($fixes) && Is::indexed($fixes)) {
+            //依次执行 fix 方法，这些方法必须在 此资源类中被定义
+            foreach ($fixes as $fixm) {
+                $m = "fix".$fixm."BeforeExport";
+                if (method_exists($this, $m)) {
+                    //执行这些 fix 方法，可能会修改最终输出内容 content
+                    $this->$m();
+                }
             }
         }
 
@@ -441,7 +459,7 @@ class Compound extends Resource
         return $this;
     }
     //dynamic 动态创建 子资源内容
-    protected function createDynamicSubResource($opts=[])
+    protected function createDynamicSubResource()
     {
         /**
          * 子类应实现各自的 动态创建子资源内容的 方法逻辑
@@ -846,6 +864,135 @@ class Compound extends Resource
         return $cnts[$ver];
     }
 
+    /**
+     * 查找并获取 本地库 内部实际存在的 文件，返回资源实例
+     * @return Resource|null
+     */
+    public function resInnerResource()
+    {
+        $ps = $this->params;
+        $inner = $ps["inner"] ?? "";
+        if (Is::nemarr($inner)) $inner = implode("/", $inner);
+        if (!Is::nemstr($inner)) return null;
+        //ext
+        $pi = pathinfo($inner);
+        $iext = $pi["extension"] ?? null;
+        if (!Is::nemstr($iext)) {
+            //未指定 内部文件 ext 则使用当前的 export ext
+            $iext = $this->ext;
+            $inner .= ".$iext";
+        } else {
+            //指定了 内部文件 ext
+            if ($iext !== $this->ext) {
+                $this->setExt($iext);
+                $this->params["export"] = $iext;
+            }
+        }
+        //查找内部文件
+        $innerp = $this->PathProcessor->inner($inner, true);
+        if (!Is::nemstr($innerp)) return null;
+
+        //创建内部资源实例
+        $ires = Resource::create($innerp,[
+            //!! 外部直接访问此内部资源，不需要作为 复合资源的子资源来 实例化，因此不需要传入 belongTo
+            //"belongTo" => $this,
+            //"ignoreGet" => false,
+        ]);
+        if (!$ires instanceof Resource) return null;
+        return $ires;
+    }
+
+    /**
+     * 在当前请求的 复合资源 url 基础上创建新 url 实例
+     * 例如：
+     *      当前请求的复合资源 url：https://host/src/foo/bar/jaz.vcom?export=css&mode=mini
+     *          调用 resUrlMk("default.js?mode=full") 将得到新 url ：
+     *              https://host/src/foo/bar/jaz.vcom?export=js&file=default&mode=full
+     *      当前请求的复合资源 url：https://host/src/vcom/foo/bar/jaz/default.css?mode=mini
+     *          调用 resUrlMk("default.js?mode=full") 将得到新 url ：
+     *              https://host/src/vcom/foo/bar/jaz/default.js?mode=full
+     * @param String $uri 新的 uri 将与当前 url 合并，参考 Url::mk 方法参数
+     * @return Url 生成新的 url 实例
+     */
+    public function resUrlMk($uri)
+    {
+        //当前 url 实例
+        $uo = Url::current();
+        //指向的 basename
+        $basename = $uo->basename;
+        //当前复合资源的 comExt 
+        $cext = $this->resComExt();
+        $cextlen = strlen($cext)+1;
+
+        //检查当前请求的 方式，直接通过 json 文件路径访问  或  通过调用 responseProxyer 代理响应方式访问
+        if (substr($basename, $cextlen*-1) === ".$cext") {
+            //直接通过 json 路径访问此复合资源的 标记
+            $direct = true;
+        } else {
+            //使用 Compound::responseProxyer 代理响应方式 请求此复合资源
+            $direct = false;
+        }
+
+        //处理传入的 uri
+        if (substr($uri, 0,1)==="?") {
+            //传入 ? 开头的 queryString 补全此复合资源 basename
+            $uri = "../$basename".$uri;
+        } else {
+            //uri 字符串中 path 部分
+            $upath = strpos($uri, "?")===false ? $uri : explode("?", $uri)[0];
+            //uri 字符串中的 basename
+            $ubase = basename($upath);
+            //uri 字符串中的 dirname
+            $udir = dirname($upath);
+            //uri 中的 queryString
+            if (strpos($uri, "?")===false) {
+                $uq = [];
+            } else {
+                $uq = Conv::u2a(explode("?", $uri)[1]);
+            }
+
+            if (substr($ubase, $cextlen*-1) === ".$cext") {
+                //uri 中是直接访问 复合资源的 json 文件名
+                if ($direct === false) {
+                    //当前是使用 proxyer 代理响应，需要从 uri queryString 中查找 file.export
+                    $file = $uq["file"] ?? static::$stdParams["file"];
+                    $export = $uq["export"] ?? null;
+                    if (!Is::nemstr($export)) $export = $this->desc["ext"][0];
+                    //重新拼接 uri
+                    $uarr = [];
+                    if (Is::nemstr($udir)) $uarr[] = $udir;
+                    $uarr[] = "$file.$export";
+                    if (Is::nemarr($uq)) $uarr[] = "?".http_build_query($uq);
+                    $uri = implode("", $uarr);
+                }
+            } else {
+                //uri 中传入的是 通过 proxyer 代理响应的 访问方式
+                if ($direct === true) {
+                    //当前请求是直接通过 json 路径访问，需要将 uri 的 ubase 拆分为 file 和 export 参数
+                    $ubarr = explode(".", $ubase);
+                    $export = array_slice($ubarr, -1)[0];
+                    $file = implode(".", array_slice($ubarr, 0, -1));
+                    $uq = Arr::extend($uq, [
+                        "file" => $file,
+                        "export" => $export
+                    ]);
+                    //重新拼接 uri
+                    $uarr = [];
+                    if (Is::nemstr($udir)) $uarr[] = $udir;
+                    $uarr[] = $basename;
+                    if (Is::nemarr($uq)) $uarr[] = "?".http_build_query($uq);
+                    $uri = implode("", $uarr);
+                }
+            }
+
+            //添加 ../ 
+            $uri = "../".$uri;
+        }
+
+        //在此基础上创建新 url 实例
+        return Url::mk($uri);
+    }
+
 
 
     /**
@@ -901,22 +1048,42 @@ class Compound extends Resource
          *      https://host/src/cdn/foo/bar/vue/[@|latest|1.0.0/]default.js?create=true 将被解析为：
          *          访问 Cdn 资源 [accessable-assets-path]/cdn/foo/bar/vue.cdn.json
          *          访问参数 ver=@&export=js&file=default&create=true
+         * 
+         * 针对有静态内部资源的 复合资源，可通过 inner 标记直接访问并输出 内部真实资源，例如：
+         *      https://host/src/lib/foo/bar/[@|latest|1.0.0/]inner/inner-dir/inner-file.js
+         *          访问 Lib 资源 [accessable-assets-path]/cdn/foo/bar.lib.json
+         *          访问参数 ver=@&export=js&file=default&create=true&inner=inner-dir/inner-file
          */
         //拼接 URI
         $uri = implode("/", $args);
         if (strpos($uri, "/")===false) $uri = "/".$uri;
 
-        //匹配 URI 中包含的 json 文件路径，以及 file.export 参数
-        preg_match_all("/(.*)\/([a-zA-Z0-9-_.]+\.[a-zA-Z0-9]+)/", $uri, $mts);
-        if (!isset($mts[2]) || empty($mts[2]) || !Is::nemstr($mts[2][0])) {
-            //未匹配到有效的 请求参数
-            Response::insSetCode(404);
-            return null;
+        //匹配到的 params 参数
+        $params = [];
+
+        if (strpos($uri, "/inner"."/")!==false) {
+            //如果 uri 中包含 /inner/ 字符
+
+            $uarr = explode("/inner"."/", $uri);
+            //请求的 json 文件路径
+            $cfp = $uarr[0];
+            //请求的 inner 文件路径
+            $params["inner"] = $uarr[1];
+
+        } else {
+            //匹配 URI 中包含的 json 文件路径，以及 file.export 参数
+
+            preg_match_all("/(.*)\/([a-zA-Z0-9-_.]+\.[a-zA-Z0-9]+)/", $uri, $mts);
+            if (!isset($mts[2]) || empty($mts[2]) || !Is::nemstr($mts[2][0])) {
+                //未匹配到有效的 请求参数
+                Response::insSetCode(404);
+                return null;
+            }
+            //匹配到的 复合资源 json 文件路径
+            $cfp = $mts[1][0];
+            //匹配到的 请求的 file.export
+            $efp = $mts[2][0];
         }
-        //匹配到的 复合资源 json 文件路径
-        $cfp = $mts[1][0];
-        //匹配到的 请求的 file.export
-        $efp = $mts[2][0];
 
         //处理 json 文件路径中 可能包含的 version 信息
         preg_match_all("/\/(@|latest|((\.?[0-9]+\.?)+)){1}/", $cfp, $cmts);
@@ -929,26 +1096,34 @@ class Compound extends Resource
             //从 json 路径中 去除 version 信息
             $cfp = str_replace($cmts[0][0], "", $cfp);
         }
+        $params["ver"] = $ver;
 
-        //处理 请求的 file.export 得到 params["file"] ["export"]
-        preg_match_all("/([a-zA-Z0-9-_.]+)\.([a-zA-Z0-9]+)/", $efp, $emts);
-        if (!isset($emts[1]) || empty($emts[1]) || !Is::nemstr($emts[1][0])) {
-            //未匹配到有效的 file 和 export 参数，使用默认
-            $std = static::$stdParams;
-            $file = $std["file"];
-            $export = $std["export"];
+        if (isset($params["inner"]) && Is::nemstr($params["inner"])) {
+            //如果请求的是某个 内部真是资源
+            $params["file"] = static::$stdParams["file"];
+            $params["export"] = static::$stdParams["export"];
         } else {
-            //匹配到有效的 file 和 export 参数
-            $file = $emts[1][0];
-            $export = $emts[2][0];
+            //处理 请求的 file.export 得到 params["file"] ["export"]
+            preg_match_all("/([a-zA-Z0-9-_.]+)\.([a-zA-Z0-9]+)/", $efp, $emts);
+            if (!isset($emts[1]) || empty($emts[1]) || !Is::nemstr($emts[1][0])) {
+                //未匹配到有效的 file 和 export 参数，使用默认
+                $std = static::$stdParams;
+                $file = $std["file"];
+                $export = $std["export"];
+            } else {
+                //匹配到有效的 file 和 export 参数
+                $file = $emts[1][0];
+                $export = $emts[2][0];
+                //如果 file 中包含 .min
+                if (strpos($file, ".min")!==false) {
+                    $file = str_replace(".min","", $file);
+                    $params["min"] = true;
+                }
+            }
+            
+            $params["file"] = $file;
+            $params["export"] = $export;
         }
-        
-        //整理 匹配到的 资源请求参数
-        $params = [
-            "ver" => $ver,
-            "file" => $file,
-            "export" => $export,
-        ];
         //var_dump($params);
 
         //查找 复合资源的 json 文件路径

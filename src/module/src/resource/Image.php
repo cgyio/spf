@@ -32,9 +32,9 @@ class Image extends Resource
          * 可在资源实例化时，指定 一个 Compound 复合资源 作为此资源的 parentResource 
          * !! 此参数无法通过 url 传递，只能在资源实例化时，手动传入
          */
-        "belongTo" => null,
+        //"belongTo" => null,
         //是否忽略 $_GET 参数
-        "ignoreGet" => false,
+        //"ignoreGet" => false,
         
         //等比缩放，默认 100  
         "zoom" => false,
@@ -48,12 +48,12 @@ class Image extends Resource
         "gray" => false,
 
         //可额外定义此资源的 中间件，这些额外的中间件 将在资源实例化时，附加到预先定义的中间件数组后面
-        "middleware" => [
+        /*"middleware" => [
             //create 阶段
             "create" => [],
             //export 阶段
             "export" => [],
-        ],
+        ],*/
     ];
 
     /**

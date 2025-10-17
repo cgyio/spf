@@ -176,9 +176,10 @@ final class ResourceSeeker
      * 如果请求的路径 包含 .min. 将自动去除
      * @param String $path 要查找的 文件|文件夹 路径
      * @param Bool $findDir 是否查找文件夹，默认 false 查找文件
+     * @param Bool $all 是否返回所有存在的路径，默认 false
      * @return String|null 找到 文件|文件夹 则返回真实路径 DS，未找到则返回 null
      */
-    public static function seekLocal($path, $findDir=false)
+    public static function seekLocal($path, $findDir=false, $all=false)
     {
         if (!Is::nemstr($path)) return null;
 
@@ -264,7 +265,7 @@ final class ResourceSeeker
 
         //调用 Path::exists 方法，查找第一个存在的 路径
         $ftp = $findDir===true ? Path::FIND_DIR : Path::FIND_FILE;
-        return Path::exists($pathes, false, $ftp);
+        return Path::exists($pathes, $all, $ftp);
     }
 
 

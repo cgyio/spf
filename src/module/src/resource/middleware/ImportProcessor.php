@@ -45,7 +45,7 @@ class ImportProcessor extends Processor
             //import 语句开头标记
             "prefix" => "import ",
             //import 语法
-            "pattern" => "/import\s+([a-zA-Z0-9_\-]+)\s+from\s+['\"]{1}(.+)['\"]{1};?/",
+            "pattern" => "/import\s+([a-zA-Z0-9_\- {},]+)\s+from\s+['\"]{1}(.+)['\"]{1};?/",
             //import 语句中包含的 参数
             "ptparams" => ["var", "url"],
             //当前类型的代码，允许 import 的文件类型
@@ -303,6 +303,8 @@ class ImportProcessor extends Processor
      */
     public function updateImportsWhenMerge($params=[])
     {
+        //var_dump($this->resource->name);
+        //var_dump($params);
         if (!Is::nemarr($params)) return $this;
         //更新参数
         $imports = $params["imports"] ?? [];

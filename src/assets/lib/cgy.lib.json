@@ -1,0 +1,27 @@
+{
+    "name": "cgy",
+    "var": "cgy",
+    "version": {
+        "@": "2.2.1",
+        "latest": "2.2.1"
+    },
+    "ext": ["js"],
+
+    "root": "",
+    "main": "core.js",
+    "modulePath": "module",
+    "moduleDefault": [
+        "request", "csstools"
+    ],
+    "useSyntax": "__VAR__.use(__MODULE__)",
+    
+    "content": {
+        "2.2.1": {
+            "js": {
+                "default": {
+                    "params": {}
+                }
+            }
+        }
+    }
+}

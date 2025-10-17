@@ -298,7 +298,7 @@ class MergeProcessor extends Processor
             //检查是否存在 import 冲突
             if (!isset($curImports[$var])) {
                 //不存在同变量名 import 正常合并
-                $curImports[$val] = $url;
+                $curImports[$var] = $url;
                 continue;
             }
 
@@ -337,9 +337,10 @@ class MergeProcessor extends Processor
         }
         //确认写回 $this->imports
         $this->imports = $curImports;
+        //var_dump($curImports);var_dump(1111);
 
         //更新 $res->imports $res->rows 依赖 $res->ImportProcessor
-        $res->importProcessor->updateImportsWhenMerge([
+        $res->ImportProcessor->updateImportsWhenMerge([
             "imports" => $imports,
             "ivars" => $ivars,
         ]);

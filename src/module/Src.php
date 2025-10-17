@@ -10,6 +10,7 @@ use Spf\App;
 use Spf\Response;
 use Spf\Module;
 use Spf\module\src\Resource;
+use Spf\module\src\ResourceSeeker;
 use Spf\module\src\Fs;
 use Spf\module\src\resource\Compound;
 use Spf\module\src\SrcException;
@@ -73,21 +74,29 @@ class Src extends Module
             return null;
         }
 
-        //首先尝试 使用 Compound 复合资源代理响应方法
+        //首先尝试直接查找 资源
+        $opts = ResourceSeeker::seek(...$args);
+        if (Is::nemarr($opts)) {
+            //找到存在的 资源，创建资源实例
+            $resource = Resource::create($args);
+            
+            //返回得到的资源，将在 Response::export() 方法中自动调用资源输出
+            return $resource;
+        }
+
+        //然后尝试 使用 Compound 复合资源代理响应方法
         if (count($args)>1) {
             //指向的 复合资源类 ext
             $ext = $args[0];
-            if (static::hasExt($ext) !== false) {
+            if (Compound::hasExt($ext) !== false) {
                 //存在的 复合资源 ext
                 return Compound::responseProxyer(...$args);
             }
         }
 
-        //根据 URI 参数，解析并获取 资源
-        $resource = Resource::create($args);
-        
-        //返回得到的资源，将在 Response::export() 方法中自动调用资源输出
-        return $resource;
+        //未找到任何资源，返回 404
+        Response::insSetCode(404);
+        return null;
     }
 
     /**

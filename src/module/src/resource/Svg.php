@@ -18,7 +18,7 @@ class Svg extends Plain
     /**
      * 定义 纯文本文件 资源实例 可用的 params 参数规则
      * 参数项 => 默认值
-     * !! 子类应覆盖此属性，定义自己的 params 参数规则
+     * !! 覆盖父类
      */
     public static $stdParams = [
         //fill 修改 svg 中某些路径的 颜色
