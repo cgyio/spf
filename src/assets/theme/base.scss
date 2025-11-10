@@ -1,0 +1,571 @@
+/** SPF-Theme 基础样式 SCSS **/
+/** 此 SCSS 不处理 import 如需引入外部样式，应在 PRE.theme.json 中指定 styles.import 参数 **/
+
+/** CGY-Theme 主题 SCSS 通用 @mixin/@extend 等定义 **/
+/** !!! 不要手动修改 !!! **/
+
+
+/** @function 20250124 **/
+/** 根据输入的 $p 解析得到 left,right,top,bottom 列表 **/
+/** $p 可选：x/y/xy/all/t/r/b/l/tr/tb/.../trb/trl/.../trbl **/
+$trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
+@function trbl($p: all) {
+    $cp: [];
+    @if $p == all or $p == xy {
+        $cp: top,right,bottom,left;
+    } @else if $p == x {
+        $cp: left,right;
+    } @else if $p == y {
+        $cp: top,bottom;
+    } @else {
+        @if str-index($p, t) != null { $cp: append($cp, top, comma); }
+        @if str-index($p, r) != null { $cp: append($cp, right, comma); }
+        @if str-index($p, b) != null { $cp: append($cp, bottom, comma); }
+        @if str-index($p, l) != null { $cp: append($cp, left, comma); }
+    }
+    @return $cp;
+}
+/** 生成 img url，返回 url(...) 属性值 **/
+@function icourl($icon: md-sharp-home, $fill: '', $pre: '/src/icon/') {
+    @if $fill != '' {
+        @if str-index($fill, '#') != null {
+            //去除颜色 Hex 中的 #
+            $fill: str-slice($fill, 2);
+        }   
+        $icon: #{$icon} + '?fill=' + #{$fill};
+    }
+    @return url('#{$pre}#{$icon}.svg');
+}
+
+
+/** @mixin 20250124 **/
+
+/** color-shift **/
+/** 根据 $list 颜色名称数组，为 当前类 或 后代类 指定颜色样式
+    例如：
+    .foo {
+        @include color-shift(
+            $pre:       bg-,
+            $target:    child,
+            $prop:      background-color,
+            $ckey:      bg,
+            $opa:       true
+        );
+    }
+    编译后：
+    .foo * { background-color: color-bg; }  //如果存在 color-{ckey}
+    .foo .bg-l1 { background-color: color-bg-l1; }
+    .foo .bg-l2 { background-color: color-bg-l2; }
+    .foo .bg-l1-a1 { background-color: color-bg-l1-a1; }  //透明度循环
+    .foo .bg-l1-a2 { background-color: color-bg-l1-a2; }
+    .foo .bg-red { background-color: color-red; }
+    .foo .bg-red-hover { background-color: color-red; }
+    .foo .bg-red-hover:hover { background-color: color-red-l1; }
+    .foo .bg-red-l1 { background-color: color-red-l1; }
+    .foo .bg-red-l2 { background-color: color-red-l2; }
+    .foo .bg-red-l1-a1 { background-color: color-red-l1-a1; }  //透明度循环
+    .foo .bg-red-l1-a2 { background-color: color-red-l1-a2; }
+    .foo .bg-blue { background-color: color-blue; }
+    .foo .bg-blue-l1 { background-color: color-blue-l1; }
+    .foo .bg-blue-l2 { background-color: color-blue-l2; }
+    .foo .bg-blue-l1-a1 { background-color: color-blue-l1-a1; }  //透明度循环
+    .foo .bg-blue-l1-a2 { background-color: color-blue-l1-a2; }
+**/
+@mixin color-shift(
+    $pre:       fc-,                //样式类前缀，如：在 .fc 类中，则可以 fc- 为前缀
+    $list:      $colorListAll,      //颜色名称 list 数组，默认 $colorListAll 通用色
+    $cmap:      $colorMap,          //储存所有色值的 map，默认 $colorMap
+    $cque:      $colorShiftQueue,   //储存所有颜色 shift 变化 lvl 的 list，如：l2,l1,d1,d2 默认 $colorShiftQueue
+    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $prop:      color,              //要设置颜色的 css 属性，可选 color/border-color/background-color/... 默认 color
+    $ckey:      fc,                 //$prop 属性的默认颜色名，如：background-color 的默认颜色名为 bgc ($color-bgc-*)
+    $opa:       false,              //是否启用透明度，true 表示同时循环透明度
+    $alist:     $colorListAlpha,    //定义的透明度级数序列，默认 a1~a9
+    $amap:      $colorAlphaMap      //储存所有透明序列的 map，默认 $colorAlphaMap
+) {
+    @each $c in $list {
+        @each $cq in $cque {
+            /**
+                针对 $pre 与 颜色名称相同的 情况
+                例如 $pre = fc- 颜色列表中又包含了 fc-m 颜色，则会生成 .fc-fc-m 颜色类
+                此处解决这个问题
+            **/
+            @if $ckey == $c {
+                $ck: #{$cq};
+                $ci: map-get($cmap, #{$c}-#{$cq});
+            } @else {
+                $ck: #{$c}-#{$cq};
+                $ci: map-get($cmap, $ck);
+            }
+            @if $ci != null {
+                @if $target == self {
+                    //&.fc-red-m {}
+                    &.#{$pre}#{$ck} { #{$prop}: #{$ci} !important; }
+                } @else if $target == child {
+                    //& .fc-primary-d3 {}
+                    & .#{$pre}#{$ck} { #{$prop}: #{$ci} !important; }
+                }
+                @if $opa == true {
+                    //通过主题系统自动生成的 colorMap 一定是 hex 形式
+                    @each $ca in $alist {
+                        $ai: map-get($amap, $ca);
+                        @if $ai != null {
+                            @if $target == self {
+                                //&.fc-red-m-a6 {}
+                                &.#{$pre}#{$ck}-#{$ca} { #{$prop}: #{$ci}#{$ai} !important; }
+                            } @else if $target == child {
+                                //& .fc-primary-d3-a2 {}
+                                & .#{$pre}#{$ck}-#{$ca} { #{$prop}: #{$ci}#{$ai} !important; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        //:hover 默认使用 color-l1 级颜色
+        $ci-hov: map-get($cmap, #{$c}-l1);
+        //通过主题系统自动生成的 colorMap 一定包含 -m 原始颜色
+        $ci-old: map-get($cmap, #{$c}-m);
+        @if $ci-hov != null {
+            @if $target == self {
+                &.#{$pre}#{$c}-hoverable { 
+                    //#{$prop}: #{$ci-old} !important; 
+                    &:hover {
+                        #{$prop}: #{$ci-hov} !important; 
+                    }
+                }
+            } @else if $target == child {
+                & .#{$pre}#{$c}-hoverable { 
+                    //#{$prop}: #{$ci-old} !important; 
+                    &:hover {
+                        #{$prop}: #{$ci-hov} !important; 
+                    }
+                }
+            }
+        }
+    }
+}
+/** size-shift **/
+/** 根据 $list 可选尺寸数组(如：xs,s,m,l,xl)，为 后代类 指定尺寸样式 **/
+@mixin size-shift(
+    $pre:       gap-,               //样式类前缀，如：在 .gap 类中，则可以 gap- 为前缀
+    $list:      $sizeShiftQueue,    //可选尺寸 list 数组，默认 $sizeShiftQueue 
+    $smap:      $sizeMap,           //储存所有尺寸值的 map，默认 $sizeMap
+    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $skey:      gap,                //在尺寸 map 中的键名前缀，如 gap / f / btn
+    $prop:      padding,            //要设置尺寸的 css 属性，可选 padding/margin/... 默认 padding
+    $maxsz:     36,                 //手动通过数值指定尺寸，默认最大 36 对应的尺寸为 36*2 = 72 px
+    $trbl:      true                //是否自动循环输出 trbl position 参数
+) {
+    //主题系统生成的 sizeMap 一定包含 -m 原始尺寸
+    @each $sz in $list {
+        $si: map-get($smap, #{$skey}-#{$sz});
+        @if $si != null {
+            @if $target == self {
+                &.#{$pre}#{$sz} {
+                    #{$prop}: $si !important;
+                }
+            } @else if $target == child {
+                & .#{$pre}#{$sz} {
+                    #{$prop}: $si !important;
+                }
+            }
+            @if $trbl == true {
+                @each $pi in $trblQueue {
+                    @if $target == self {
+                        &.#{$pre}#{$pi}-#{$sz} {
+                            @include size-po($size: #{$si}, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                        }
+                    } @else if $target == child {
+                        & .#{$pre}#{$pi}-#{$sz} {
+                            @include size-po($size: #{$si}, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    @for $sz from 1 through $maxsz {
+        $szi: $sz * 2;
+        @if $target == self {
+            &.#{$pre}#{$szi}px {
+                #{$prop}: #{$szi}px !important;
+            }
+        } @else if $target == child {
+            & .#{$pre}#{$szi}px {
+                #{$prop}: #{$szi}px !important;
+            }
+        }
+        @if $trbl == true {
+            @each $pi in $trblQueue {
+                @if $target == self {
+                    &.#{$pre}#{$pi}-#{$szi}px {
+                        @include size-po($size: #{$szi}px, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                    }
+                } @else if $target == child {
+                    & .#{$pre}#{$pi}-#{$szi}px {
+                        @include size-po($size: #{$szi}px, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                    }
+                }
+            }
+        }
+    }
+}
+/** 根据输入的 trbl 设置不同 position 位置的 size **/
+/** $p 可选值：$trblQueue **/
+@mixin size-po(
+    $size: unset,       //要设置的尺寸 
+    $p: '',             //要设置尺寸值的 position 位置，可选值：$trblQueue，默认不指定，表示所有位置
+    $prop: padding,     //要设置尺寸值的 css 属性，默认 padding，可选 padding/margin
+    $important: false   //是否增加 important
+) {
+    @if $p != '' {
+        $pa: trbl($p);
+        @each $pi in $pa {
+            @if $important == true {
+                #{$prop}-#{$pi}: $size !important;
+            } @else {
+                #{$prop}-#{$pi}: $size;
+            }
+        }
+    } @else {
+        @if $important == true {
+            #{$prop}: $size !important;
+        } @else {
+            #{$prop}: $size;
+        }
+    }
+}
+
+/** position **/
+@mixin po($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $l: unset, $t: unset, $r: unset, $b: unset, $ov: unset) {
+    position: $po; margin: $mg; padding: $pd; 
+    @if $w != unset { width: $w; }
+    @if $h != unset { height: $h; }
+    @if $l != unset { left: $l; }
+    @if $r != unset { right: $r; }
+    @if $t != unset { top: $t; }
+    @if $b != unset { bottom: $b; }
+    @if $ov != unset { overflow: $ov; }
+    box-sizing: border-box;
+}
+@mixin po-ov($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $l: unset, $t: unset, $r: unset, $b: unset, $ov: hidden) {
+    @include po($po:#{$po}, $w:#{$w}, $h:#{$h}, $mg:#{$mg}, $pd:#{$pd}, $l:#{$l}, $r:#{$r}, $t:#{$t}, $b:#{$b}, $ov:#{$ov});
+}
+@mixin po-abs($w: 100%, $h: unset, $mg: 0, $pd: 0, $l: 0, $t: 0, $r: unset, $b: unset, $ov: hidden) {
+    @include po($po: absolute, $w:#{$w}, $h:#{$h}, $mg:#{$mg}, $pd:#{$pd}, $l:#{$l}, $r:#{$r}, $t:#{$t}, $b:#{$b}, $ov:#{$ov});
+}
+@mixin po-fix($w: 100%, $h: unset, $mg: 0, $pd: 0, $l: 0, $t: 0, $r: unset, $b: unset, $ov: hidden) {
+    @include po($po: fixed, $w:#{$w}, $h:#{$h}, $mg:#{$mg}, $pd:#{$pd}, $l:#{$l}, $r:#{$r}, $t:#{$t}, $b:#{$b}, $ov:#{$ov});
+}
+
+/** flex **/
+@mixin flex($dir: row, $x: flex-start, $y: center, $gap: unset) {
+    display: flex; flex-direction: $dir;
+    @if $dir == row {
+        align-items: $y; justify-content: $x;
+    } @else {
+        align-items: $x; justify-content: $y;
+    }
+    &>*, &>view {
+        flex-shrink: 0;
+        @if $gap != unset {
+            $side: right;
+            @if $dir == column { $side: bottom; }
+            margin-#{$side}: $gap;
+            &:last-child {
+                margin-#{$side}: 0;
+            }
+        }
+    }
+    @for $i from 1 through 4 {
+        &>.flex-#{$i} {
+            $wh: width;
+            @if $dir == column { $wh: height; }
+            #{$wh}: unset;
+            flex: $i;
+        }
+    }
+    &.flex-x-center {
+        @if $dir == row {
+            justify-content: center;
+        } @else {
+            align-items: center;
+        }
+    }
+    &.flex-y-center {
+        @if $dir == row {
+            align-items: center;
+        } @else {
+            justify-content: center;
+        }
+    }
+    &.flex-x-start {
+        @if $dir == row {
+            justify-content: flex-start;
+        } @else {
+            align-items: flex-start;
+        }
+    }
+    &.flex-y-start {
+        @if $dir == row {
+            align-items: flex-start;
+        } @else {
+            justify-content: flex-start;
+        }
+    }
+    &.flex-x-end {
+        @if $dir == row {
+            justify-content: flex-end;
+        } @else {
+            align-items: flex-end;
+        }
+    }
+    &.flex-y-end {
+        @if $dir == row {
+            align-items: flex-end;
+        } @else {
+            justify-content: flex-end;
+        }
+    }
+    &.flex-x-stretch {
+        @if $dir == row {
+            justify-content: stretch;
+        } @else {
+            align-items: stretch;
+        }
+    }
+    &.flex-y-stretch {
+        @if $dir == row {
+            align-items: stretch;
+        } @else {
+            justify-content: stretch;
+        }
+    }
+}
+@mixin flex-x($x: flex-start, $y: center, $gap: unset) {
+    @include flex($dir: row, $x:#{$x}, $y:#{$y}, $gap:#{$gap});
+}
+@mixin flex-y($x: flex-start, $y: flex-start, $gap: unset) {
+    @include flex($dir: column, $x:#{$x}, $y:#{$y}, $gap:#{$gap});
+}
+
+/** font **/
+@mixin fo($sz: $size-fs-m, $c: $color-fc-m, $w: normal, $fml: $font-fml-default, $sty: unset) {
+    font: {
+        family: $fml;
+        size: $sz;
+        weight: $w;
+    }
+    color: $c;
+    @if $sty != unset { font-style: $sty; }
+}
+/**
+    设置 self|child 中 font 相关样式
+    支持尺寸自动序列
+**/
+@mixin fo-shift(
+    $target:    self
+) {
+    //color-shift
+    @include color-shift($pre: f-, $target: #{$target}, $prop: color, $ckey: fc);
+    //size-shift
+    @include size-shift($pre: f-, $target: #{$target}, $skey: fs, $prop: font-size, $trbl: false);
+    
+    @if $target == self {
+        //weight-shift
+        &.f-bold { font-weight: bold !important; }
+        &.f-thin { font-weight: 200 !important; }
+        @for $i from 1 through 9 {
+            $b: $i * 100;
+            &.f-w#{$b} { font-weight: $b !important; }
+        }
+        //font-family
+        &.f-fml-default {font-family: $font-fml-default !important;}
+        &.f-fml-code {font-family: $font-fml-code !important;}
+        &.f-fml-yahei {font-family: $font-fml-yahei !important;}
+        &.f-fml-songti {font-family: $font-fml-songti !important;}
+        &.f-fml-fangsong {font-family: $font-fml-fangsong !important;}
+    } @else if $target == child {
+        //weight-shift
+        & .f-bold { font-weight: bold !important; }
+        & .f-thin { font-weight: 200 !important; }
+        @for $i from 1 through 9 {
+            $b: $i * 100;
+            & .f-w#{$b} { font-weight: $b !important; }
+        }
+        //font-family
+        & .f-fml-default {font-family: $font-fml-default !important;}
+        & .f-fml-code {font-family: $font-fml-code !important;}
+        & .f-fml-yahei {font-family: $font-fml-yahei !important;}
+        & .f-fml-songti {font-family: $font-fml-songti !important;}
+        & .f-fml-fangsong {font-family: $font-fml-fangsong !important;}
+    }
+}
+
+/** border **/
+/** $p 可选值：$trblQueue **/
+@mixin bd($c: $color-bdc-m, $sz: 1px, $sty: solid, $p: trbl) {
+    border: {
+        color: $c;
+        style: $sty;
+        width: 0;
+    }
+    $pa: trbl($p);
+    @each $i in $pa {
+        border-#{$i}-width: $sz;
+    }
+}
+@mixin bd-shift {
+    //color-shift
+    @include color-shift($pre: bd-, $target: self, $prop: border-color, $ckey: bd);
+    @each $pi in $trblQueue {
+        &.bd-#{$pi} {
+            $pa: trbl($pi);
+            @each $i in $pa {
+                border-#{$i}-width: 1px;
+            }
+            &.bd-bold {
+                @each $i in $pa {
+                    border-#{$i}-width: 2px;
+                }
+            }
+        }
+    }
+}
+@mixin bd-in {
+    & [class*=bd-] {
+        border: {
+            color: $color-bdc-m;
+            style: solid;
+            width: 0;
+        }
+    }
+
+    //color-shift
+    @include color-shift($pre: bd-, $target: child, $prop: border-color, $ckey: bd);
+    @each $pi in $trblQueue {
+        & .bd-#{$pi} {
+            $pa: trbl($pi);
+            @each $i in $pa {
+                border-#{$i}-width: 1px;
+            }
+            &.bd-bold {
+                @each $i in $pa {
+                    border-#{$i}-width: 2px;
+                }
+            }
+        }
+    }
+    
+}
+
+/** background **/
+@mixin bg($c: $color-bgc-m, $opa: 1) {
+    background-color: $c;
+    @if $opa < 1 {
+        background-color: rgba($c, $opa);
+    }
+}
+@mixin bg-shift {
+    //color-shift
+    @include color-shift($pre: bg-, $target: self, $prop: background-color, $ckey: bg, $opa: true);
+}
+@mixin bg-in {
+    //color-shift
+    @include color-shift($pre: bg-, $target: child, $prop: background-color, $ckey: bg, $opa: true);
+    //hover
+    & .bg-hover {
+        background-color: transparent !important;
+        &:hover {
+            background-color: $color-bgc-l2 !important;
+        }
+    }
+}
+@mixin bg-blur($c: $color-bgc-m, $opa: 0.8, $blur: $size-filter-blur) {
+    @include bg($c:$c, $opa:$opa);
+    backdrop-filter: blur($blur);
+}
+
+/** margin/padding **/
+/** $p 可选值：$trblQueue **/
+@mixin pd-in {
+    @include size-shift($pre: pd-, $skey: gap, $prop: padding);
+}
+@mixin mg-in {
+    @include size-shift($pre: mg-, $skey: gap, $prop: margin);
+}
+
+/** shadow **/
+@mixin shadow($x: 4px, $y: 8px, $blur: 16px, $opa: "l1") {
+    $sc-key: "shadow";
+    @if ($opa!="") {
+        $sc-key: shadow-#{$opa};
+    }
+    $shadow-color: map-get($colorMap, $sc-key);
+    box-shadow: #{$x} #{$y} #{$blur} #{$shadow-color};
+}
+
+
+
+/** other **/
+@mixin nicescroll($size: 0, $radius: 0, $bgc: transparent, $bgc-hover: $color-bdc-d1, $ov: hidden overlay, $behavior: smooth) {
+    overflow: $ov;
+    scroll-behavior: $behavior;
+    &::-webkit-scrollbar {width: $size; height: $size;}
+    &::-webkit-scrollbar-thumb  {
+        background-color: $bgc;
+        transition: all .3s;
+    }
+    &:hover::-webkit-scrollbar-thumb  {background-color: $bgc-hover;}
+    &::-webkit-scrollbar-track {background-color: transparent; }
+    &::-webkit-scrollbar-thumb  {border-radius: $radius;}
+}
+@mixin text-ellipsis {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+@mixin trans($items: all, $dura: $ani-trans-dura) {
+    @if $items == all {transition: all $dura; }
+    @if $items != all {
+        @each $item in $items {
+            transition: $item $dura;
+        }
+    }
+}
+
+
+
+/** 初始化 body 样式 **/
+body, view, .page {
+    margin: 0; padding: 0;
+    @include fo;
+    @include bg($c: $color-bgc-l3);
+    @include fo-shift($target: child);
+    @include bd-in;
+    @include bg-in;
+    @include pd-in;
+    @include mg-in;
+
+    .flex-x {
+        @include flex-x;
+    }
+    .flex-y {
+        @include flex-y;
+    }
+
+    .ellipsis {
+        @include text-ellipsis;
+    }
+}
+
+[v-cloak] {
+    display: none !important;
+}
+
+.__PRE__-foo-bar {
+    @include po-abs;
+}
+
+

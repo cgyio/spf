@@ -125,10 +125,12 @@ class Gets extends SpecialUtil
                 } else {
                     $v = strtolower($v) === "yes";
                 }
-            } else if (Is::explodable($v) !== false) {
+            } else if (strpos($v, ",") !== false) {
+                $v = explode(",", $v);
+            } /*else if (Is::explodable($v) !== false) {
                 // foo,bar  foo|bar  foo;bar ... 转为数组
                 $v = Arr::mk($v);
-            }
+            }*/
             $rtn[$k] = $v;
         }
         return $rtn;

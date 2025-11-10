@@ -1,4 +1,4 @@
-.cv-btn {
+.__PRE__-btn {
     @include po-ov($w: unset, $h: $size-btn, $pd: 0 $size-btn-gap, $mg: 0);
     //padding: 0 $size-btn-gap;
     //height: $size-btn; /*width: $size-btn;*/
@@ -16,7 +16,7 @@
     cursor: pointer;
     transition: all .1s, background-color $ani-trans-dura;    //$ani-trans-dura;
 
-    &>svg.cv-icon {
+    &>svg.__PRE__-icon {
         font-size: $size-btn-icon;
         color: $color-fc;
         cursor: pointer;
@@ -45,7 +45,7 @@
         }
     }
 
-    &>svg.cv-icon+label, &>label+svg.cv-icon {
+    &>svg.__PRE__-icon+label, &>label+svg.__PRE__-icon {
         margin-left: calc(#{$size-btn-gap} / 2);
     }
 
@@ -53,7 +53,7 @@
         border-color: $color-bd-l1;
         color: $color-fc;
         background-color: $color-bg-l1;
-        &>svg.cv-icon {
+        &>svg.__PRE__-icon {
             color: $color-fc;
         }
     }
@@ -71,7 +71,7 @@
             overflow: hidden;
             line-height: $size-btn-xs; height: $size-btn-xs;
         }
-        &>svg.cv-icon+label, &>label+svg.cv-icon {
+        &>svg.__PRE__-icon+label, &>label+svg.__PRE__-icon {
             margin-left: $size-btn-gap;
         }
     }
@@ -85,14 +85,14 @@
     &.btn-disabled {
         opacity: 0.3;
         cursor: not-allowed;
-        &>svg.cv-icon {cursor: not-allowed;}
+        &>svg.__PRE__-icon {cursor: not-allowed;}
         &>label {cursor: not-allowed;}
     }
     &.btn-plain {
         border: $color-bd-l1 solid 1px;
         color: $color-fc-l1;
         background-color: $color-bg-l2;
-        &>svg.cv-icon {color: $color-fc-l1;}
+        &>svg.__PRE__-icon {color: $color-fc-l1;}
         &.btn-disabled {
             border-color: $color-bd;
             color: $color-fc;
@@ -108,14 +108,14 @@
             border: $color-bd solid 1px;
             background-color: $color-bg-l1;
             color: $color-fc;
-            &>svg.cv-icon {color: $color-fc;}
+            &>svg.__PRE__-icon {color: $color-fc;}
         }
     }
     &.btn-popout {
         border: transparent solid 1px;
         color: $color-fc;
         background-color: transparent;
-        &>svg.cv-icon {color: $color-fc;}
+        &>svg.__PRE__-icon {color: $color-fc;}
         &:hover, &.btn-active {
             border: $color-bd solid 1px;
             background-color: $color-bg;
@@ -124,7 +124,7 @@
                 border-color: transparent !important;
                 background-color: transparent !important;
             }
-            &>svg.cv-icon {color: $color-fc !important;}
+            &>svg.__PRE__-icon {color: $color-fc !important;}
             &>label {color: $color-fc !important;}
         }
         &.btn-active {
@@ -137,7 +137,7 @@
         color: $color-fc;
         text-decoration: none;
         background-color: transparent;
-        &>svg.cv-icon {
+        &>svg.__PRE__-icon {
             color: $color-fc;
             text-decoration: none;
         }
@@ -150,9 +150,9 @@
                 color: $color-fc !important;
                 text-decoration: none;
                 background-color: transparent;
-                &>svg.cv-icon,&>label {color: $color-fc !important;}
+                &>svg.__PRE__-icon,&>label {color: $color-fc !important;}
             }
-            &>svg.cv-icon {color: $color-primary !important;}
+            &>svg.__PRE__-icon {color: $color-primary !important;}
             &>label {color: $color-primary !important;}
         }
     }
@@ -180,7 +180,7 @@
             height: $bszi; min-width: $bszi;
             border-radius: $rdui;
             font-size: $fszi;
-            &>svg.cv-icon {
+            &>svg.__PRE__-icon {
                 font-size: $iszi;
                 &.btn-icon-left {
                     margin-left: calc(#{$gapi} * -0.3);
@@ -189,7 +189,7 @@
                     margin-right: calc(#{$gapi} * -0.3);
                 }
             }
-            &>svg.cv-icon+label, &>label+&>svg.cv-icon {
+            &>svg.__PRE__-icon+label, &>label+&>svg.__PRE__-icon {
                 margin-left: calc(#{$gapi} * 0.5);
             }
 
@@ -216,13 +216,13 @@
             border: none;
             background-color: $ci;
             color: $fi;
-            &>svg.cv-icon {
+            &>svg.__PRE__-icon {
                 color: $fi;
             }
             &.btn-disabled {
                 background-color: $color-bg-d1;
                 color: $color-fc;
-                &>svg.cv-icon,&>label {
+                &>svg.__PRE__-icon,&>label {
                     color: $color-fc;
                 }
             }
@@ -231,7 +231,7 @@
                 &.btn-disabled {
                     background-color: $color-bg-d1;
                     color: $color-fc;
-                    &>svg.cv-icon,&>label {
+                    &>svg.__PRE__-icon,&>label {
                         color: $color-fc;
                     }
                 }
@@ -241,7 +241,7 @@
                 &.btn-disabled {
                     background-color: $color-bg-d1;
                     color: $color-fc;
-                    &>svg.cv-icon,&>label {
+                    &>svg.__PRE__-icon,&>label {
                         color: $color-fc;
                     }
                 }
@@ -250,7 +250,7 @@
                     &.btn-disabled {
                         background-color: $color-bg-d1;
                         color: $color-fc;
-                        &>svg.cv-icon,&>label {
+                        &>svg.__PRE__-icon,&>label {
                             color: $color-fc;
                         }
                     }
@@ -260,12 +260,12 @@
                 border: $l2 solid 1px;
                 color: $l1;
                 background-color: $bg;
-                &>svg.cv-icon {color: $l1;}
+                &>svg.__PRE__-icon {color: $l1;}
                 &.btn-disabled {
                     color: $color-fc;
                     border-color: $color-bd;
                     background-color: $color-bg-l1;
-                    &>svg.cv-icon,&>label {color: $color-fc;}
+                    &>svg.__PRE__-icon,&>label {color: $color-fc;}
                 }
                 &:hover, &.btn-active {
                     background-color: $color-white;
@@ -273,19 +273,19 @@
                         color: $color-fc;
                         border-color: $color-bd;
                         background-color: $color-bg-l1;
-                        &>svg.cv-icon,&>label {color: $color-fc;}
+                        &>svg.__PRE__-icon,&>label {color: $color-fc;}
                     }
                 }
                 &.btn-active {
                     border: $l1 solid 1px;
                     background-color: $l2;
                     color: $ci;
-                    &>svg.cv-icon {color: $ci;}
+                    &>svg.__PRE__-icon {color: $ci;}
                     &.btn-disabled {
                         color: $color-fc;
                         border-color: $color-bd;
                         background-color: $color-bg-l1;
-                        &>svg.cv-icon,&>label {color: $color-fc;}
+                        &>svg.__PRE__-icon,&>label {color: $color-fc;}
                     }
                 }
             }
@@ -293,11 +293,11 @@
                 border: none;
                 color: $ci;
                 background-color: transparent;
-                &>svg.cv-icon {color: $ci;}
+                &>svg.__PRE__-icon {color: $ci;}
                 &.btn-disabled {
                     color: $color-fc;
                     background-color: transparent;
-                    &>svg.cv-icon,&>label {color: $color-fc;}
+                    &>svg.__PRE__-icon,&>label {color: $color-fc;}
                 }
                 &:hover, &.btn-active {
                     border: none;
@@ -306,9 +306,9 @@
                     &.btn-disabled {
                         color: $color-fc !important;
                         background-color: transparent !important;
-                        &>svg.cv-icon,&>label {color: $color-fc !important;}
+                        &>svg.__PRE__-icon,&>label {color: $color-fc !important;}
                     }
-                    &>svg.cv-icon {color: $fi !important;}
+                    &>svg.__PRE__-icon {color: $fi !important;}
                     &>label {color: $fi !important;}
                 }
                 &.btn-active {
@@ -324,10 +324,10 @@
             &.btn-text {
                 color: $ci;
                 background-color: transparent;
-                &>svg.cv-icon,&>label {color: $ci;}
+                &>svg.__PRE__-icon,&>label {color: $ci;}
                 &.btn-disabled {
                     color: $color-fc;
-                    &>svg.cv-icon,&>label {color: $color-fc;}
+                    &>svg.__PRE__-icon,&>label {color: $color-fc;}
                 }
                 &:hover, &.btn-active {
                     font-weight: normal;
@@ -335,9 +335,9 @@
                     &.btn-disabled {
                         background-color: transparent !important;
                         color: $color-fc !important;
-                        &>svg.cv-icon,&>label {color: $color-fc !important;}
+                        &>svg.__PRE__-icon,&>label {color: $color-fc !important;}
                     }
-                    &>svg.cv-icon {color: $ci !important;}
+                    &>svg.__PRE__-icon {color: $ci !important;}
                     &>label {color: $ci !important;}
                 }
             }

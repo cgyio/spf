@@ -39,6 +39,13 @@
                         "IconFonts"
                     ]
                 },
+                "light": {
+                    "type": "static",
+                    "file": "element-ui-light.css",
+                    "fix": [
+                        "IconFonts"
+                    ]
+                },
                 "dark": {
                     "type": "static",
                     "file": "element-ui-dark.css",

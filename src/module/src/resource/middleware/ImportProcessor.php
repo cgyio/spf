@@ -141,6 +141,7 @@ class ImportProcessor extends Processor
      */
     protected function stageExport()
     {
+        //var_dump("stage export");var_dump($this->resource->name);
         //当前资源的 import 参数状态 true|false|keep
         $st = $this->status();
         //var_dump($st);var_dump($this->resource->name);

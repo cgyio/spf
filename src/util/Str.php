@@ -152,7 +152,7 @@ class Str extends Util
     {
         if (!Is::nemstr($str)) return $str;
         //可以用作分隔符的字符：- _ / , \ 空格
-        $str = preg_replace("/\_|\/|\,|\\|\s*/","-",$str);
+        $str = preg_replace("/\_|\/|\,|\\|\s+/","-",$str);
         if (strpos($str,"-")===false) {
             $bgu = Str::beginUp($str);
             if ($bgu && !$ucfirst) return lcfirst($str);

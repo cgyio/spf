@@ -82,6 +82,8 @@ class UpdateParams extends ResourceMiddleware
         $stdChain[] = true;
         $std = Arr::extend(...$stdChain);
         if (!Is::nemarr($std)) return [];
+        //将最终合并后的 stdParams 写入 当前类的 stdParams
+        $res::$stdParams = $std;
         return $std;
     }
 

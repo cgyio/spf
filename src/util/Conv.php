@@ -42,12 +42,52 @@ class Conv extends Util
         if (!Is::nemarr($var)) {
             return "";
         } else {
-            $vars = [];
+            //将 $var 中的值转为可用的 字符串形式，以便可以转为 url queryString
+            $nvar = [];
+            foreach ($var as $k => $v) {
+                if (is_bool($v)) {
+                    $nvar[$k] = $v ? "true" : "false";
+                    continue;
+                }
+
+                if (is_null($v)) {
+                    $nvar[$k] = "null";
+                    continue;
+                }
+
+                if (is_array($v)) {
+                    if (Is::nemarr($v) && Is::indexed($v)) {
+                        //$nvar[$k] = Str::mk($v);
+                        //只合并 string|numeric 
+                        $nv = [];
+                        foreach ($v as $vi) {
+                            if (is_string($vi) || is_numeric($vi)) {
+                                $nv[] = $vi;
+                            } else if (is_null($vi)) {
+                                $nv[] = "null";
+                            } else if (is_bool($vi)) {
+                                $nv[] = $vi ? "true" : "false";
+                            }
+                        }
+                        if (!empty($nv)) $nvar[$k] = implode(",", $nv);
+                    }
+                    continue;
+                }
+
+                if (is_string($v)) {
+                    if (Is::nemstr($v) || is_numeric($v)) {
+                        $nvar[$k] = $v;
+                    }
+                    continue;
+                }
+            }
+            return http_build_query($nvar);
+            /*$vars = [];
             foreach ($var as $k => $v) {
                 if (empty($v)) continue;
-                $vars[] = $k."=".urlencode(str($v));
+                $vars[] = $k."=".urlencode(Str::mk($v));
             }
-            return empty($vars) ? "" : implode("&", $vars);
+            return empty($vars) ? "" : implode("&", $vars);*/
         }
     }
 

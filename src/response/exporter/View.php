@@ -70,6 +70,19 @@ class View extends Exporter
                     $rep->data["html"] = null;
                     return true;
                 }
+            } else if (
+                //传入了存在的 cView::method 静态方法名
+                method_exists(cView::class, $data) ||
+                //传入了 methodName@path/to/view_page.php 形式的 cView 静态方法以及 视图页面路径参数
+                (   
+                    strpos($data, "@") !== false && 
+                    method_exists(cView::class, explode("@", $data)[0]) &&
+                    substr($data, strlen(EXT_CLASS)*-1) === EXT_CLASS
+                )
+            ) {
+                $rep->data["view"] = $data;
+                $rep->data["html"] = null;
+                return true;
             } else if (substr($data, strlen(EXT_CLASS)*-1) === EXT_CLASS) {
                 //以 EXT_CLASS .php 结尾的 字符串
                 $page = Path::find($data, Path::FIND_FILE);
@@ -234,6 +247,19 @@ class View extends Exporter
 
             $pd = "view instance export html";
 
+        } else if (method_exists(cView::class, $view)) {
+            //如果传入了 View 视图类包含的 静态方法
+            $pd = cView::$view($params);
+        } else if (
+            strpos($view, "@") !== false &&
+            method_exists(cView::class, explode("@", $view)[0]) &&
+            substr($view, strlen(EXT_CLASS)*-1) === EXT_CLASS
+        ) {
+            //传入了 methodName@path/to/view_page.php 形式的 cView 静态方法以及 视图页面路径参数
+            $varr = explode("@", $view);
+            $cvm = $varr[0];
+            $vpg = implode("@", array_slice($varr, 1));
+            $pd = cView::$cvm($params, $vpg);
         } else if (file_exists($view)) {
             //如果传入了 输出页面的文件路径
             $pd = cView::page(

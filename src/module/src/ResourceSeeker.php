@@ -225,7 +225,7 @@ final class ResourceSeeker
             }
         }
         //将 可能存在的 subdir 拼接到 path 路径之前
-        if (Is::nemstr($subdir)) {
+        if (Is::nemstr($subdir) && substr($path, 0, strlen($subdir)+1) !== $subdir."/") {
             $path = trim($subdir, "/")."/".$path;
             if ($hasmin) $nomin = trim($subdir, "/")."/".$nomin;
         }
@@ -262,6 +262,8 @@ final class ResourceSeeker
             $pathes[] = "$dir/$path";
             if ($hasmin) $pathes[] = "$dir/$nomin";
         }
+
+        //var_dump($pathes);
 
         //调用 Path::exists 方法，查找第一个存在的 路径
         $ftp = $findDir===true ? Path::FIND_DIR : Path::FIND_FILE;
@@ -324,16 +326,18 @@ final class ResourceSeeker
          * 例如：请求资源 foo/bar.custom  则需要查找 foo/bar.custom.json 文件
          */
         //尝试增加 .json 后缀
-        $jsf = $path.".json";
-        $fp = self::seekLocal($jsf);
-        //找到 json 文件，直接返回，将通过 JsonFactory 工厂方法 转发到 对应的 资源类
-        if (Is::nemstr($fp)) {
-            return [
-                "uri" => $jsf,
-                "type" => "local",
-                "ext" => Mime::getExt($fp),
-                "real" => $fp,
-            ];
+        if ($pext !== "json") {
+            $jsf = $path.".json";
+            $fp = self::seekLocal($jsf);
+            //找到 json 文件，直接返回，将通过 JsonFactory 工厂方法 转发到 对应的 资源类
+            if (Is::nemstr($fp)) {
+                return [
+                    "uri" => $jsf,
+                    "type" => "local",
+                    "ext" => Mime::getExt($fp),
+                    "real" => $fp,
+                ];
+            }
         }
 
         //未找到本地资源

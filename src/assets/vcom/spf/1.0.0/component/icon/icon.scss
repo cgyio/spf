@@ -1,13 +1,13 @@
-.cv-icon {
+.__PRE__-icon {
     width: 1em; height: 1em;
     //vertical-align: -0.15em;
     //margin-top: 0.05em;
     fill: currentColor;
     overflow: hidden;
-    transition: all $ani-trans-dura;
+    transition: all $ani-dura;
 
-    &.icon-m {font-size: $size-icon;}
-    @each $sz in xxs,xs,s,l,xl,xxl,xxxl {
+    &.icon-m {font-size: $size-icon-m;}
+    @each $sz in xxs,xs,s,l,xl,xxl {
         &.icon-#{$sz} {
             font-size: map-get($sizeMap, icon-#{$sz});
         }
@@ -20,7 +20,7 @@
 
     @each $cli in $colorListAll {
         &.icon-#{$cli} {
-            color: map-get($colorMap, $cli);
+            color: map-get($colorMap, #{$cli}-m);
         }
     }
 

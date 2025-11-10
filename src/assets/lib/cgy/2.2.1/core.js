@@ -1499,12 +1499,14 @@ cgy.def({
      * @return {Bool}
      */
     globalDef(key, val) {
-        if (cgy.is.defined(window)) {
+        //if (cgy.is.defined(window)) {
+        if (undefined !== window) {
             window[key] = val;
         }
-        if (cgy.is.defined(global)) {
-            global[key] = val;
-        }
+        //if (cgy.is.defined(global)) {
+        //if (undefined !== global) {
+        //    global[key] = val;
+        //}
         return true;
     },
 

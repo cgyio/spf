@@ -1,7 +1,7 @@
 /** patch element-ui **/
 
-/*.cv-el>.el-input,
-.cv-el.el-input {
+/*.__PRE__-el>.el-input,
+.__PRE__-el.el-input {
     font: {
         size: $size-f;
     }
@@ -24,8 +24,8 @@
         border-color: $color-primary;
     }
 }
-.cv-el>.el-input--mini,
-.cv-el.el-input--mini {
+.__PRE__-el>.el-input--mini,
+.__PRE__-el.el-input--mini {
     font: {
         size: $size-f-xs;
     }
@@ -39,8 +39,8 @@
         line-height: $size-btn-xs;
     }
 }
-.cv-el>.el-input--small,
-.cv-el.el-input--small {
+.__PRE__-el>.el-input--small,
+.__PRE__-el.el-input--small {
     font: {
         size: $size-f-s;
     }
@@ -54,8 +54,8 @@
         line-height: $size-btn-s;
     }
 }
-.cv-el>.el-input--medium,
-.cv-el.el-input--medium {
+.__PRE__-el>.el-input--medium,
+.__PRE__-el.el-input--medium {
     font: {
         size: $size-f-l;
     }
@@ -69,8 +69,8 @@
         line-height: $size-btn-l;
     }
 }
-.cv-el>.el-input--large,
-.cv-el.el-input--large {
+.__PRE__-el>.el-input--large,
+.__PRE__-el.el-input--large {
     font: {
         size: $size-f-xl;
     }
@@ -155,14 +155,14 @@
     $ci-l3-hex: map-get($colorMap, #{$ci}-l3);
     $ci-f-hex: map-get($colorMap, #{$ci}-f);
 
-    $prop: '.cv-el-tag-#{$ci}.el-tag';
+    $prop: '.__PRE__-el-tag-#{$ci}.el-tag';
     @if $tp == 'el' {   //使用 element-ui 的 color types
         $prop: '.el-tag--#{$ci}';
     } @else if $tp == '' {
         $prop: '.el-tag';
     }
 
-    //&.cv-el-tag-#{$ci}.el-tag {
+    //&.__PRE__-el-tag-#{$ci}.el-tag {
     &#{$prop} {
         /* hover shadow */
         &:hover {
@@ -214,7 +214,7 @@
     }
 }
 
-.cv-el {
+.__PRE__-el {
 
     /**
      * el-input / el-input-number / el-select / el-date-picker / el-time-picker
@@ -589,7 +589,7 @@
         }
     }
 
-    &.cv-el-error {
+    &.__PRE__-el-error {
         &.el-input, .el-input, &.el-textarea {
             .el-input__inner, .el-textarea__inner {
                 border-color: $color-danger-l2;
@@ -700,13 +700,13 @@
         }
     }
 
-    &.cv-el-fml-code {
+    &.__PRE__-el-fml-code {
         .el-input__inner, .el-textarea__inner,
         & .el-input__inner, & .el-range-input {
             font-family: $font-fml-code !important;
         }
     }
-    &.cv-el-fml-normal {
+    &.__PRE__-el-fml-normal {
         .el-input__inner, .el-textarea__inner,
         & .el-input__inner, & .el-range-input {
             font-family: $font-fml !important;
@@ -751,17 +751,17 @@
                 transform: none;
             }
         }
-        &>.cv-icon {
+        &>.__PRE__-icon {
             font-size: $tag-sz-dft-ic;
             margin-left: calc(#{$tag-sz-dft-pd} * -0.5);
             margin-right: $tag-sz-dft-pd-hf;
         }
-        &>.cv-el-tag-sep-label {
-            &+.cv-el-tag-sep-value {
+        &>.__PRE__-el-tag-sep-label {
+            &+.__PRE__-el-tag-sep-value {
                 margin-left: $tag-sz-dft-pd;
             }
         }
-        &>.cv-el-tag-sep-value {
+        &>.__PRE__-el-tag-sep-value {
             font-weight: 700;
         }
 
@@ -790,13 +790,13 @@
                         height: $clo-sz;
                     }
                 }
-                &>.cv-icon {
+                &>.__PRE__-icon {
                     font-size: $tag-sz-ic;
                     margin-left: calc(#{$tag-sz-pd} * -0.5);
                     margin-right: $tag-sz-pd-hf;
                 }
-                &>.cv-el-tag-sep-label {
-                    &+.cv-el-tag-sep-value {
+                &>.__PRE__-el-tag-sep-label {
+                    &+.__PRE__-el-tag-sep-value {
                         margin-left: $tag-sz-pd;
                     }
                 }
@@ -855,7 +855,7 @@
         @include cvel-tag-color($ci: #{$ci}, $tp: 'cgy');
     }
     /* disabled */
-    &.cv-el-tag-disabled {
+    &.__PRE__-el-tag-disabled {
         &.el-tag {
             opacity: 0.3;
             cursor: not-allowed;
@@ -873,7 +873,7 @@
 }
 
 /** 弹出层 **/
-.cv-el-pop {
+.__PRE__-el-pop {
     &.el-select-dropdown .el-select-dropdown__item,
     &.el-select-dropdown.is-multiple .el-select-dropdown__item {
         color: $color-fc;
@@ -1115,53 +1115,53 @@
     }
 }
 
-/** cv-el-switch-wrapper **/
-.cv-el-switch-wrapper {
+/** __PRE__-el-switch-wrapper **/
+.__PRE__-el-switch-wrapper {
     @include po($w: 46px, $h: 24px, $mg: 0, $pd: 0);
     @include flex-x($y: stretch);
     cursor: pointer;
-    &>.cv-el.el-switch {
+    &>.__PRE__-el.el-switch {
         z-index: 1;
         width: 100%;
         &>.el-switch__core {
             width: 100% !important;
         }
     }
-    &>.cv-el-switch-cover {
+    &>.__PRE__-el-switch-cover {
         @include po($w: unset, $h: unset, $mg: 0, $pd: 0);
         flex: 1;
         @include flex-x;
         z-index: 3;
         @include trans($dura: 0.1s);
 
-        &>.cv-el-switch-icon-left,
-        &>.cv-el-switch-icon-right {
+        &>.__PRE__-el-switch-icon-left,
+        &>.__PRE__-el-switch-icon-right {
             z-index: 3;
             filter: drop-shadow(1px 1px 1px #{$color-black}4d);
         }
-        &>.cv-el-switch-icon-left {
+        &>.__PRE__-el-switch-icon-left {
             margin-left: $size-gap-xs;
         }
-        &>.cv-el-switch-icon-right {
+        &>.__PRE__-el-switch-icon-right {
             margin-right: $size-gap-xs;
         }
-        &>.cv-el-switch-text-left,
-        &>.cv-el-switch-text-right {
+        &>.__PRE__-el-switch-text-left,
+        &>.__PRE__-el-switch-text-right {
             font-size: 12px;
             z-index: 3;
             text-shadow: 1px 1px 1px #{$color-black}4d;
         }
-        &>.cv-el-switch-text-left {
+        &>.__PRE__-el-switch-text-left {
             margin-left: $size-gap-s;
         }
-        &>.cv-el-switch-text-right {
+        &>.__PRE__-el-switch-text-right {
             margin-right: $size-gap-s;
         }
     }
 
-    &.cv-el-switch-disabled {
+    &.__PRE__-el-switch-disabled {
         cursor: not-allowed;
-        &>.cv-el-switch-cover {
+        &>.__PRE__-el-switch-cover {
             opacity: 0.5;
         }
     }

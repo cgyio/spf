@@ -112,14 +112,14 @@ class Resource
             $opts = ResourceSeeker::seek($uri);
             //没有匹配到任何资源，返回 null 不是错误，不报错
             if (!Is::nemarr($opts)) return null;
-            //合并 $_GET 参数，如果指定了 ignoreGet=true 则不合并
-            $opts["params"] = UpdateParams::mergeGetParams($opts["params"]);
             //合并 传入的 params
             if (isset($params["middleware"])) {
                 if (Is::nemarr($params["middleware"])) $opts["middleware"] = array_merge([],$params["middleware"]);
                 unset($params["middleware"]);
             }
             if (Is::nemarr($params)) $opts["params"] = Arr::extend($opts["params"], $params);
+            //合并 $_GET 参数，如果指定了 ignoreGet=true 则不合并
+            $opts["params"] = UpdateParams::mergeGetParams($opts["params"]);
 
             //根据 opts 实例化参数，创建资源实例
             return static::instantiate($opts);

@@ -4,16 +4,17 @@
  * 主题 尺寸系统 模块
  */
 
-namespace Spf\module\src\resource\theme;
+namespace Spf\module\src\resource\theme\module;
 
 use Spf\module\src\SrcException;
+use Spf\module\src\resource\theme\Module;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
 use Spf\util\Path;
 use Spf\util\Conv;
 
-class ThemeSizeModule extends ThemeModule 
+class Size extends Module
 {
     /**
      * 定义 此主题模块的 key
@@ -26,13 +27,13 @@ class ThemeSizeModule extends ThemeModule
      * !! 覆盖父类
      */
     //此模块完整的 标准参数格式
-    protected static $stdCtx = [
+    protected static $stdDef = [
         //尺寸分组
         "groups" => [
             //作为基本尺寸的 尺寸分组
             "base" => [
                 //基本尺寸 默认值，所有 mode 都应指定这些尺寸
-                "fs", "fw", "mg", "pd", "rd", "btn", "bar",
+                "fs", "fw", "mg", "pd", "rd", "btn", "bar", "icon",
             ],
             //作为静态尺寸的 尺寸分组，这些尺寸 都不开启 shift
             "static" => [
@@ -114,6 +115,7 @@ class ThemeSizeModule extends ThemeModule
             "pd"    => 12,      //padding
             "btn"   => 32,      //按钮尺寸
             "bar"   => 36,      //默认 行 尺寸
+            "icon"  => 20,      //默认 icon 尺寸
             
             //静态尺寸
             "bd"    => 1,       //border-width
@@ -121,8 +123,8 @@ class ThemeSizeModule extends ThemeModule
 
         //定义所有 mode 模式下的 参数
         "modes" => [
-            //light 模式尺寸参数 与 common 一致
-            "light" => [],
+            //browser 模式 与 common 一致
+            "browser" => [],
 
             //mobile 模式
             "mobile" => [
@@ -157,6 +159,7 @@ class ThemeSizeModule extends ThemeModule
                 "pd"    => 16,
                 "btn"   => 36,
                 "bar"   => 48,
+                "icon"  => 32,
                 
                 //移动端 边框设为 0.5px 如果 单位改为 rpx 则边框为 1
                 "bd"    => 0.5,       //border-width
@@ -188,29 +191,33 @@ class ThemeSizeModule extends ThemeModule
     ];
     //此模块中，所有 参数 item 的分组类型
     protected static $stdGroups = [
-        //"base", "static", "custom", 
+        "base", "static", "custom", 
     ];
-    //是否已与 ThemeModule 基类合并了 $stdFoobar
-    protected static $stdMerged = false;
-    //定义此模块的 默认 mode 模式，通常为 light
-    protected static $dftMode = "light";
+    //定义此模块支持的 mode 模式列表
+    protected static $stdModes = [
+        "browser", "mobile",
+    ];
 
-    
+
 
     /**
-     * 创建 SCSS 变量定义语句 rows
-     * !! 覆盖父类
-     * @param Array $ctx 当前输出的主题参数 context 中此模块的参数 context["module_name"]
-     * @return Theme 返回生成 rows 缓存后的 主题实例
+     * createExtContentRows
+     * !! 子类必须实现
+     * @param Array $ctx 要输出的 主题参数数组，通常来自于 $this->getItemByMode() 方法
+     * @param RowProcessor $rower 临时资源的 内容行处理器
+     * @return RowProcessor
      */
-    public function createScssVarsDefineRows($ctx)
+    //createScssContentRows
+    protected function createScssContentRows($ctx=[], &$rower)
     {
-        //主题实例
-        $theme = $this->theme;
-
-        //生成 颜色系统模块的 SCSS 变量定义语句，保存到 $theme->rows 缓存
+        //尺寸系统经过处理的 conf 参数
         $conf = $this->origin;
 
+        /**
+         * 生成 SCSS 序列变量定义语句
+         *      $sizeShiftQueue         xxs,xs,s,m,l,xl,xxl         尺寸自动变化级数，最大级数
+         *      $sizeListAll            fs,fw,mg,pd,btn,bar,...     所有定义的尺寸 item-key
+         */
         // 0    生成 $sizeShiftQueue
         //获取 size 模块最终输出参数的 shift 级数
         $steps = static::autoShiftSteps($ctx);
@@ -222,33 +229,53 @@ class ThemeSizeModule extends ThemeModule
                 array_unshift($que, $sk);
                 $que[] = $lk;
             }
-            $theme->rowDef("sizeShiftQueue", $que);
+            $rower->rowDef("sizeShiftQueue", $que);
         }
         //空行
-        $theme->rowEmpty(1);
+        $rower->rowEmpty(1);
 
         // 1    生成 $size-item-m|xs|xl... 变量
         $flat = Arr::flat($ctx,"-");
         foreach ($flat as $vk => $vv) {
-            $theme->rowDef("size-".$vk, $vv);
+            $rower->rowDef("size-".$vk, $vv);
         }
         //空行
-        $theme->rowEmpty(1);
+        $rower->rowEmpty(1);
 
         // 2    生成 $size-map: ( ... );
-        $theme->rowAdd("\$size-map: (", "");
+        $rower->rowAdd("\$sizeMap: (", "");
         foreach ($flat as $vk => $vv) {
-            $theme->rowDef($vk, $vv, [
+            $rower->rowDef($vk, $vv, [
                 "prev" => "",
                 "rn" => ",",
             ]);
         }
-        $theme->rowAdd(");", "");
+        $rower->rowAdd(");", "");
         //空行
-        $theme->rowEmpty(1);
+        $rower->rowEmpty(1);
 
-        return $theme;
+        //SCSS 语句 需要包含 css 变量定义语句
+        return $this->createCssContentRows($ctx, $rower);
     }
+    //createCssContentRows
+    protected function createCssContentRows($ctx=[], &$rower)
+    {
+        /**
+         * 定义 css 尺寸变量语句
+         */
+        $rower->rowAdd(":root {", "");
+        $flat = Arr::flat($ctx, "-");
+        foreach ($flat as $vk => $vv) {
+            $rower->rowDef("--size-".$vk, $vv, ["prev" => ""]);
+        }
+        $rower->rowAdd("}", "");
+        //空行
+        $rower->rowEmpty(1);
+
+        return $rower;
+    }
+
+
 
     /**
      * 获取某个 mode 模式下 所有 items 的 value
@@ -292,6 +319,12 @@ class ThemeSizeModule extends ThemeModule
         return $rtn;        
     }
 
+
+
+    /**
+     * 静态方法
+     */
+
     /**
      * 判断给定的 值 是否可以作为 当前模块的 参数 item 的 值
      * !! 覆盖父类
@@ -304,6 +337,12 @@ class ThemeSizeModule extends ThemeModule
         if (!is_numeric($val)) return false;
         return $val * 1;
     }
+
+
+
+    /**
+     * auto-shift 静态方法
+     */
 
     /**
      * 处理 某个 参数 item 的 auto shift

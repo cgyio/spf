@@ -11,6 +11,7 @@ use Spf\module\src\SrcException;
 use Spf\module\src\Mime;
 use Spf\Request;
 use Spf\Response;
+use Spf\View;
 use Spf\util\Is;
 use Spf\util\Arr;
 use Spf\util\Str;
@@ -33,8 +34,17 @@ class Vcom extends Compound
         "load" => [],
         "unload" => [],
 
+        //可手动指定 组件库组件名称前缀，覆盖 desc["prefix]
+        "prefix" => "",
+
         //指定主题样式，将覆盖 desc["thememode"]，将影响输出的 组件库 css 样式文件内容
         "theme" => "light",
+
+        //是否加载 common/ 问价夹下的所有 scss|js 文件，默认 all 可选 none 或 指定要加载的 文件名 foo,bar.js,jaz.scss
+        "extra" => "all",
+
+        //合并外部指定的 scss|js 资源，可指定 资源实例 或通过 url 指定资源路径，可以是 本地|远程 资源路径
+        "combine" => [],
         
     ];
     
@@ -54,6 +64,8 @@ class Vcom extends Compound
             "GetJsonContent" => [],
             //compound 资源初始化，读取 desc 资源描述数据，生成对应参数，并缓存到资源实例
             "InitCompoundDesc" => [],
+            //获取组件库依赖的 其他 资源实例 如：Vue 库资源|Theme|Icon 等
+            "GetDependResource" => [],
             //获取组件库中所有 已定义组件的相关数据，保存到相应的属性中
             "GetVueComponents" => [],
             //根据参数，筛选组件列表，仅输出指定的 组件
@@ -89,6 +101,8 @@ class Vcom extends Compound
 
         //此组件库的 组件名称 前缀
         "prefix" => "",
+        //样式 scss|css 中代替 prefix 的字符串模板
+        "pretemp" => "__PRE__",
 
         //组件库内部的 特殊文件夹名称
         "dirs" => [
@@ -131,19 +145,134 @@ class Vcom extends Compound
         "plugin" => "",
 
         /**
-         * 组件库样式参数
+         * 组件库使用的样式文件
          */
-        //定义此组件库使用的 SPF-Theme 主题，指定一个有效的 *.theme.json 本地文件路径，可以不带 .theme.json 后缀名
-        "theme" => "spf/assets/theme/spf",
-        //默认的主题样式 light|dark 等
-        "thememode" => "light",
-        //指定一个组件库基础样式文件，通常是 *.scss 文件，应保存在 common 文件夹下
-        "basestyle" => "base.scss",
-        //指定额外的样式文件，可以有多个，按顺序合并，后面的覆盖前面的，这些文件应保存在 common 文件夹下
-        "styles" => [],
+        "styles" => [
+            //基础样式文件，通常是 *.scss 文件，应保存在 common 文件夹下，如果不指定默认使用 common/base.scss
+            "base" => "base.scss",
+            //要额外合并的 其他本地样式文件 scss|css 文件，按顺序合并，后面的覆盖前面的，这些文件应保存在 common 文件夹下
+            "extra" => [
+                
+            ],
 
-        //组件库使用的 icon 图标库，指定一个有效的 *.icon.json 本地文件路径，可以不带 .icon.json 后缀名
-        "iconset" => "spf/assets/icon/spf",
+        ],
+
+
+
+        /**
+         * 组件库依赖的其他资源
+         */
+
+        /**
+         * 组件库依赖的 Vue 库
+         * !! 只有指定了依赖的 Vue 库的参数 的 vcom 才能作为 前端 SPA 环境的 基础组件库
+         */
+        "vue" => [
+            //!! 必须指定一个本地的 *.cdn.json(远程库) 或 *.lib.json(本地库) 文件路径，文件后缀名不可省略
+            "file" => "spf/assets/cdn/vue.cdn.json",
+            //资源的实例化参数
+            "params" => [
+                //指定 vue 版本，当前组件库资源是 Vue2.x 组件库，因此使用的是 默认 2.7.16 版本
+                "ver" => "@",
+            ],
+            //指定 Vue 库的输出文件，这些 file 在 *.cdn.json 中定义了
+            "export" => [
+                //普通 js
+                "vue.js" => [
+                    //输出 js
+                    "export" => "js",
+                    //当前为 dev 版本，可后期修改为 生产环境版本
+                    "file" => "dev-browser",
+                ],
+                //esm js
+                "esm-vue.js" => [
+                    //输出 js
+                    "export" => "js",
+                    //当前为 dev 版本，可后期修改为 生产环境版本
+                    "file" => "dev-esm-browser",
+                ],
+            ],
+
+            /**
+             * 此组件库依赖的 第三方 UI 库，例如：element-ui
+             */
+            "ui" => [
+                //默认依赖 element-ui
+                "element-ui" => [
+                    //!! 必须指定 一个或多个 本地的 *.cdn.json(远程库) 或 *.lib.json(本地库) 文件路径，文件后缀名不可省略
+                    "file" => "spf/assets/cdn/element-ui.cdn.json",
+                    //资源实例化参数
+                    "params" => [
+                        "ver" => "@",
+                    ],
+                    //指定 UI 库的输出文件，这些 file 在 *.cdn.json 中定义了
+                    "export" => [
+                        //普通 js
+                        "ui.js" => [
+                            //输出 js
+                            "export" => "js",
+                            //默认输出普通 js
+                            "file" => "default",
+                        ],
+                        //esm js
+                        "esm-ui.js" => [
+                            //输出 js
+                            "export" => "js",
+                            //默认输出普通 js
+                            "file" => "esm-browser",
+                        ],
+                        //css 随着 $theme->themeMode["color"] 变化
+                        "ui.css" => [
+                            //$theme->themeMode["color"] == light
+                            "light" => [
+                                "export" => "css",
+                                "file" => "light",
+                            ],
+                            //$theme->themeMode["color"] == dark
+                            "dark" => [
+                                "export" => "css",
+                                "file" => "dark",
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+
+        /**
+         * 组件库依赖的 SPF-Theme 主题资源
+         * !! 只有指定了依赖的 SPF-Theme 主题参数 的 vcom 才能作为 前端 SPA 环境的 基础组件库
+         */
+        "theme" => [
+            //启用标记，默认启用
+            "enable" => true,
+            //!! 必须指定一个本地的 *.theme.json 文件真实路径，文件后缀名可以省略
+            "file" => "spf/assets/theme/spf",
+            //资源的实例化参数
+            "params" => [
+                //主题模式，可通过 params["theme"] 手动调整
+                "mode" => "light",  //默认值 与 params["theme"] 默认值一致
+            ],
+        ],
+
+        /**
+         * 组件库使用的 icon 图标库，可以有多个
+         * !! 可以指定一个或多个 本地 *.icon.json 文件真实路径，文件后缀名可以省略
+         */
+        "iconset" => [
+            "spf/assets/icon/spf",
+        ],
+        
+
+
+        //是否启用版本控制
+        "enableVersion" => true,
+        //指定可以通过 @|latest 访问的 版本号
+        "version" => [
+            //组件库 默认版本号
+            "@" => "1.0.0",
+            "latest" => "1.0.0",
+        ],
 
         //允许输出的 ext 类型数组，必须是 Mime 类中支持的后缀名类型
         "ext" => ["js","css","vue","scss"],
@@ -157,6 +286,64 @@ class Vcom extends Compound
          * !! 指定一个 本地库文件 *.vcom.json 路径（完整路径），如果不指定，则使用当前 json 文件的路径
          */
         "root" => "",
+
+        /**
+         * 组件库 根据默认版本，指定子资源
+         * 可手动覆盖
+         */
+        "content" => [
+            "1.0.0" => [
+                "js" => [
+                    //所有要加载组件的 js 定义代码，包含插入样式的代码，以 ESM 形式导出 { 'sv-button': defineSvButton, ... } 
+                    //外部需要使用 Vue.component() 注册组件
+                    "default" => [],
+                    //使用 ESM 导出的插件定义代码，所有要加载组件都被定义为全局组件，外部只需要 use 此插件即可完成环境准备
+                    "esm-browser" => [],
+                    //组件库使用的 一个或多个 图标库资源对应的 创建雪碧图的 JS 代码文件
+                    "iconset" => [],
+                    //输出 Vue 库的 js
+                    "vue" => [],
+                    "esm-vue" => [],
+                    //输出依赖的 第三方 UI 库的 js
+                    "ui" => [],
+                    "esm-ui" => [],
+                ],
+                "css" => [
+                    //将 default.scss 编译为 css 输出
+                    "default" => [
+                        "fix" => ["VcomPrefix"],
+                    ],
+                    //将 browser.scss 编译为 css 输出
+                    "browser" => [
+                        "fix" => ["VcomPrefix"],
+                    ],
+                    //组件库使用的 一个或多个 图标库资源对应的 css 样式文件
+                    "iconset" => [],
+                    //输出依赖的 第三方 UI 库的 css 样式
+                    "ui" => [],
+                ],
+                "scss" => [
+                    //组件库基础样式，合并了 所有要加载的各 *.vue 组件的外部 scss 以及指定的 extra scss 文件 得到的 scss 内容
+                    "default" => [
+                        "fix" => ["VcomPrefix"],
+                    ],
+                    /**
+                     * 组件库对外输出的 完整的 scss 内容，包括：
+                     *      主题样式，组件库基础样式，要加载的 各 *.vue 组件的外部 scss，
+                     *      extra 参数指定的 common/ 文件夹下的 scss，
+                     *      combine 参数指定的 外部 scss 资源
+                     * 返回 合并后的 scss
+                     */
+                    "browser" => [
+                        "fix" => ["VcomPrefix"],
+                    ],
+                ],
+                "vue" => [
+                    //输出组件库中某个组件的原始 vue 代码
+                    "default" => [],
+                ],
+            ]
+        ],
 
     ];
 
@@ -190,12 +377,16 @@ class Vcom extends Compound
     ];
 
     /**
-     * 此组件库关联的 资源实例
+     * 此组件库 关联的|依赖的 资源实例
      */
+    //依赖的 Vue 远程|本地 库资源实例
+    public $vue = null;
+    //依赖的 第三方 UI 库 可以有多个
+    public $ui = [];
     //使用的 主题资源实例
     public $theme = null;
     //使用的 图标库资源实例
-    public $icon = null;
+    public $icon = [];
 
     //组件库中所有组件的 数据缓存
     public $comps = [
@@ -217,6 +408,70 @@ class Vcom extends Compound
      * @param Array $params 方法额外参数
      * @return Bool 返回 false 则终止 当前阶段 后续的其他中间件执行
      */
+    //!! 覆盖父类 InitCompoundDesc 初始化此复合资源，生成 desc 资源描述参数，保存到 desc 属性 
+    public function stageInitCompoundDesc($params=[])
+    {
+        //调用父类方法
+        parent::stageInitCompoundDesc($params);
+
+        //使用 params["prefix"] 覆盖 desc["prefix"]
+        $pre = $this->params["prefix"] ?? null;
+        if (Is::nemstr($pre) && $this->desc["prefix"] !== $pre) {
+            $this->desc["prefix"] = $pre;
+        }
+
+        //使用 params["theme"] 覆盖 desc["theme"]["params"]["mode"]
+        if ($this->desc["theme"]["enable"] === true) {
+            $thmode = $this->params["theme"] ?? null;
+            $thc = $this->desc["theme"]["params"]["mode"];
+            if (Is::nemstr($thmode) && $thmode !== $thc) {
+                $this->desc["theme"]["params"]["mode"] = $thmode;
+            }
+        }
+
+        return true;
+    }
+    //GetDependResource 获取此组件库依赖的 其他 库资源实例
+    public function stageGetDependResource($params=[])
+    {
+        //创建 vue 资源实例
+        $vueres = $this->resVueResource();
+        if (is_null($vueres) || !$vueres instanceof Compound) {
+            //依赖的 Vue 库资源未找到
+            throw new SrcException("组件库 ".$this->resBaseName()." 无法获取依赖的 Vue 库资源实例", "resource/getcontent");
+        }
+        /**
+         * !! 当前类型的 组件库 必须使用 2.x 版本的 vue 库
+         */
+        $vver = $vueres->resVersion();
+        if (!strpos($vver, ".") || substr($vver, 0, 2)!=="2.") {
+            //依赖的 Vue 库的版本不正确
+            throw new SrcException("组件库 ".$this->resBaseName()." 必须使用 Vue2.x 版本", "resource/getcontent");
+        }
+        //保存
+        $this->vue = $vueres;
+
+        //创建依赖的 第三方 UI 库资源实例
+        $uis = $this->resUiResource();
+        if (Is::nemarr($uis)) $this->ui = $uis;
+
+        //创建 Theme 主题资源实例
+        if ($this->desc["theme"]["enable"] === true) {
+            $thres = $this->resThemeResource();
+            if (is_null($thres) || !$thres instanceof Compound) {
+                //依赖的 Theme 主题资源未找到
+                throw new SrcException("组件库 ".$this->resBaseName()." 无法获取依赖的主题资源实例", "resource/getcontent");
+            }
+            //保存
+            $this->theme = $thres;
+        }
+
+        //创建 Icon 图标库资源实例数组
+        $isets = $this->resIconResource();
+        if (Is::nemarr($isets)) $this->icon = $isets;
+
+        return true;
+    }
     //GetVueComponents 获取此组件库中所有已定义的 *.vue 组件，保存到 comps 属性，并缓存
     public function stageGetVueComponents($params=[])
     {
@@ -343,6 +598,8 @@ class Vcom extends Compound
         //合并要加载的组件，并去重
         $compns = array_merge($required, $modeloads, $loads);
         $compns = array_merge(array_flip(array_flip($compns)));
+        //var_dump($compns);
+        //var_dump($unloads);
 
         //排除组件
         $compns = array_diff($compns, $unloads);
@@ -353,7 +610,7 @@ class Vcom extends Compound
 
         //var_dump($compns);exit;
         //保存
-        $this->compns = $compns;
+        $this->compns = array_merge([],$compns);
 
         return true;
     }
@@ -363,11 +620,11 @@ class Vcom extends Compound
     /**
      * 工具方法 解析复合资源内部 子资源参数，查找|创建 子资源内容
      * 根据  子资源类型|子资源ext|子资源文件名  分别制定对应的解析方法
-     * !! Compound 子类可覆盖此方法
+     * !! 覆盖父类
      * @return $this
      */
     //生成 所有要加载组件的 js 定义代码，包含插入样式的代码，以 ESM 形式导出 { 'sv-button': defineSvButton, ... } 外部需要使用 Vue.component() 注册组件
-    protected function createDynamicJsSubResource()
+    protected function createDynamicJsDefaultSubResource()
     {
         //所有组件
         $comps = $this->comps;
@@ -392,13 +649,13 @@ class Vcom extends Compound
             if (!isset($comps[$compn]) || !Is::nemarr($comps[$compn])) continue;
             $compc = $comps[$compn];
             //创建关联 *.vue 资源实例，设置其 export 输出 ext 为 js
-            $vres = Resource::create($compc["file"], [
+            $vres = Resource::create($compc["file"], $this->fixSubResParams([
                 "belongTo" => $this,
                 "ignoreGet" => true,
                 "export" => "js",
                 //需要生成 样式注入 代码
                 "inject" => true,
-            ]);
+            ]));
             if (!$vres instanceof Vue) continue;
             $vjs = $vres->export(["return" => true]);
 
@@ -475,52 +732,582 @@ class Vcom extends Compound
             throw new SrcException("组件库 ".$this->resBaseName()." 无法获取有效的插件 JS 文件", "resource/getcontent");
         }
 
-        //插件真实路径转为 url
-        $plurl = Url::src($plf, true);
+        //创建插件资源实例
+        $plgres = Resource::create($plf, $this->fixSubResParams([
+            "belongTo" => $this,
+            "ignoreGet" => false,
+            //处理 import 语句
+            "import" => true,
+            //esm 导出
+            "esm" => "keep",
+        ]));
 
-        //开始创建临时 js 资源实例
-        $js = Resource::manual(
-            "",
-            $this->resExportBaseName(),
+        //创建 组件定义 js 资源
+        $var = $desc["var"];
+        $vcv = $var."Comps";
+        $compjs = [];
+        $compjs[] = "import $vcv from '".$this->viewUrl("default.js")."';";
+        $compjs[] = "";
+        $compjs[] = "for (const [key, value] of Object.entries($vcv)) {";
+        $compjs[] = "Vue.component(key, value);";
+        $compjs[] = "}";
+        $compjs[] = "";
+        $compres = Resource::manual(
+            implode("\n", $compjs),
+            $this->resBaseName().".js",
             [
                 "ext" => "js",
-                "belongTo" => $this,
-                "ignoreGet" => false,
-                //import 语句保持原样
+                "export" => "js",
+                "ignoreGet" => true,
                 "import" => "keep",
-                //esm 语句保持原样
+            ]
+        );
+        //生成 content
+        //$compres->content = $compres->RowProcessor->rowCombine();
+
+        //创建一个临时 js
+        $js = Resource::manual(
+            "",
+            $this->resBaseName.".js",
+            [
+                "ext" => "js",
+                "export" => "js",
+                "ignoreGet" => true,
+                "import" => "keep",
+                //合并资源
+                "merge" => [
+                    $plgres, $compres
+                ],
+                //esm 保持
                 "esm" => "keep",
             ]
         );
-        if (!$js instanceof Js) {
-            //创建 js 临时实例失败
-            throw new SrcException("组件库 ".$this->resBaseName()." 无法创建要输出的 JS 资源实例", "resource/getcontent");
-        }
 
-        /**
-         * 开始调用 RowProcessor 创建 js 代码
-         */
-        $rower = $js->RowProcessor;
-        //当前组件库的 var
-        $var = $desc["var"];
-
-        //import 语句
-        //import 组件库导出 js
-        $dftJsUrl = $this->resUrlMk("../foo/default.js");
-        $vcv = $var."Comps";
-        var_dump($dftJsUrl);exit;
-        $rower->rowAdd("import $vcv from '".$dftJsUrl->full."';","");
-        //import 插件 js 文件
-        $rower->rowAdd("import $var from '$plurl';","");
-        //注册组件
-        $rower->rowAdd("$vcv.forEach((def, compn) => {Vue.component(compn, def)});","");
-        //应用插件
-        //$rower->rowAdd("Vue.use($var)","");
-        //esm 导出插件
-        $rower->rowAdd("export default $var;","");
+        //创建 content
+        //$plgres->export([
+        //    "return" => true
+        //]);
 
         //保存到 subResource
         $this->subResource = $js;
+
+        return $this;
+    }
+    //生成 组件库使用的 一个或多个 图标库资源对应的 创建雪碧图的 JS 代码文件
+    protected function createDynamicJsIconsetSubResource()
+    {
+        $isets = $this->icon ?? [];
+        if (!Is::nemarr($isets)) $isets = [];
+        //创建各 图标库资源实例
+        $isets = array_map(function($iset) {
+            $isetres = $iset->clone([
+                //输出 js
+                "export" => "js",
+                //输出文件
+                "file" => "default",
+            ]);
+            if (!$isetres instanceof Icon) return null;
+            //创建此 图标库的 js 临时资源
+            $isetjs = Resource::manual(
+                $isetres->export(["return"=>true]),
+                $isetres->resBaseName().".js",
+                [
+                    "ext" => "js",
+                    "export" => "js",
+                    "ignoreGet" => true,
+                    "esm" => "keep"
+                ]
+            );
+            if (!$isetjs instanceof Codex) return null;
+            //释放临时 图标库资源
+            unset($isetres);
+            return $isetjs;
+        }, $isets);
+        //剔除不能成功实例化的 图标库 js 资源
+        $isets = array_filter($isets, function($isetres) {
+            return $isetres instanceof Codex;
+        });
+
+        //手动创建要输出的 js 子资源实例
+        $js = Resource::manual(
+            "",
+            $this->resBaseName().".js",
+            [
+                "ext" => "js",
+                //"belongTo" => $this,
+                "ignoreGet" => false,
+                //merge 合并参数
+                "merge" => $isets
+            ]
+        );
+        if (!$js instanceof Codex) {
+            //创建 css 资源实例失败
+            throw new SrcException("组件库 ".$this->resBaseName()." 无法创建要输出的图标库 JS 资源实例", "resource/getcontent");
+        }
+        
+        //保存为 subResource
+        $this->subResource = $js;
+
+        //释放临时资源
+        unset($isets);
+
+        return $this;
+    }
+    //生成 组件库依赖的 Vue 库的 js 非 esm 形式
+    protected function createDynamicJsVueSubResource()
+    {
+        //Vue 库资源实例
+        $vue = $this->vue;
+        if (!$vue instanceof Compound) {
+            //当前组件库未定义 依赖的 Vue 库参数，输出空内容
+            $this->subResource = $this->tempRes("js");
+            return $this;
+        }
+
+        //输出文件
+        $exp = $this->desc["vue"]["export"]["vue.js"] ?? [];
+        //clone Vue 资源库作为 subResource
+        $this->subResource = $vue->clone($exp);
+        return $this;
+    }
+    //生成 组件库依赖的 Vue 库的 js esm 形式
+    protected function createDynamicJsEsmVueSubResource()
+    {
+        //Vue 库资源实例
+        $vue = $this->vue;
+        if (!$vue instanceof Compound) {
+            //当前组件库未定义 依赖的 Vue 库参数，输出空内容
+            $this->subResource = $this->tempRes("js");
+            return $this;
+        }
+
+        //输出文件
+        $exp = $this->desc["vue"]["export"]["esm-vue.js"] ?? [];
+        //clone Vue 资源库作为 subResource
+        $this->subResource = $vue->clone($exp);
+        return $this;
+    }
+    //生成 依赖的 第三方 UI 库的 js 非 esm
+    protected function createDynamicJsUiSubResource()
+    {
+        //第三方 UI 库
+        $uis = $this->ui;
+        if (!Is::nemarr($uis)) {
+            //未指定第三方 UI 库，输出空内容
+            $this->subResource = $this->tempRes("js");
+            return $this;
+        }
+
+        //临时 js 资源
+        $js = $this->tempRes("js", [
+            "import" => "keep",
+        ]);
+        $rower = $js->RowProcessor;
+        //依次合并各 UI 库的输出内容
+        foreach ($uis as $uik => $uires) {
+            $exp = $this->desc["vue"]["ui"][$uik]["export"]["ui.js"] ?? null;
+            if (!Is::nemarr($exp)) continue;
+            //clone
+            $uio = $uires->clone($exp);
+            //生成 js 代码
+            $uijs = $uio->export([
+                "return" => true,
+                "min" => true
+            ]);
+            if (!Is::nemstr($uijs)) continue;
+            //释放资源
+            unset($uio);
+            //comment
+            $rower->rowComment(
+                "合并 $uik 库",
+                "!! 不要手动修改 !!"
+            );
+            //插入
+            $rower->rowAdd($uijs, "");
+            $rower->rowEmpty(3);
+        }
+        //生成 js content
+        $js->content = $rower->rowCombine();
+        //作为 subResource
+        $this->subResource = $js;
+        return $this;
+
+    }
+    //生成 依赖的 第三方 UI 库的 esm-js
+    protected function createDynamicJsEsmUiSubResource()
+    {
+        //第三方 UI 库
+        $uis = $this->ui;
+        if (!Is::nemarr($uis)) {
+            //未指定第三方 UI 库，输出空内容
+            $this->subResource = $this->tempRes("js");
+            return $this;
+        }
+
+        //临时 js 资源
+        $js = $this->tempRes("js", [
+            "import" => "keep",
+        ]);
+        $rower = $js->RowProcessor;
+        //依次合并各 UI 库的输出内容
+        foreach ($uis as $uik => $uires) {
+            $exp = $this->desc["vue"]["ui"][$uik]["export"]["esm-ui.js"] ?? null;
+            if (!Is::nemarr($exp)) continue;
+            //clone
+            $uio = $uires->clone($exp);
+            //生成 js 代码
+            $uijs = $uio->export([
+                "return" => true,
+                "min" => true
+            ]);
+            if (!Is::nemstr($uijs)) continue;
+            //释放资源
+            unset($uio);
+            //comment
+            $rower->rowComment(
+                "合并 $uik 库",
+                "!! 不要手动修改 !!"
+            );
+            //插入
+            $rower->rowAdd($uijs, "");
+            $rower->rowEmpty(3);
+        }
+        //生成 js content
+        $js->content = $rower->rowCombine();
+        //作为 subResource
+        $this->subResource = $js;
+        return $this;
+    }
+    //生成完整的 组件库 样式 css 文件，包含依赖的主题、图标库、以及组件库基础样式、各 *.vue 组件的自定义样式（组件内联以及外部scss）
+    protected function createDynamicCssDefaultSubResource()
+    {
+        //先生成 scss 资源实例 保存在 subResource
+        $this->createDynamicScssDefaultSubResource();
+        //clone 并 更新输出参数
+        $cssres = $this->subResource->clone([
+            //使用 scss 资源自动输出 css 的功能
+            "export" => "css"
+        ]);
+        //更新 subResource
+        $this->subResource = $cssres;
+        return $this;
+    }
+    //生成完整的 组件库 样式 css 文件，包含依赖的主题、图标库、以及组件库基础样式、各 *.vue 组件的自定义样式（组件内联以及外部scss）
+    protected function createDynamicCssBrowserSubResource()
+    {
+        //先生成 scss 资源实例 保存在 subResource
+        $this->createDynamicScssBrowserSubResource();
+        //clone 并 更新输出参数
+        $cssres = $this->subResource->clone([
+            //使用 scss 资源自动输出 css 的功能
+            "export" => "css"
+        ]);
+        //更新 subResource
+        $this->subResource = $cssres;
+        return $this;
+    }
+    //生成 组件库使用的 一个或多个 图标库资源对应的 css 样式文件
+    protected function createDynamicCssIconsetSubResource()
+    {
+        $isets = $this->desc["iconset"] ?? [];
+        if (!Is::nemarr($isets)) $isets = [];
+        //创建各 图标库资源实例
+        $isets = array_map(function($isetf) {
+            if (!Is::nemstr($isetf)) return null;
+            if (substr($isetdf, -10)!==".icon.json") $isetf .= ".icon.json";
+            $isetres = Resource::create($isetf, $this->fixSubResParams([
+                "ignoreGet" => true,
+                //输出 css
+                "export" => "css",
+                //输出文件
+                "file" => "default",
+            ]));
+            if (!$isetres instanceof Icon) return null;
+            //创建此 图标库的 css 临时资源
+            $isetcss = Resource::manual(
+                $isetres->export(["return"=>true]),
+                $isetres->resBaseName().".css",
+                [
+                    "ext" => "js",
+                    "export" => "css",
+                    "ignoreGet" => true
+                ]
+            );
+            if (!$isetcss instanceof Codex) return null;
+            //释放临时 图标库资源
+            unset($isetres);
+            return $isetcss;
+        }, $isets);
+        //剔除不能成功实例化的 图标库 css 资源
+        $isets = array_filter($isets, function($isetres) {
+            return $isetres instanceof Codex;
+        });
+
+        //手动创建要输出的 css 子资源实例
+        $css = Resource::manual(
+            "",
+            $this->resBaseName().".css",
+            [
+                "ext" => "css",
+                //"belongTo" => $this,
+                "ignoreGet" => false,
+                //merge 合并参数
+                "merge" => $isets
+            ]
+        );
+        if (!$css instanceof Codex) {
+            //创建 css 资源实例失败
+            throw new SrcException("组件库 ".$this->resBaseName()." 无法创建要输出的图标库 CSS 资源实例", "resource/getcontent");
+        }
+        
+        //保存为 subResource
+        $this->subResource = $css;
+
+        //释放临时资源
+        unset($isets);
+
+        return $this;
+    }
+    //生成 第三方 UI 的 样式文件，依赖 $theme->themeMode["color"]
+    protected function createDynamicCssUiSubResource()
+    {
+        //第三方 UI 库
+        $uis = $this->ui;
+        if (!Is::nemarr($uis)) {
+            //未指定第三方 UI 库，输出空内容
+            $this->subResource = $this->tempRes("css");
+            return $this;
+        }
+
+        //当前请求的 theme color mode
+        if ($this->theme instanceof Theme) {
+            $pmode = $this->theme->themeMode["color"];
+            if (Is::nemarr($pmode)) $pmode = $pmode[0];
+        } else {
+            //默认 light
+            $pmode = "light";
+        }
+        //临时 css 资源
+        $css = $this->tempRes("css", [
+            "import" => "keep",
+        ]);
+        $rower = $css->RowProcessor;
+        //依次合并各 UI 库的输出内容
+        foreach ($uis as $uik => $uires) {
+            $exp = $this->desc["vue"]["ui"][$uik]["export"]["ui.css"][$pmode] ?? null;
+            if (!Is::nemarr($exp)) continue;
+            //clone
+            $uio = $uires->clone($exp);
+            //生成 js 代码
+            $uicss = $uio->export([
+                "return" => true,
+                "min" => true
+            ]);
+            if (!Is::nemstr($uicss)) continue;
+            //释放资源
+            unset($uio);
+            //comment
+            $rower->rowComment(
+                "合并 $uik 库",
+                "!! 不要手动修改 !!"
+            );
+            //插入
+            $rower->rowAdd($uicss, "");
+            $rower->rowEmpty(3);
+        }
+        //生成 js content
+        $css->content = $rower->rowCombine();
+        //作为 subResource
+        $this->subResource = $css;
+        return $this;
+        
+
+    }
+    //生成 组件库基础样式、合并了 所有要加载的 各 *.vue 组件的外部 scss 以及 extra 中定义的 common/ 文件夹下的 scss
+    protected function createDynamicScssDefaultSubResource()
+    {
+        //通过 组件库基础样式文件，合并所有要加载 组件的 外部 scss 资源内容，生成最终输出的 scss 资源内容
+        $desc = $this->desc;
+        $stys = $desc["styles"] ?? [];
+
+        //要 merge 到 组件库基础样式资源实例中的 其他 样式文件
+        $merge = [];
+
+        // 0    base.scss 组件库基础样式
+        $base = $stys["base"] ?? null;
+        if (!Is::nemstr($base)) {
+            $bfp = $this->resSpecDir("common/base.scss", true);
+        } else {
+            //$bfp = Path::find($base, Path::FIND_FILE);
+            $bfp = $this->resSpecDir("common/$base", true);;
+        }
+        if (Is::nemstr($bfp) && file_exists($bfp)) {
+            $baseres = Resource::create($bfp, [
+                "ignoreGet" => true,
+                "export" => Resource::getExtFromPath($bfp),
+            ]);
+            if ($baseres instanceof Codex) {
+                //添加到 merge 列表
+                $merge[] = $baseres;
+            }
+        }
+
+        // 1    所有组件的 scss 外部定义样式
+        $loadedScsses = [];
+        $comps = $this->comps;
+        $compns = $this->compns;
+        foreach ($compns as $compk) {
+            $compc = $comps[$compk] ?? null;
+            if (!Is::nemarr($compc)) continue;
+            //组件的 scss 外部样式
+            $cscssi = $compc["scss"] ?? null;
+            if (!Is::nemstr($cscssi)) continue;
+            if (!in_array($cscssi, $loadedScsses)) {
+                //当多个 vue 组件使用相同的外部 scss 时，只会加载一次
+                $loadedScsses[] = $cscssi;
+                $cscssres = Resource::create($cscssi, [
+                    "ignoreGet" => true,
+                    "export" => Resource::getExtFromPath($cscssi),
+                ]);
+                if ($cscssres instanceof Codex) {
+                    //添加到 merge 列表
+                    $merge[] = $cscssres;
+                }
+            }
+        }
+
+        // 2    params["extra"] 中定义的 额外样式文件
+        $extra = $this->params["extra"] ?? [];
+        if (Is::nemstr($extra)) {
+            if ($extra === "all") {
+                $exs = null;
+            } else if ($extra === "none") {
+                $exs = [];
+            } else {
+                $exs = explode(",", $extra);   //Arr::mk($extra);
+            }
+        }
+        if (is_null($exs) || Is::nemarr($exs)) {
+            //递归获取 common/ 文件夹下的 scss 文件
+            $extras = Path::flat($this->resSpecDir("common"), "", "-", "scss");
+            if (Is::nemarr($extras)) {
+                foreach ($extras as $ek => $efp) {
+                    //需要排除
+                    if (Is::nemarr($exs) || Is::nemstr($base)) {
+                        $efbase = basename($efp);
+                        $efn = pathinfo($efp)["filename"];
+                        //如果此文件不在 params["extra"] 中指定了，则排除
+                        if (Is::nemarr($exs) && !in_array($efbase, $exs) && !in_array($efn, $exs)) continue;
+                        //如果此文件名 == desc["styles"]["base"] 则排除
+                        if (Is::nemstr($base) && $efbase === $base) continue;
+                    }
+                    //创建资源实例
+                    $exres = Resource::create($efp, [
+                        "export" => "scss",
+                        "ignoreGet" => true,
+                        "import" => true,
+                    ]);
+                    if (!$exres instanceof Codex) continue;
+                    //添加到 merge 列表
+                    $merge[] = $exres;
+                }
+            }
+        }
+
+        //创建临时 scss 资源
+        $scss = Resource::manual(
+            "",
+            "temp_default.scss",
+            [
+                "ext" => "scss",
+                "export" => "scss",
+                "ignoreGet" => true,
+                //合并资源
+                "merge" => $merge,
+            ]
+        );
+        //保存到 subResource
+        $this->subResource = $scss;
+
+        return $this;
+    }
+    //生成完整的 组件库 样式 scss 文件，包含所有依赖的，要加载的组件，extra|merge 指定的 内外部 scss 资源
+    protected function createDynamicScssBrowserSubResource()
+    {
+        //如果未指定 theme 或者 未启用，则返回空内容
+        if (!$this->theme instanceof Theme) {
+            $this->subResource = $this->tempRes("scss");
+            return $this;
+        }
+        
+        //通过 依赖的 SPF-Theme 主题资源实例 merge 组件库自有的 样式文件，生成最终输出的 scss 资源内容
+        $desc = $this->desc;
+
+        //要 merge 到主题资源实例中的 其他 样式文件
+        $merge = [];
+
+        // 0    default.scss
+        //首先调用 default.scss 生成方法，生成 组件库基础样式以及 要加载组件的外部 scss 以及 extra 指定的 common/ 中的 scss 合并后资源
+        $this->createDynamicScssDefaultSubResource();
+        //生成 content
+        $dftcnt = $this->subResource->export([
+            "return" => true,
+
+            //修改 params
+            "ignoreGet" => true,
+        ]);
+        //使用生成的 scss 内容创建临时资源
+        $dftres = Resource::manual(
+            $dftcnt,
+            "temp_default.scss",
+            [
+                "ext" => "scss",
+                "export" => "scss",
+                "ignoreGet" => true,
+            ]
+        );
+        //var_dump($dftcnt);
+        $merge[] = $dftres;
+
+        // 1    params["combine"] 中指定的 外部 scss
+        $pmg = $this->params["combine"] ?? [];
+        if (Is::nemstr($pmg)) $pmg = explode(",", $pmg); //Arr::mk($pmg);
+        if (Is::nemarr($pmg)) {
+            //合并到 merge 数组中
+            $merge = array_merge($merge, $pmg);
+        }
+
+        /**
+         * 调用 $this->theme 主题资源实例
+         */
+        $thres = $this->theme;
+        //clone
+        $tho = $thres->clone([
+            //输出格式为 scss
+            "export" => "scss",
+            //传入合并资源数组
+            "combine" => $merge,
+        ]);
+        //生成 scss
+        $scss = $tho->export([
+            "return" =>  true,
+        ]);
+        //释放
+        unset($tho);
+
+        /**
+         * 使用生成的 scss 文件内容，创建一个临时 scss 资源，作为 subResource
+         */
+        $temp = Resource::manual(
+            $scss,
+            $this->resBaseName().".scss",
+            [
+                "ext" => "scss",
+                "export" => "scss",
+                "ignoreGet" => true,
+            ]
+        );
+        $this->subResource = $temp;
 
         return $this;
     }
@@ -570,11 +1357,39 @@ class Vcom extends Compound
         return $this;
     }
 
+    
+
 
 
     /**
      * 工具方法 缓存处理工具
      */
+    
+    /**
+     * 根据传入的参数，生成缓存文件名
+     * !! 覆盖父类
+     * @return String|null 当前请求的子资源对应缓存文件的 文件名
+     */
+    public function cacheFileName()
+    {
+        if ($this->cacheEnabled() !== true) return null;
+
+        //export-ext
+        $sext = $this->ext;
+        //请求的子资源 名称
+        $srfn = $this->subResourceName;
+        //请求的子资源 描述参数
+        $opts = $this->subResourceOpts;
+        //子资源类型 static|dynamic
+        $stp = $opts["type"];
+
+        if (in_array($sext, ["js","vue"])) return "$stp-$srfn.$sext";
+
+        //缓存文件名 使用 md5($this->resCustomParamsQs())
+        $queryString = $this->resCustomParamsQs();
+        $cfn = md5($queryString);
+        return "$cfn.$sext";
+    }
 
     /**
      * 单独 读取缓存 components.json 组件库中所有已定义的 *.vue 组件数据
@@ -693,6 +1508,166 @@ class Vcom extends Compound
         return $comps;
     }
 
+    /**
+     * 根据 desc 获取依赖的 Vue 资源实例
+     * @return Cdn|Lib|null 未找到则返回 null
+     */
+    public function resVueResource()
+    {
+        //如果 $this->vue 已存在，直接返回
+        if ($this->vue instanceof Compound) return $this->vue;
+
+        //desc
+        $desc = $this->desc;
+        $vuec = $desc["vue"] ?? [];
+        if (!Is::nemarr($vuec)) return null;
+        //指定发 vue 库文件
+        $vfc = $vuec["file"];
+        $vfp = Path::find($vfc, Path::FIND_FILE);
+        if (!Is::nemstr($vfp)) return null;
+        //实例化参数
+        $ps = $vuec["params"] ?? [];
+        //附加其他实例化参数
+        $ps = $this->fixSubResParams($ps);
+        //创建资源实例
+        $vueres = Resource::create($vfp, $ps);
+        if (!$vueres instanceof Compound) return null;
+        return $vueres;
+    }
+
+    /**
+     * 根据 desc 获取依赖的 第三方 UI 库资源实例，可以有多个
+     * @return Array 资源实例组成的数组
+     */
+    public function resUiResource()
+    {
+        if (Is::nemarr($this->ui)) return $this->ui;
+
+        //desc
+        $desc = $this->desc;
+        $uics = $desc["vue"]["ui"] ?? [];
+        if (!Is::nemarr($uics)) return [];
+        //依次实例化
+        $uis = [];
+        foreach ($uics as $uik => $uic) {
+            //ui 库文件
+            $uif = $uic["file"] ?? null;
+            if (!Is::nemstr($uif)) continue;
+            $uifp = Path::find($uif, Path::FIND_FILE);
+            if (!Is::nemstr($uifp)) continue;
+            $uip = $uic["params"] ?? [];
+            $uip = $this->fixSubResParams($uip);
+            $uires = Resource::create($uifp, $uip);
+            if (!$uires instanceof Compound) continue;
+            //缓存
+            $uis[$uik] = $uires;
+        }
+        return $uis;
+    }
+
+    /**
+     * 根据 desc 获取依赖的 Theme 资源实例
+     * @return Theme|null 
+     */
+    public function resThemeResource()
+    {
+        if ($this->theme instanceof Theme) return $this->theme;
+
+        //desc
+        $desc = $this->desc;
+        $thmc = $desc["theme"] ?? [];
+        if (!Is::nemarr($thmc) || $thmc["enable"] !== true) return null;
+        //主题文件
+        $thfp = $thmc["file"] ?? null;
+        if (!Is::nemstr($thfp)) return null;
+        if (substr($thfp, -11) !== ".theme.json") $thfp .= ".theme.json";
+        //查找
+        $thf = Path::find($thfp, Path::FIND_FILE);
+        if (!Is::nemstr($thf)) return null;
+        //实例化参数
+        $ps = $thmc["params"] ?? [];
+        //!! params["theme"] 覆盖 $ps["mode"]
+        if (
+            isset($this->params["theme"]) && (
+                Is::nemstr($this->params["theme"]) || 
+                Is::nemarr($this->params["theme"])
+            )
+        ) {
+            $ps["mode"] = $this->params["theme"];
+        }
+        //!! 需要将组件库的组件名前缀，作为样式类前缀 注入 主题资源实例
+        $ps["prefix"] = $desc["prefix"];
+        //附加其他实例化参数
+        $ps = $this->fixSubResParams($ps);
+        //创建资源实例
+        $thres = Resource::create($thf, $ps);
+        if (!$thres instanceof Theme) return null;
+        return $thres;
+    }
+
+    /**
+     * 根据 desc 获取依赖的 Icon 资源实例
+     * @return Array|null 可以有多个依赖的图标库资源，因此返回 []
+     */
+    public function resIconResource()
+    {
+        if (Is::nemarr($this->icon) && Is::indexed($this->icon)) return $this->icon;
+
+        //desc
+        $desc = $this->desc;
+        $iset = $desc["iconset"] ?? [];
+        if (!Is::nemarr($iset) || !Is::indexed($iset)) return null;
+        //创建各 图标库资源实例
+        $isets = array_map(function($isetf) {
+            if (!Is::nemstr($isetf)) return null;
+            if (substr($isetdf, -10)!==".icon.json") $isetf .= ".icon.json";
+            $isetres = Resource::create($isetf, $this->fixSubResParams());
+            if (!$isetres instanceof Icon) return null;
+            return $isetres;
+        }, $iset);
+        //剔除不能成功实例化的 图标库 css 资源
+        $isets = array_filter($isets, function($isetres) {
+            return $isetres instanceof Icon;
+        });
+        if (!Is::nemarr($isets)) return null;
+        return $isets;
+    }
+
+    /**
+     * 获取当前组件库依赖的 vue 库文件 外部访问 url，用于在视图中引用 script
+     * @return String|null url
+     */
+    public function resVueResourceUrl()
+    {
+        //依赖的 Vue 库资源实例
+        $vres = $this->vue;
+
+        $desc = $this->desc;
+        $vuec = $desc["vue"];
+
+        //vue 库资源 json 文件路径
+        $vfc = $vuec["file"];
+        $vfp = Path::find($vfc, Path::FIND_FILE);
+        if (!Is::nemstr($vfp)) return null;
+        //版本
+        $vver = $vuec["version"];
+        //实例化参数
+        $ps = $vuec["params"] ?? [];
+        //版本号添加到 params
+        $ps["ver"] = $vver;
+        //创建 vue 库资源 url
+        $vu = Url::src($vfp, true);
+        //去除 url 中的 .json 后缀
+        $vu = substr($vu, 0, -5);
+        //增加 queryString
+        $qs = Conv::a2u($ps);
+        //返回 url
+        $vu = $vu.(Is::nemstr($qs) ? "?".$qs : "");
+        return $vu;
+
+
+    }
+
 
 
     /**
@@ -742,10 +1717,6 @@ class Vcom extends Compound
     }
 
     /**
-     * 
-     */
-
-    /**
      * 根据传入的 *.vue 文件路径，获取对应的 $this->comps 中保存的组件参数
      * 此方法通常由 组件库中某个组件的 *.vue 文件资源实例内部调用
      * !! 所有已定义的组件列表 $this->comps 必须已创建
@@ -763,5 +1734,306 @@ class Vcom extends Compound
             }
         }
         return null;
+    }
+
+    /**
+     * 替换 scss|css 文件内容中的 字符串模板 
+     * @param String $cnt 要替换的文件内容
+     * @return String 替换后的内容
+     */
+    public function replacePreTemp($cnt)
+    {
+        if (!Is::nemstr($cnt)) return $cnt;
+
+        $desc = $this->desc;
+        //desc 中定义的 字符串模板
+        $tpl = $desc["pretemp"];
+        if (substr($tpl, -1) === "-") $tpl = substr($tpl, 0, -1);
+        //desc 中定义的 主题样式类前缀
+        $pre = $desc["prefix"];
+        if (substr($pre, -1) === "-") $pre = substr($pre, 0, -1);
+
+        //依次替换
+        $cnt = str_replace(".$tpl-", ".$pre-", $cnt);
+        $cnt = str_replace("$tpl-", "$pre-", $cnt);
+        $cnt = str_replace(".$tpl", ".$pre", $cnt);
+        $cnt = str_replace($tpl, $pre, $cnt);
+
+        return $cnt;
+    }
+
+
+
+    /**
+     * fix 方法
+     */
+
+    /**
+     * 在输出 css 之前，替换可能存在的 主题类名前缀
+     * @return $this
+     */
+    protected function fixVcomPrefixBeforeExport()
+    {
+        $cnt = $this->content;
+
+        /**
+         * 主题样式类名前缀 字符串模板替换
+         */
+        $cnt = $this->replacePreTemp($cnt);
+
+        //写回
+        $this->content = $cnt;
+        return $this;
+    }
+
+
+
+    /**
+     * 工具方法 用于 View 视图中创建资源引用 url
+     */
+
+    /**
+     * 在 View 视图中 输出 资源 url
+     * @param String $file 在 desc["content"] 中定义的 资源名称
+     * @param Array $params 可调整 url 的 queryString 在资源当前的 resCustomParams 基础上修改
+     * @param Bool $fullUrl 是否输出完整 url 默认 false 输出 /src 开头的 shortUrl
+     * @return String url
+     */
+    public function viewUrl($file, $params=[], $fullUrl=false)
+    {
+        if (!Is::nemarr($params)) $params = [];
+
+        //去除 params 中的 export
+        $params["export"] = "__delete__";
+        //去除 params["file"]
+        $params["file"] = "__delete__";
+        //如果传入了 combine 参数，则去除，否则 combine 设为 __delete__
+        if (isset($params["combine"]) && $params["combine"] === true) {
+            unset($params["combine"]);
+        } else {
+            $params["combine"] = "__delete__";
+        }
+
+        //生成完整 url
+        $url = $this->resUrlSelf($file, $params);
+        if ($fullUrl) return $url;
+        //转为 shortUrl
+        $cu = Url::$current;
+        $domain = $cu->domain;
+        //判断是否与当前 url 使用相同的 domain
+        $dlen = strlen($domain);
+        if (substr($url, 0, $dlen) === $domain) return substr($url, $dlen);
+        //domain 不一致不能简化 url
+        return $url;
+    }
+
+
+
+    /**
+     * 静态工具 
+     * 用于在 Spa 单页应用视图 中同时应用多个 Vcom 组件库时，合并必要参数
+     */
+
+    /**
+     * 合并多个组件库依赖的 Vue 库的 版本|加载文件 等相关信息
+     * @param Array $vcoms 组件库实例数组
+     * @return Array|null Vue 库的 版本|加载文件 等相关参数
+     *  [
+     *      "url" => "完整的 Vue 库外部访问 url，通常用于在 html 中插入 script",
+     *      "resource" => 库资源实例
+     *  ]
+     */
+    public static function combineVueResource($vcoms=[])
+    {
+        if (!Is::nemarr($vcoms)) return null;
+        //默认使用第一个 组件库的 Vue 库信息
+        foreach ($vcoms as $vci) {
+            if (!$vci instanceof Vcom) continue;
+            //依赖的 Vue 库实例
+            $vres = $vci->vue;
+            if (!$vres instanceof Compound) continue;
+            //使用第一个指定的 Vue 库资源
+            return [
+                "url" => $vres->resUrlSelf(),
+                "resource" => $vres
+            ];
+
+        }
+    }
+
+
+
+    /**
+     * 静态工具
+     */
+
+    /**
+     * 解析 *.vcom.json 文件路径（.vcom.json 后缀名可以省略）得到完整路径，以及 vcom 组件名 $vcom->desc["name"]
+     * @param String $vcom *.vcom.json 路径
+     * @return Array|null 传入的 *.vcom.json 文件不存在 则返回 null 
+     *  [
+     *      "file" => "带 .vcom.json 后缀名的 完整路径",
+     *      "name" => $vcom->desc["name"]
+     *  ]
+     */
+    public static function getVcomNameFromPath($vcom)
+    {
+        if (!Is::nemstr($vcom)) return null;
+        //补全后缀
+        if (substr($vcom, -10) !== ".vcom.json") $vcom .= ".vcom.json";
+        //检查文件是否存在
+        $vcfp = Path::find($vcom, Path::FIND_FILE);
+        if (!Is::nemstr($vcfp)) return null;
+        //获取 *.vcom.json 文件中指定的 vcom name
+        $vc = Conv::j2a(file_get_contents($vcfp));
+        $vcn = $vc["name"] ?? null;
+        //未指定 vcom name 则使用文件名
+        if (!Is::nemstr($vcn)) {
+            $vcbn = basename($vcfp);
+            $vcn = substr($vcbn, 0, -10);
+        }
+        return [
+            "file" => $vcfp,
+            "name" => $vcn
+        ];
+    }
+
+    /**
+     * 解析传入的 一个或多个 组件库文件路径、参数，用于 生成最终可用于 View 视图输出的 业务组件库列表结构
+     * 调用方法：
+     *      Vcom::fixVcomList("foo/bar/vc.vcom.json")
+     *      Vcom::fixVcomList("foo/bar/vc_1", "foo/bar/vc_2", ...)
+     *      Vcom::fixVcomList([
+     *          "vc_1" => "foo/bar/vc_1",
+     *          "vc_2" => [
+     *              "file" => "foo/bar/vc_2",
+     *              "params" => [...]
+     *          ],
+     *          ...
+     *      ])
+     * @param Array $vcoms 一个或多个，文件路径 或 路径+参数 associate 数组
+     * @return Array 处理后的 业务组件库参数数组：
+     *  [
+     *      "appk" => [
+     *          "file" => "带 .vcom.json 后缀名的 完整路径",
+     *          "params" => [ ... 传入的业务组件库实例化参数 ... ]
+     *      ],
+     *  ]
+     */
+    public static function fixVcomList(...$vcoms)
+    {
+        if (!Is::nemarr($vcoms)) return [];
+        if (count($vcoms) === 1) {
+            $apps = $vcoms[0];
+        } else {
+            $apps = array_merge([], $vcoms);
+        }
+
+        //使用业务组件库 剔除无效的组件库
+        if (Is::nemstr($apps)) {
+            //调用方式：Vcom::fixVcomList("foo/bar/vc.vcom.json")
+            $vcn = Vcom::getVcomNameFromPath($apps);
+            //指定的 业务组件库 无效
+            if (!Is::nemarr($vcn)) return null;
+            $vcf = $vcn["file"];
+            $vcn = $vcn["name"];
+            $apps = [
+                $vcn => [
+                    "file" => $vcf,
+                    "params" => []
+                ]
+            ];
+        } else if (Is::nemarr($apps)) {
+            $napps = [];
+            if (Is::associate($apps)) {
+                /**
+                 * 调用方式：
+                 *      Vcom::fixVcomList([
+                 *          "spa_1" => "foo/bar/spa_1",
+                 *          "spa_2" => [
+                 *              "file" => "foo/bar/spa_2",
+                 *              "params" => [
+                 *                  ...
+                 *              ]
+                 *          ],
+                 *      ])
+                 */
+                foreach ($apps as $appk => $appc) {
+                    if (Is::nemstr($appc)) {
+                        $vcn = Vcom::getVcomNameFromPath($appc);
+                        if (!Is::nemarr($vcn)) continue;
+                        $napps[$vcn["name"]] = [
+                            "file" => $vcn["file"],
+                            "params" => []
+                        ];
+                        continue;
+                    } else if (Is::nemarr($appc) && isset($appc["file"])) {
+                        $vcn = Vcom::getVcomNameFromPath($appc["file"]);
+                        if (!Is::nemarr($vcn)) continue;
+                        $napps[$vcn["name"]] = Arr::extend($appc, [
+                            "file" => $vcn["file"]
+                        ]);
+                        continue;
+                    }
+                }
+            } else if (Is::indexed($apps)) {
+                //调用方式：Vcom::fixVcomList("foo/bar/vc_1", "foo/bar/vc_2", ...)
+                foreach ($apps as $appi) {
+                    if (!Is::nemstr($appi)) continue;
+                    $vcn = Vcom::getVcomNameFromPath($apps);
+                    if (!Is::nemarr($vcn)) continue;
+                    $napps[$vcn["name"]] = [
+                        "file" => $vcn["file"],
+                        "params" => []
+                    ];
+                }
+            }
+            $apps = Is::nemarr($napps) ? $napps : [];
+        }
+        return $apps;
+    }
+
+    /**
+     * 定义处理 复合资源请求的 代理响应方法，在 Src 模块中，可使用此方法，响应前端请求
+     * !! 覆盖父类，实现 组件库 特有的 响应代理方法
+     * @param Array $args 前端请求 URI 数组
+     * @return Mixed 
+     */
+    public static function responseProxyer(...$args)
+    {
+        if (!empty($args) && array_slice($args, -1)[0]==="spa.html") {
+            //访问 使用此组件库的 Spa 视图
+
+            //首先调用父类 proxyer 获取对应的 组件库实例
+            $args = array_slice($args, 0, -1);
+            $args[] = "default.js";
+            //args 最后一个参数 true 表示忽略 Compound 子类覆盖定义的 responseProxyer 方法，直接使用父类的 proxyer
+            $args[] = true;
+            //args 数组头部增加 vcom
+            array_unshift($args, "vcom");
+            $vcom = Compound::responseProxyer(...$args);
+            if (!$vcom instanceof Vcom) {
+                Response::insSetCode(404);
+                return null;
+            }
+
+            //输出视图
+            Response::insSetType("view");
+            /*return [
+                "view" => "spf/assets/view/spa_vue2x.php",
+                "params" => [
+                    "vcom" => $vcom
+                ],
+            ];*/
+            return View::SpaVue2x($vcom);
+        }
+
+        //其他情况，直接使用父类 proxyer
+        
+        //args 最后一个参数 true 表示忽略 Compound 子类覆盖定义的 responseProxyer 方法，直接使用父类的 proxyer
+        $args[] = true;
+        //args 数组头部增加 vcom
+        array_unshift($args, "vcom");
+        return Compound::responseProxyer(...$args);
     }
 }

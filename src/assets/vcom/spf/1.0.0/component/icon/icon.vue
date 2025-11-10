@@ -101,7 +101,7 @@ export default {
             let is = this.$is,
                 sz = this.sizeClass,
                 tp = this.typeClass,
-                clss = ['cv-icon'];
+                clss = ['PRE@-icon'];
             if (!is.empty(sz)) clss.push(...sz);
             if (!is.empty(tp)) clss.push(...tp);
             return this.mixinCustomClass(...clss);

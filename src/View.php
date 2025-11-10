@@ -6,9 +6,13 @@
 
 namespace Spf;
 
+use Spf\Request;
 use Spf\exception\BaseException;
 use Spf\exception\CoreException;
 use Spf\config\ViewConfig;
+use Spf\module\src\Resource;
+use Spf\module\src\ResourceSeeker;
+use Spf\module\src\resource\Vcom;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -42,34 +46,270 @@ class View extends Core
     //当前视图的 要输出的 html 内容行数组
     protected $content = [];
 
+    /**
+     * 视图使用的 Vcom|Vcom3|Theme|Icon 等复合资源的实例缓存
+     */
+    //SPA 环境 基础组件库
+    public $spaBase = null;
+    //SPA 环境 业务组件库，[]
+    public $spaApp = [];
+    //SPF-Theme 主题资源
+    public $theme = null;
+    //SPF-Icon 图标库资源，[]
+    public $iconset = [];
+
+    /**
+     * 要通过 link|script 插入 head 段 的资源路径
+     */
+    public $links = [
+        /*
+        [
+            "href" => "",
+            "rel" => "stylesheet",
+            ...
+        ]
+        */
+    ];
+    public $scripts = [
+        /*
+        "/src/foo/bar.js",
+        "module@/src/foo/bar/jaz.js",
+        ...
+        */
+    ];
+
 
 
     /**
      * 此 View 视图类自有的 init 方法，执行以下操作：
      *  0   缓存 page 视图页面
-     *  //1   生成 html head 页面头部
+     *  1   生成 视图使用的 Vcom|Vcom3|Theme|Icon 等复合资源的实例
      * !! Core 子类必须实现的，View 子类不要覆盖
      * @return $this
      */
     final public function initialize()
     {
         // 0 缓存 page 视图页面
-        $this->page = Path::find($this->config->page);
-
-        // 1 生成 html head 页面头部
-        //!! 此步骤转移到 render 方法中，在输出之前才生成 html，而不是实例化后立即渲染
-        /*$this->content = [];
-        //必须严格按顺序执行
-        $meta = $this->parseMeta();
-        $theme = $this->parseTheme();
-        $iconset = $this->parseIconset();
-        if (!($meta && $theme && $iconset)) {
-            //视图 html head 生成错误
-            throw new CoreException("视图页面头部生成错误", "initialize/init");
+        $page = $this->config->page;
+        if (Is::nemstr($page)) {
+            $pfp = Path::find($page, Path::FIND_FILE);
+            if (Is::nemstr($pfp)) {
+                //外部指定了 有效的视图页面
+                $this->page = $page;
+            }
         }
-        //结束 head
-        $this->html("</head>");*/
+        //如果未指定有效的 视图页面，报错
+        if (!Is::nemstr($this->page)) {
+            throw new CoreException("无法初始化视图，未指定视图页面", "initialize/init");
+        }
+        //将指定的视图页面，转为真实路径
+        $pfp = Path::find($this->page, Path::FIND_FILE);
+        if (!Is::nemstr($pfp)) {
+            throw new CoreException("无法初始化视图，未指定有效的视图页面", "initialize/init");
+        }
+        $this->page = $pfp;
 
+        // 1 生成 视图使用的 Vcom|Vcom3|Theme|Icon 等复合资源的实例
+        $resCreated = $this->initDependedResource();
+        if ($resCreated !== true) {
+            //有 依赖的资源实例化失败，报错
+            throw new CoreException("无法初始化视图，有依赖的资源无法实例化", "initialize/init");
+        }
+
+        return $this;
+    }
+
+    /**
+     * 生成 视图使用的 Vcom|Vcom3|Theme|Icon 等复合资源的实例
+     * !! View 子类不要覆盖此方法
+     * @return Bool
+     */
+    final protected function initDependedResource()
+    {
+        //先重置
+        $this->resetResource();
+
+        $rst = true;
+
+        //是否启用的 SPA 环境
+        $spaEnabled = $this->spaEnabled();
+
+        if ($spaEnabled) {
+            //实例化 SPA 组件库资源
+            $rst = $this->createSpaResource();
+        } else {
+            //依次实例化 SPF-Theme|SPF-Icon 
+            $rst = $rst && $this->createThemeResource();
+            $rst = $rst && $this->createIconsetResource();
+        }
+
+        return $rst;
+    }
+
+    /**
+     * 视图依赖的资源实例化方法
+     * !! View 子类可根据需要覆盖这些方法
+     * @param Array $conf 资源参数，不指定则使用 $view->config->compound[...]
+     * @return Bool
+     */
+    //实例化 SPA 组件库资源
+    protected function createSpaResource($conf=[])
+    {
+        if (!Is::nemarr($conf)) $conf = $this->config->compound["spa"] ?? [];
+        if ($conf["enable"] !== true) return false;
+
+        //SPA 基础组件库
+        $base = $conf["base"] ?? [];
+        $bf = $base["file"] ?? null;
+        if (!Is::nemstr($bf) || !Is::nemstr(Path::find($bf, Path::FIND_FILE))) return false;
+
+        //SPA 基础组件的 实例化参数
+        $bp = $base["params"] ?? [];
+        //创建基础组件临时资源
+        $bres = Resource::create($bf, $bp);
+        //判断基础组件库是否定义了必须的 依赖项
+        if (!$bres instanceof Resource || $bres->desc["theme"]["enable"] !== true) return false;
+        //所有 业务组件库 都使用 基础组件的 组件名 prefix
+        $vcprefix = $bres->desc["prefix"];
+        //基础组件的 combine 参数准备，需要将 各业务组件库的 default.scss 文件合并进来
+        $bmgs = [];
+        //SPA 组件库指定的 SPF-Icon 图标库资源，需要将各 业务组件库的 iconset 合并进来
+        $iconset = $bres->desc["iconset"] ?? [];
+        if (Is::nemarr($iconset)) $iconset = array_merge([], $iconset);
+        //释放临时资源
+        unset($bres);
+
+        //SPA 业务组件
+        $app = $conf["app"] ?? [];
+        if (Is::nemarr($app)) {
+            //SPA 环境依赖的 vcom 版本
+            $vver = $this->spaVcomVer();
+            foreach ($app as $appk => $appc) {
+                $appf = $appc["file"] ?? null;
+                if (
+                    !Is::nemstr($appf) || 
+                    //!! 指定的业务组件库，必须复合对应的 vcom 版本
+                    strpos($appf, ".$vver.") === false || 
+                    !Is::nemstr(Path::find($appf, Path::FIND_FILE))
+                ) { continue; }
+                $appp = $appc["params"] ?? [];
+                //注入统一的 组件名前缀
+                $appp["prefix"] = $vcprefix;
+                $appp = $this->fixResParams($appp);
+                $appres = Resource::create($appf, $appp);
+                if (!$appres instanceof Resource) continue;
+
+                //将业务组件库的 default.scss 合并到 SPA 基础组件库的 combine 参数中
+                $bmgs[] = $appres->viewUrl("default.scss");
+                //业务组件库中的 SPF-Icon 图标库，需要提取出来，统一加载
+                $appicon = $appres->desc["iconset"] ?? [];
+                if (Is::nemarr($appicon)) $iconset = array_merge($iconset, $appicon);
+
+                //缓存
+                $this->spaApp[$appk] = $appres;
+            }
+        }
+
+        //处理 config->merge 参数中定义的 scss 资源，这些资源可能使用了 主题 scss 参数，需要合并到 SPA 基础组件库资源实例中
+        $merges = $this->config->merge;
+        if (Is::nemarr($merges)) {
+            //提取其中的 scss 资源
+            $mscsses = array_filter($merges, function($mscssi) {
+                return Is::nemstr($mscssi) && substr($mscssi, -5) === ".scss";
+            });
+            $mscsses = array_merge([], $mscsses);
+            if (Is::nemarr($mscsses)) {
+                $bmgs = array_merge($bmgs, $mscsses);
+            }
+        }
+
+        //实例化 SPA 基础组件库
+        if (Is::nemarr($bmgs)) $bp["combine"] = $bmgs;
+        $bp = $this->fixResParams($bp);
+        //缓存
+        $this->spaBase = Resource::create($bf, $bp);
+
+        //加载 SPF-Icon 资源
+        if (Is::nemarr($iconset) && Is::indexed($iconset)) {
+            $iconres = $this->createIconsetResource($iconset);
+        }
+
+        return true;
+    }
+    //实例化视图依赖的 SPF-Theme 主题资源
+    protected function createThemeResource($conf=[])
+    {
+        if (!Is::nemarr($conf)) $conf = $this->config->compound["theme"] ?? [];
+        if ($conf["enable"] !== true) return false;
+
+        $thfp = $conf["file"] ?? null;
+        if (!Is::nemstr($thfp)) return false;
+        if (substr($thfp, -11) !== ".theme.json") $thfp .= ".theme.json";
+        $thf = Path::find($thfp, Path::FIND_FILE);
+        if (!Is::nemstr($thf)) return false;
+
+        //主题的实例化参数
+        $thp = $conf["params"] ?? [];
+        //需要添加到 主题资源 params["merge"] 参数中的 资源路径
+        $thmgs = [];
+        //处理 config->merge 参数中定义的 scss 资源，这些资源可能使用了 主题 scss 参数，需要合并到 主题资源实例中
+        $merges = $this->config->merge;
+        if (Is::nemarr($merges)) {
+            //提取其中的 scss 资源
+            $mscsses = array_filter($merges, function($mscssi) {
+                return Is::nemstr($mscssi) && substr($mscssi, -5) === ".scss";
+            });
+            $mscsses = array_merge([], $mscsses);
+            if (Is::nemarr($mscsses)) {
+                $thmgs = array_merge($thmgs, $mscsses);
+            }
+        }
+        if (Is::nemarr($thmgs)) $thp["combine"] = $thmgs;
+        $thp = $this->fixResParams($thp);
+        //实例化
+        $thres = Resource::create($thf, $thp);
+        if (!$thres instanceof Resource) return false;
+        //缓存
+        $this->theme = $thres;
+        return true;
+    }
+    //实例化视图依赖的 SPF-Icon 图标库资源
+    protected function createIconsetResource($conf=[])
+    {
+        if (!Is::nemarr($conf) || !Is::indexed($conf)) $conf = $this->config->compound["iconset"] ?? [];
+        if (is_array($conf) && empty($conf)) return true;
+
+        //依次实例化
+        $loaded = [];
+        foreach ($conf as $isfp) {
+            if (!Is::nemstr($isfp)) continue;
+            if (substr($isfp, -10) !== ".icon.json") $isfp .= ".icon.json";
+            //!! 处理重复加载
+            if (in_array($isfp, $loaded)) continue;
+            $isf = Path::find($isfp, Path::FIND_FILE);
+            if (!Is::nemstr($isf)) continue;
+            //实例化
+            $isres = Resource::create($isf, $this->fixResParams([]));
+            if (!$isres instanceof Resource) continue;
+            //缓存
+            $this->iconset[] = $isres;
+            $loaded[] = $isfp;
+        }
+        //如果指定了 iconset 参数，但是没有创建任何实例，表示出错了
+        if (!Is::nemarr($this->iconset)) return false;
+        return true;
+    }
+
+    /**
+     * 重置视图依赖的 资源缓存
+     * @return $this
+     */
+    protected function resetResource()
+    {
+        $this->spaBase = null;
+        $this->spaApp = [];
+        $this->theme = null;
+        $this->iconset = [];
         return $this;
     }
 
@@ -123,6 +363,11 @@ class View extends Core
         //清空缓冲区
         ob_clean();
 
+        //输出前执行模板替换
+        if ($this->spaEnabled() === true) {
+            $html = $this->replaceSpaVcomTpls($html);
+        }
+
         //返回 html
         return $html;
     }
@@ -139,8 +384,23 @@ class View extends Core
 
         //必须严格按顺序执行
         $this->parseMeta();
-        $this->parseTheme();
+        if ($this->spaEnabled() === true) {
+            $this->parseSpa();
+        } else if ($this->themeEnabled() === true) {
+            $this->parseTheme();
+        }
         $this->parseIconset();
+        $this->parseLinks();
+        $this->parseScripts();
+
+        /**
+         * !! 不自动应用 SPA 环境的 基础组件库|业务组件库 插件（同时注册全局组件）
+         * 应由 各视图页面 在各自内部合适位置，自行执行 $view->useSpaPlugin() 方法
+         *      $view->useSpaPlugin() 方法      将在调用位置插入 ...import 语句 以及 Vue.use() 语句...
+         */
+        /*if ($this->spaEnabled() === true) {
+            $this->useSpaPlugin([....], true);
+        }*/
         //结束 head
         $this->html("</head>");
         //开始 body
@@ -247,89 +507,203 @@ class View extends Core
 
         return true;
     }
-    // 1 解析 theme|css 参数
-    protected function parseTheme()
+    // 1 解析 SPA 环境
+    protected function parseSpa()
     {
-        $cfger = $this->config;
+        if ($this->spaEnabled() !== true) return false;
+        //SPA 基础组件库资源实例
+        $spa = $this->spaBase;
 
-        //要生成 html 的 css link 列表
-        $clnk = [];
-
-        //主题参数
-        $theme = $cfger->theme;
-        $enable = $theme["enable"] ?? true;
-        $thn = $theme["name"] ?? null;
-        $darkmd = $theme["darkmode"] ?? true;
-        $tmod = $theme["mode"] ?? [];
-        $uses = $theme["use"] ?? "all";
-        //如果启用了 SPF-Theme 主题
-        if ($enable === true && Is::nemstr($thn)) {
-            //主题 css 文件路径 默认加载 min 形式
-            $turl = $this->apppre("/src/theme/$thn.min.css?use=$uses");
-            if ($darkmd === true) {
-                //如果启用的 暗黑模式
-                $lmd = $tmod["light"] ?? "light";
-                $dmd = $tmod["dark"] ?? "dark";
-                //分别引入 light|dark css
-                $clnk[] = [
-                    "href" => "$turl&mode=$lmd",
-                    "media" => "(prefers-color-scheme: light), (prefers-color-scheme: no-preference)",
-                ];
-                $clnk[] = [
-                    "href" => "$turl&mode=$dmd",
-                    "media" => "(prefers-color-scheme: dark)",
-                ];
+        //输出 SPA 环境样式
+        //使用 SPF-Theme 主题资源实例
+        $theme = $spa->theme;
+        //判断此主题是否支持 light|dark 暗黑模式
+        $hasDarkMode = $theme->supportDarkMode();
+        //如果支持暗黑模式，分别生成 light|dark 模式对应 字符串
+        if ($hasDarkMode) {
+            $modeShift = $theme->colorModeShift();
+            $lightMode = $modeShift["light"];
+            $darkMode = $modeShift["dark"];
+        }
+        //如果基础组件库使用了 第三方 UI 库，需要先输出 UI css
+        if (Is::nemarr($spa->ui)) {
+            if ($hasDarkMode) {
+                //支持暗黑模式，分别将 light|dark 样式 url 插入 $this->links []
+                $this->links = array_merge($this->links, $this->autoDarkCssLink(
+                    $spa->viewUrl("ui.min.css", [
+                        "theme" => $lightMode,
+                    ]),
+                    $spa->viewUrl("ui.min.css", [
+                        "theme" => $darkMode,
+                    ])
+                ));
             } else {
-                //未启用 暗黑模式，直接引入 light 模式的 css
-                $clnk[] = [
-                    "href" => $turl,
+                $this->links[] = [
+                    "href" => $spa->viewUrl("ui.min.css"),
+                    "rel" => "stylesheet",
                 ];
             }
         }
-
-        //css 列表
-        $css = $cfger->css;
-        if (Is::nemarr($css) && Is::indexed($css)) {
-            foreach ($css as $csi) {
-                if (!Is::nemstr($csi)) continue;
-                $clnk[] = [
-                    "href" => $this->apppre($csi)
-                ];
+        //如果业务组件库使用了第三方 UI 库，也需要输出 css
+        if (Is::nemarr($this->spaApp)) {
+            foreach ($this->spaApp as $appk => $appres) {
+                if (!Is::nemarr($appres->ui)) continue;
+                if ($hasDarkMode) {
+                    //支持暗黑模式，分别将 light|dark 样式 url 插入 $this->links []
+                    $this->links = array_merge($this->links, $this->autoDarkCssLink(
+                        $appres->viewUrl("ui.min.css", [
+                            "theme" => $lightMode,
+                        ]),
+                        $appres->viewUrl("ui.min.css", [
+                            "theme" => $darkMode,
+                        ])
+                    ));
+                } else {
+                    $this->links[] = [
+                        "href" => $appres->viewUrl("ui.min.css"),
+                        "rel" => "stylesheet",
+                    ];
+                }
             }
         }
+        //输出主题样式
+        if ($hasDarkMode) {
+            //支持暗黑模式，分别将 light|dark 样式 url 插入 $this->links []
+            $this->links = array_merge($this->links, $this->autoDarkCssLink(
+                $spa->viewUrl("browser.min.css", [
+                    "combine" => true,
+                    "theme" => $lightMode,
+                ]),
+                $spa->viewUrl("browser.min.css", [
+                    "combine" => true,
+                    "theme" => $darkMode,
+                ])
+            ));
+        } else {
+            //不支持 暗黑模式，仅添加默认 样式
+            $this->links[] = [
+                "href" => $spa->viewUrl("browser.min.css", [
+                    "combine" => true,
+                ]),
+                "rel" => "stylesheet",
+            ];
+        }
 
-        //生成 css link html
-        $clnk = array_map(function($lnk) {
-            $lnk["rel"] = "stylesheet";
-            return $lnk;
-        }, $clnk);
-        $this->link($clnk);
+        //输出 SPA 环境 js
+        //基础组件库实例中包含的 Vue 库实例
+        $this->scripts[] = $spa->viewUrl("vue.min.js");
+        //输出第三方 UI js
+        if (Is::nemarr($spa->ui)) {
+            $this->scripts[] = $spa->viewUrl("ui.min.js");
+        }
+        //业务组件库使用的 第三方 UI js
+        if (Is::nemarr($this->spaApp)) {
+            foreach ($this->spaApp as $appk => $appres) {
+                if (!Is::nemarr($appres->ui)) continue;
+                $this->scripts[] = $appres->viewUrl("ui.min.js");
+            }
+        }
 
         return true;
     }
-    // 2 解析 iconset 图标库参数
-    protected function parseIconset()
+    // 2 解析 theme|css 参数
+    protected function parseTheme()
     {
-        $ics = $this->config->iconset;
-        //未指定要使用的 图标库，则使用默认 spf 图标库
-        if (!Is::nemarr($ics) || !Is::indexed($ics)) $ics = ["spf"];
+        if ($this->themeEnabled() !== true) return false;
 
-        //要使用 css link
-        $css = [];
-        //要使用 js 雪碧图生成代码
-        $js = [];
-        foreach ($ics as $icn) {
-            $css[] = [
+        //SPF-Theme 主题资源实例
+        $theme = $this->theme;
+        //判断此主题是否支持 light|dark 暗黑模式
+        if ($theme->supportDarkMode() === true) {
+            //分别将 light|dark 样式 url 插入 $this->links []
+            $modeShift = $theme->colorModeShift();
+            $this->links = array_merge($this->links, $this->autoDarkCssLink(
+                $theme->viewUrl("default.min.css", [
+                    "combine" => true,
+                    "mode" => $modeShift["light"],
+                ]),
+                $theme->viewUrl("default.min.css", [
+                    "combine" => true,
+                    "mode" => $modeShift["dark"],
+                ])
+            ));
+        } else {
+            //不支持暗黑模式，仅添加默认样式
+            $this->links[] = [
+                "href" => $theme->viewUrl("default.min.css", [
+                    "combine" => true,
+                ]),
                 "rel" => "stylesheet",
-                "href" => "/src/icon/$icn.min.css",
             ];
-            $js[] = "/src/icon/$icn.min.js";
         }
 
-        //生成 html
-        $this->link($css);
-        $this->script(...$js);
+        return true;
+    }
+    // 3 解析 iconset 图标库参数
+    protected function parseIconset()
+    {
+        //已实例化的 iconset 资源实例
+        $isets = $this->iconset;
+        if (!Is::nemarr($isets)) return true;
 
+        //依次插入各 iconset 图标库的 js|css
+        foreach ($isets as $iset) {
+            $pather = $iset->PathProcessor;
+            //js
+            $this->scripts[] = $pather->innerUrl("default.min.js");
+            //css
+            $this->links[] = [
+                "href" => $iset->resUrlSelf("default.css", [
+                    "export" => "css",
+                    "min" => true,
+                ]),
+                "rel" => "stylesheet",
+            ];
+        }
+        return true;
+    }
+    // 4 解析 $this->links 以及 config->static[] 中定义的 css url
+    protected function parseLinks()
+    {
+
+        //var_dump($this->links);exit;
+
+        //先插入 $this->links
+        if (Is::nemarr($this->links)) $this->link($this->links);
+
+        //再处理 config->static 中定义的 静态 css url
+        $statics = $this->config->static;
+        $links = [];
+        if (Is::nemarr($statics)) {
+            foreach ($statics as $href) {
+                if (!Is::nemstr($href) || substr($href, -4) !== ".css") continue;
+                //写入 $links
+                $links[] = [
+                    "href" => $href,
+                    "rel" => "stylesheet",
+                ];
+            }
+        }
+        if (Is::nemarr($links)) $this->link($links);
+        return true;
+    }
+    // 5 解析 $this->scripts 以及 config->static[] 中定义的 js url
+    protected function parseScripts()
+    {
+        //先插入 $this->scripts
+        if (Is::nemarr($this->scripts)) $this->script(...$this->scripts);
+
+        //再处理 config->static 中定义的 静态 js url
+        $statics = $this->config->static;
+        $scripts = [];
+        if (Is::nemarr($statics)) {
+            foreach ($statics as $src) {
+                if (!Is::nemstr($src) || substr($src, -3) !== ".js") continue;
+                //写入 $scripts
+                $scripts[] = $src;
+            }
+        }
+        if (Is::nemarr($scripts)) $this->script(...$scripts);
         return true;
     }
 
@@ -391,8 +765,43 @@ class View extends Core
     }
 
     /**
+     * 向 内容行数组 插入 <style>...</style>
+     * !! 自动编译 scss
+     * @param String $css 样式代码，支持传入 scss 代码，将自动编译后 插入
+     * @return $this
+     */
+    public function style($css)
+    {
+        if (!Is::nemstr($css)) return $this;
+
+        //创建临时 scss 资源，对 css|scss 代码执行编译，minify
+        $scss = Resource::manual(
+            $css,
+            "temp.scss",
+            [
+                "ext" => "scss",
+                "export" => "css",
+                "ignoreGet" => true,
+                //默认 minify
+                "min" => true,
+                //import 保持原样
+                "import" => "keep",
+            ]
+        );
+        //通过资源实例输出 编译|minify 后的 css 代码
+        $css = $scss->export([
+            "return" => true
+        ]);
+        //释放临时资源
+        unset($scss);
+
+        //插入内容行数组
+        return $this->html("<style>$css</style>");
+    }
+
+    /**
      * 向 内容行数组 插入 <script src="..."></script>
-     * @param Array $srcs js src
+     * @param Array $srcs js src 以 module@ 开头的 则插入 <script type="module" src="..."></script>
      * @return $this
      */
     public function script(...$srcs)
@@ -402,9 +811,216 @@ class View extends Core
         });
         $s = [];
         foreach ($srcs as $src) {
-            $s[] = "<script src=\"$src\"></script>";
+            if (substr($src, 0, 7) === "module@") {
+                $s[] = "<script type=\"module\" src=\"$src\"></script>";
+            } else {
+                $s[] = "<script src=\"$src\"></script>";
+            }
         }
         return $this->html(...$s);
+    }
+
+
+
+    /**
+     * SPA 环境的 工具方法
+     */
+
+    /**
+     * 判断当前视图是否启用了 统一 SPA 环境
+     * @return Bool
+     */
+    public function spaEnabled()
+    {
+        $cfger = $this->config;
+        //spa 参数
+        $spa = $cfger->compound["spa"];
+        return $spa["enable"] === true;
+    }
+
+    /**
+     * 判断 SPA 环境依赖的 vcom 版本
+     * @return String vcom|vcom3
+     */
+    public function spaVcomVer()
+    {
+        $spa = $this->config->compound["spa"] ?? [];
+        $base = $spa["base"] ?? [];
+        $bf = $base["file"] ?? null;
+        if (!Is::nemstr($bf) || substr($bf, -5) !== ".json") return "vcom";    //默认 vcom Vue2.x
+        $bf = substr($bf, 0, -5);
+        return array_slice(explode(".", $bf), -1)[0];
+    }
+
+    /**
+     * 生成用于 视图页面 html 内容 字符串模板替换的 数据源
+     * @return Array 
+     *  [
+     *      "vcinfo" => [ ... SPA 环境基础组件库的相关数据集合 ... ],
+     *      "tpls" => [
+     *          "模板字符串" => "在 vcinfo 数组中的 键名 xpath 例如: urls/component",
+     *          ...
+     *      ],
+     *  ]
+     */
+    public function spaVcomTpls()
+    {
+        if ($this->spaEnabled() !== true) return [];
+
+        //数据源，由 基础组件库 $this->spaBase->resVcomInfo() 方法生成
+        $vcinfo = $this->spaBase->resVcomInfo();
+        $tpls = [
+            //组件库定义的 组件名称前缀，通常用于 style 样式代码中的 样式类名称
+            "__PRE__" => "pre",
+            //用于组件模板代码块中，代替 组件名称前缀，以便可以方便的 在不同的使用场景下，切换组件名称前缀
+            //例如：<PRE@-button>...</PRE@-button> 替换为 <pre-button>...</pre-button>
+            "PRE@" => "pre",
+    
+            //针对组件库的 特殊路径字符串模板
+            //component 文件夹名
+            "__COMPONENT__" => "dirnames/component",
+            //mixin 文件夹名
+            "__MIXIN__" => "dirnames/mixin",
+            //plugin 文件夹名
+            "__PLUGIN__" => "dirnames/plugin",
+            //common 文件夹名
+            "__COMMON__" => "dirnames/common",
+    
+            /*//component 文件夹真实路径
+            "__DIR_COMPONENT__" => "dirs/component",
+            //mixin 文件夹真实路径
+            "__DIR_MIXIN__" => "dirs/mixin",
+            //plugin 文件夹真实路径
+            "__DIR_PLUGIN__" => "dirs/plugin",
+            //common 文件夹真实路径
+            "__DIR_COMMON__" => "dirs/common",*/
+    
+            //component 文件夹 url 前缀
+            "__URL_COMPONENT__" => "urls/component",
+            //mixin 文件夹 url 前缀
+            "__URL_MIXIN__" => "urls/mixin",
+            //plugin 文件夹 url 前缀
+            "__URL_PLUGIN__" => "urls/plugin",
+            //common 文件夹 url 前缀
+            "__URL_COMMON__" => "urls/common",
+        ];
+        return [
+            "vcinfo" => $vcinfo,
+            "tpls" => $tpls
+        ];
+    }
+
+    /**
+     * 在生成 html 后自动替换 SPA 环境基础组件库的 设定的 组件名|样式类名 前缀字符串模板
+     * @param String $html 已生成的 html
+     * @return String 字符串模板替换后的 html
+     */
+    public function replaceSpaVcomTpls($html)
+    {
+        if ($this->spaEnabled() !== true || !Is::nemstr($html)) return $html;
+
+        //生成 用于模板替换的 数据源
+        $rtpl = $this->spaVcomTpls();
+        $vcinfo = $rtpl["vcinfo"] ?? [];
+        $tpls = $rtpl["tpls"] ?? [];
+
+        //替换模板
+        foreach ($tpls as $tpl => $prop) {
+            $vd = Arr::find($vcinfo, $prop);
+            if (!is_string($vd)) continue;
+            
+            //替换
+            $html = str_replace($tpl, $vd, $html);
+        }
+
+        return $html;
+    }
+
+    /**
+     * 自动生成 SPA 环境 基础组件库插件|业务组件库插件 应用的 js 语句
+     * !! 框架不会自动执行此方法，应由 各视图页面在各自内部的合适位置，调用此方法 生成并在调用位置 echo 
+     *      js 代码块： import ... ; Vue.use(...); ...
+     * @param Array $baseOptions 向 基础组件库 Vue.use() 的 js 方法语句 插入 第二参数 options {}
+     * @param Bool $eko 是否执行 echo 默认 true
+     * @return String html 代码
+     */
+    public function useSpaPlugin($baseOptions=[], $eko=true)
+    {
+        if ($this->spaEnabled() !== true) return "";
+
+        //html rows
+        $html = [];
+
+        //手动插入 插入 module script
+        //$html[] = "<script type=\"module\">";
+
+        //SPA 基础组件库插件
+        $spa = $this->spaBase;
+        //变量
+        $spav = $spa->desc["var"];
+        $html[] = "import $spav from '".$spa->viewUrl("esm-browser.min.js", [], true)."';";
+
+        //业务组件库 插件
+        if (Is::nemarr($this->spaApp)) {
+            foreach ($this->spaApp as $appk => $appres) {
+                $appv = $appres->desc["var"];
+                $html[] = "import $appv from '".$appres->viewUrl("esm-browser.min.js", [], true)."';";
+            }
+        }
+
+        //准备基础组件库插件的 use options
+        if (!Is::nemarr($baseOptions)) $baseOptions = [];
+        //合并默认 Vue2.* 插件的 options
+        $baseOptions = Arr::extend([
+            //TODO: SPF-View 视图系统 使用 Vue2.* 插件时 默认的 插件启动参数
+            //...
+        ], $baseOptions);
+        //应用基础组件库插件
+        $html[] = "Vue.use($spav, JSON.parse('".Conv::a2j($baseOptions)."'));";
+
+        //应用所有业务组件库插件
+        if (Is::nemarr($this->spaApp)) {
+            foreach ($this->spaApp as $appk => $appres) {
+                $appv = $appres->desc["var"];
+                $html[] = "Vue.use($appv);";
+            }
+        }
+        //空行
+        $html[] = "";
+
+        //合并 html 并 echo
+        $html = implode("\r", $html);
+        if ($eko === true) echo $html;
+
+        return $html;
+    }
+
+
+
+    /**
+     * 工具方法
+     */
+
+    /**
+     * 创建 暗黑模式自动切换的 links[] 参数
+     * @param String $light css href
+     * @param String $dark css href
+     * @return Array links[] 参数
+     */
+    public function autoDarkCssLink($light, $dark)
+    {
+        $links = [];
+        $links[] = [
+            "href" => $light,
+            "media" => "(prefers-color-scheme: light), (prefers-color-scheme: no-preference)",
+            "rel" => "stylesheet",
+        ];
+        $links[] = [
+            "href" => $dark,
+            "media" => "(prefers-color-scheme: dark)",
+            "rel" => "stylesheet",
+        ];
+        return $links;
     }
 
     /**
@@ -415,6 +1031,42 @@ class View extends Core
     public function apppre($path)
     {
         return App::path($path);
+    }
+
+    /**
+     * 补全 依赖的资源实例化参数
+     * @param Array $params 依赖资源的实例化参数
+     * @return Array 补全后的 参数
+     */
+    public function fixResParams($params=[])
+    {
+        if (!Is::nemarr($params)) $params = [];
+        //处理 忽略缓存的 config|url 参数
+        if (Request::$current->gets->has("create")) {
+            //如果在 url 中定义了 create
+            $create = Request::$current->gets->create;
+        } else {
+            //检查 view->config->compound["create] 参数
+            $create = $this->config->compound["create"] ?? false;
+            if (!is_bool($create)) $create = false;
+        }
+        if ($create) $params["create"] = true;
+
+        //其他默认的实例化参数
+        return Arr::extend([
+            "belongTo" => null,
+            //创建视图依赖的资源实例时，默认不受 url 参数影响
+            "ignoreGet" => true,
+        ], $params);
+    }
+
+    /**
+     * 判断当前视图是否启用了 SPF-Theme 主题
+     * @return Bool
+     */
+    public function themeEnabled()
+    {
+        return $this->theme instanceof Resource;
     }
 
 
@@ -463,6 +1115,58 @@ class View extends Core
         
         //返回 html
         return $html;
+    }
+
+    /**
+     * 输出 Spa 单页应用视图，使用 Vue2.x 组件框架
+     * @param Array $params 要传入页面内的 参数数据，在 ViewConfig::$dftInit 参数基础上 extend
+     *      !! 需要额外定义 $params["app"] 参数，指定此视图页面将要使用的 业务组件库 *.vcom.json 文件路径，可选形式：
+     *          $params["app"] = "foo/bar/spa.vcom.json"
+     *          $params["app"] = ["foo/bar/spa_1", "foo/bar/spa_2.vcom.json"]
+     *          $params["app"] = [
+     *              "spa_1" => "foo/bar/spa_1",
+     *              "spa_2" => [
+     *                  "file" => "foo/bar/spa_2",
+     *                  "params" => [
+     *                      ...
+     *                  ]
+     *              ],
+     *          ]
+     * @param String $page Vue2.x 视图页面，默认 spf/assets/view/spa_vue2x.php
+     * @return String|null html
+     */
+     public static function SpaVue2x($params=[/*"app"=>"",*/], $page="spf/assets/view/spa_vue2x.php")
+    {
+        //视图页面
+        if (!Is::nemstr($page)) $page = "spf/assets/view/spa_vue2x.php";
+
+        //使用业务组件库 剔除无效的组件库
+        $apps = $params["app"] ?? [];
+        if (Is::nemarr($apps) && Is::indexed($apps)) $apps = array_merge([], $apps);
+        if (isset($params["app"])) unset($params["app"]);
+        $napps = [];
+        if (Is::nemstr($apps)) {
+            $napps = Vcom::fixVcomList($apps);
+        } else if (Is::nemarr($apps)) {
+            if (Is::indexed($apps)) {
+                $napps = Vcom::fixVcomList(...$apps);
+            } else if (Is::associate($apps)) {
+                $napps = Vcom::fixVcomList($apps);
+            }
+        }
+        //将筛选后的 业务组件库 添加到 $params["compound"]["spa"]["app"]
+        if (Is::nemarr($napps)) {
+            $params = Arr::extend($params, [
+                "compound" => [
+                    "spa" => [
+                        "app" => $napps
+                    ]
+                ]
+            ]);
+        }
+
+        //实例化 View 返回 html
+        return static::page($page, $params);
     }
 
 

@@ -147,6 +147,22 @@ class Cdn extends Compound
      */
 
     /**
+     * 处理 输出 Vue 库资源时可能出现的  module is not defined 错误
+     * @return $this
+     */
+    protected function fixModuleNotDefinedBeforeExport()
+    {
+        $js = $this->content;
+
+        $js = str_replace("\"use strict\";","",$js);
+        $js = "const module={};".$js;
+        $js = "\"use strict\";".$js;
+
+        $this->content = $js;
+        return $this;
+    }
+
+    /**
      * 针对 Vue UI 库的 css 资源，处理其中可能存在的 icon-font 路径
      * @return $this
      */

@@ -9,9 +9,7 @@
     },
 
     "required": [
-        "button", "icon", "logo",
-        "jsoner-*",
-        "el-*"
+        "icon"
     ],
     "loadmode": {
         "basic": [
@@ -31,12 +29,20 @@
                 "esm-browser": {
                     "comment": "输出使用 ESM 导出的插件定义代码，所有组件都被定义为全局组件，外部只需要 use 此插件即可完成环境准备",
                     "params": {}
+                },
+                "iconset": {
+                    "comment": "如果组件库使用了一个或多个本地图标库，则输出图标库对应的创建雪碧图的 JS 语句",
+                    "param": {}
                 }
             },
 
             "css": {
                 "default": {
                     "comment": "输出组件库样式文件，已应用主题，以及组件库指定的需要合并的所有样式文件",
+                    "params": {}
+                },
+                "iconset": {
+                    "comment": "如果组件库使用了一个或多个本地图标库，则输出图标库对应的样式文件",
                     "params": {}
                 }
             },

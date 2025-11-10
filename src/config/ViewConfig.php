@@ -48,45 +48,91 @@ class ViewConfig extends Configer
             "type" => "image/svg+xml",
         ],
 
-        //theme 视图使用的 SPF-Theme 主题
-        "theme" => [
-            //是否启用 SPF-Theme 主题
-            "enable" => true,
-            //主题名称
-            "name" => "spf",
-            //是否启用 暗黑模式
-            "darkmode" => true,
-            
+        /**
+         * 视图使用的 复合前端资源
+         * 需要单独解析的
+         */
+        "compound" => [
+            //视图使用的 符合前端资源 强制刷新开关 ==true 表示所有的依赖的复合资源全部忽略缓存，适用于更新依赖资源
+            "create" => false,
+
             /**
-             * 可以分别指定 明|暗 模式下的 theme 输出的 mode
-             * 例如指定了 mode["dark"] = "foo,bar" 则：
-             *      在 暗黑模式下，输出的 css 地址为 /[app_name/]src/theme/[theme_name].min.css?mode=foo,bar
-             * 
-             * 如果未启用 暗黑模式，则默认使用 light 模式中指定的 mode
+             * 视图使用的 统一 Vcom|Vcom3 Vue 组件库 SPA 环境
+             * !! 如果启用了统一 SPA 环境，则不再解析下方的 theme|iconset 直接通过 Vcom|Vcom3 引入主题和图标库
              */
-            "mode" => [
-                "light" => "light",
-                "dark" => "dark",
+            "spa" => [
+                //默认不启动，需要时开启
+                "enable" => false,
+                /**
+                 * SPA 环境的基础组件库
+                 * !! 此组件库中必须包含 theme|iconset 
+                 */
+                "base" => [
+                    //基础 Vcom|Vcom3 组件库 *.[vcom|vcom3].json 文件真实路径，!! 不可省略后缀名
+                    "file" => "spf/assets/vcom/spf.vcom.json",
+                    //组件库资源实例化参数，与 Vcom|Vcom3::$stdParams 格式一致
+                    "params" => [],
+                ],
+                /**
+                 * 在 SPA 环境基础上，可使用 业务组件库
+                 * !! 必须与 基础环境的 Vcom 版本一致
+                 * !! 可以使用多个 业务组件库
+                 */
+                "app" => [
+                    /*
+                    "foo" => [
+                        "file" => "src/app_foo/vcom/foo.vcom.json",
+                        "params" => [],
+                    ],
+                    ...
+                    */
+                ],
             ],
 
             /**
-             * 可以指定 使用的 主题相关的 scss 文件
-             * 这些文件，必须在主题中已定义
-             * 默认 all
+             * 视图使用的 SPF-Theme 主题
              */
-            "use" => "all",
+            "theme" => [
+                //是否启用主题
+                "enable" => true,
+                //主题的 *.theme.json 文件真实路径，可以省略 .theme.json 后缀名
+                "file" => "spf/assets/theme/spf",
+                //主题资源实例化参数，与 Theme::$stdParams 格式一致
+                "params" => [
+                    //主题模式，可选 light|dark|light,mobile|dark,mobile|...
+                    "mode" => "light",
+                ],
+            ],
+
+            /**
+             * 视图使用的 SPF-Icon 图标库
+             */
+            "iconset" => [
+                //图标库的 *.icon.json 文件真实路径，可以省略 .icon.json 后缀名
+                "spf/assets/icon/spf",
+                //可以指定多个
+                //...
+            ],
         ],
 
-        //icon 视图使用的 SPF-Theme icon 图标库，可以同时使用多个图标库
-        "iconset" => [
-            //默认使用 spf 图标库
-            "spf",
+        /**
+         * 视图使用的 静态 css|js 外部文件
+         * 在 head 段通过 link|script 引入
+         * 按顺序依次引入，可以有多个，
+         * 不同类型文件都在此数组中指定，自动识别
+         * !! 引用的 js 不能使用 esm 形式 
+         */
+        "static" => [
+            //指定完整的 css|js url
         ],
 
-        //css 样式文件
-        "css" => [
-            //"css 文件的 url 通常为 /src/foo/bar.css 形式",
-            //...
+        /**
+         * 视图使用的 动态 scss|js 本地资源
+         * scss 资源中可能使用了 主题参数，需要通过 SPF-Theme 主题资源实例 merge 合并引入
+         * !! 按顺序 merge 进 SPF-Theme 资源实例中
+         */
+        "merge" => [
+            //指定真实存在的 scss|js 本地文件路径
         ],
 
         //meta 相关

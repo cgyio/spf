@@ -255,22 +255,14 @@ class Compound extends Resource
         //子资源 ext
         $ext = $this->ext;
 
-        //是否启用缓存
-        $cacheEnabled = $this->cacheEnabled();
-        //是否传入 create 参数强制忽略缓存
-        $cacheIgnored = $this->cacheIgnored();
-
         //解析子资源参数，查找|创建 资源内容
         $type = $opts["type"] ?? "static";
 
         //针对 dynamic 动态子资源
         if ($type === "dynamic") {
 
-            //此 子资源单独定义的 disableCache 不启用缓存 标记
-            $cacheDisabled = $opts["disableCache"] ?? false;
-            if (!is_bool($cacheDisabled)) $cacheDisabled = false;
             //首先尝试读取缓存
-            if ($cacheEnabled === true && $cacheIgnored !== true && $cacheDisabled !== true) {
+            if ($this->cacheNeeded("read") === true) {
                 $cache = $this->cacheGetContent();
                 if (!is_null($cache)) {
                     //读取到缓存内容，直接使用
@@ -299,15 +291,15 @@ class Compound extends Resource
     //CreateContent 调用 subResource 子资源实例，生成最终输出的 content
     public function stageCreateContent($params=[])
     {
-        //是否启用缓存
-        $cacheEnabled = $this->cacheEnabled();
-        //是否传入 create 参数强制忽略缓存
-        $cacheIgnored = $this->cacheIgnored();
+        //是否需要读缓存
+        $cacheNeedRead = $this->cacheNeeded("read");
+        //是否需要写缓存
+        $cacheNeedSave = $this->cacheNeeded("save");
 
         //调用子资源实例，生成要输出的 content
         $subres = $this->subResource;
-        if (!$subres instanceof Resource && !($cacheEnabled === true && $cacheIgnored !== true) ) {
-            //不启用缓存  或  强制忽略缓存时  子资源实例必须创建
+        if (!$subres instanceof Resource && $cacheNeedRead !== true ) {
+            //不需要读缓存时 子资源实例必须创建
             throw new SrcException("当前复合资源 ".$this->resBaseName()." 中的子文件 ".$this->resExportBaseName()." 无法创建资源实例", "resource/getcontent");
         }
 
@@ -323,12 +315,8 @@ class Compound extends Resource
                 $this->content = "";
             }
     
-            //针对 dynamic 动态子资源，需要写入缓存
-            $type = $this->subResourceOpts["type"] ?? "static";
-            //此 子资源单独定义的 不启用缓存 标记
-            $cacheDisabled = $this->subResourceOpts["disableCache"] ?? false;
-            if (!is_bool($cacheDisabled)) $cacheDisabled = false;
-            if ($type === "dynamic" && $cacheEnabled === true && $cacheDisabled !== true) {
+            //如果需要写入缓存
+            if ($cacheNeedSave === true) {
                 //写入缓存
                 $this->cacheSaveContent();
             }
@@ -405,6 +393,54 @@ class Compound extends Resource
 
 
     /**
+     * 按层级尝试调用 子资源的 create 方法
+     * 例如：请求 export=js&file=default  对应的 default 子资源类型为 dynamic  则依次尝试调用下列方法：
+     *      createDynamicJsDefaultSubResource
+     *      createDynamicJsSubResource
+     *      createDynamicSubResource
+     * 如果方法存在，则调用，将 生成 子资源实例 缓存到 $this->subResource 
+     * @return $this
+     */
+    protected function createSubResource()
+    {
+        //子资源名称
+        $fn = $this->subResourceName;
+        //子资源 描述参数
+        $opts = $this->subResourceOpts;
+        $type = $opts["type"] ?? "static";
+        //子资源 ext
+        $ext = $this->ext;
+
+        //依次在当前资源实例中，查找下列方法，找到则执行，将生成的子资源实例 缓存到 subResource 属性
+        $mtp = Str::camel($type, true);     // Static|Dynamic
+        $mex = Str::camel($ext, true);      // Js|Css|Scss... 
+        $mfn = Str::camel($fn, true);       // Defaulr|FooBar... 
+        $ms = [];
+        $ms[] = $mtp.$mex.$mfn;
+        $ms[] = $mtp.$mex;
+        $ms[] = $mtp;
+        //依次查找方法
+        foreach ($ms as $mi) {
+            $m = "create".$mi."SubResource";
+            if (method_exists($this, $m)) {
+                $this->$m();
+                break;
+            }
+        }
+
+        //检查 subResource 子资源实例是否被 正确的 创建
+        $subres = $this->subResource;
+        if (!$subres instanceof Resource) {
+            //子资源实例创建失败
+            throw new SrcException("当前复合资源 ".$this->resBaseName()." 中的子文件 ".$this->resExportBaseName()." 无法创建资源实例", "resource/getcontent");
+        }
+
+        return $this;
+    }
+
+
+
+    /**
      * 工具方法 解析复合资源内部 子资源参数，查找|创建 子资源内容
      * 根据  子资源类型|子资源ext|子资源文件名  分别制定对应的解析方法
      * !! Compound 子类可覆盖此方法
@@ -439,12 +475,12 @@ class Compound extends Resource
 
         //子资源实例化参数
         $ps = $opts["params"] ?? [];
-        $ps = Arr::extend([
+        $ps = $this->fixSubResParams(Arr::extend([
             //belongTo
             "belongTo" => $this,
             //不忽略 $_GET
             "ignoreGet" => false,
-        ], $ps);
+        ], $ps));
 
         //创建子资源实例
         //var_dump($fp);var_dump($ps);
@@ -483,14 +519,14 @@ class Compound extends Resource
         $jsres = Resource::manual(
             "",
             "".$this->resExportBaseName()."",
-            [
+            $this->fixSubResParams([
                 //belongTo
                 "belongTo" => $this,
                 //不忽略 $_GET
                 "ignoreGet" => false,
                 //min
                 "min" => $this->params["min"] ?? false,
-            ]
+            ])
         );
         //通过 RowProcessor 写入内容行
         $rower = $jsres->RowProcessor;
@@ -595,8 +631,8 @@ class Compound extends Resource
         }
         $defs = $defs[$exp];
         //要访问的 子资源文件名，在 desc["content"][version][ext] 数组中定义
-        $fn = $ps["file"] ?? "default";
-        if (!isset($defs[$fn]) || !Is::nemarr($defs[$fn])) {
+        $fn = $ps["file"] ?? (Is::nemstr($this->subResourceName) ? $this->subResourceName : "default");
+        if (!isset($defs[$fn]) || !is_array($defs[$fn])) {
             //要访问的文件名 未在 desc["content"][version][ext] 中定义
             throw new SrcException("当前复合资源 ".$this->resBaseName()." 中未定义名称为 ".$this->resExportBaseName()." 的资源参数", "resource/getcontent");
         }
@@ -616,7 +652,7 @@ class Compound extends Resource
 
     /**
      * 判断当前请求的资源是否启用了缓存
-     * @return Bool
+     * @return Bool 默认 true
      */
     final public function cacheEnabled()
     {
@@ -630,13 +666,53 @@ class Compound extends Resource
 
     /**
      * 判断当前 params 参数中 是否指定强制忽略缓存
-     * @return Bool
+     * @return Bool 默认 false
      */
     final public function cacheIgnored()
     {
         $cacheIgnored = $this->params["create"] ?? false;
         if (!is_bool($cacheIgnored)) $cacheIgnored = false;
         return $cacheIgnored;
+    }
+
+    /**
+     * 判断当前请求的 子资源参数 subResourceOpts 中是否定义了 disableCache
+     * @return Bool 默认 false
+     */
+    final public function cacheDisabled()
+    {
+        //$cacheEnabled = $this->cacheEnabled();
+        $opts = $this->subResourceOpts;
+        if (!Is::nemarr($opts)) $opts = [];
+        //子资源类型 
+        $type = $this->resSubResourceType();
+        //只有 dynamic 动态子资源，才会有 disableCahce 参数
+        if ($type !== "dynamic") return false;
+        $disabled = $opts["disableCache"] ?? false;
+        if (!is_bool($disabled)) return false;
+        return $disabled;
+    }
+
+    /**
+     * 判断当前请求的子资源，是否需要 从缓存中读取|写入缓存文件
+     * @param String $opr 操作方式 read|save  读取|写入 
+     * @return Bool
+     */
+    final public function cacheNeeded($opr="read")
+    {
+        $cacheEnabled = $this->cacheEnabled();
+        $cacheIgnored = $this->cacheIgnored();
+        $cacheDisabled = $this->cacheDisabled();
+        //子资源类型
+        $type = $this->resSubResourceType();
+        //只有 dynamic 类型子资源才会读取缓存
+        if ($type !== "dynamic") return false;
+
+        //分别判断 读取|写入 操作是否需要执行
+        if ($opr === "read") return $cacheEnabled && !$cacheIgnored && !$cacheDisabled;
+        if ($opr === "save") return $cacheEnabled && !$cacheDisabled;
+
+        return false;
     }
 
     /**
@@ -723,55 +799,8 @@ class Compound extends Resource
 
 
     /**
-     * 按层级尝试调用 子资源的 create 方法
-     * 例如：请求 export=js&file=default  对应的 default 子资源类型为 dynamic  则依次尝试调用下列方法：
-     *      createDynamicJsDefaultSubResource
-     *      createDynamicJsSubResource
-     *      createDynamicSubResource
-     * 如果方法存在，则调用，将 生成 子资源实例 缓存到 $this->subResource 
-     * @return $this
-     */
-    protected function createSubResource()
-    {
-        //子资源名称
-        $fn = $this->subResourceName;
-        //子资源 描述参数
-        $opts = $this->subResourceOpts;
-        $type = $opts["type"] ?? "static";
-        //子资源 ext
-        $ext = $this->ext;
-
-        //依次在当前资源实例中，查找下列方法，找到则执行，将生成的子资源实例 缓存到 subResource 属性
-        $mtp = Str::camel($type, true);     // Static|Dynamic
-        $mex = Str::camel($ext, true);      // Js|Css|Scss... 
-        $mfn = Str::camel($fn, true);       // Defaulr|FooBar... 
-        $ms = [];
-        $ms[] = $mtp.$mex.$mfn;
-        $ms[] = $mtp.$mex;
-        $ms[] = $mtp;
-        //依次查找方法
-        foreach ($ms as $mi) {
-            $m = "create".$mi."SubResource";
-            if (method_exists($this, $m)) {
-                $this->$m();
-                break;
-            }
-        }
-
-        //检查 subResource 子资源实例是否被 正确的 创建
-        $subres = $this->subResource;
-        if (!$subres instanceof Resource) {
-            //子资源实例创建失败
-            throw new SrcException("当前复合资源 ".$this->resBaseName()." 中的子文件 ".$this->resExportBaseName()." 无法创建资源实例", "resource/getcontent");
-        }
-
-        return $this;
-    }
-
-
-
-    /**
      * 工具方法 getters 资源信息获取
+     * !! 如果需要，Compound 子类可覆盖这些方法
      */
 
     /**
@@ -786,7 +815,6 @@ class Compound extends Resource
 
     /**
      * 复合资源必须覆盖 Resource 父类的 resName 方法，获取资源名称
-     * !! 如果需要，Compound 子类可覆盖这个方法
      * @return String 当前资源的 名称 foo_bar 形式
      */
     public function resName()
@@ -817,7 +845,6 @@ class Compound extends Resource
 
     /**
      * 如果此复合资源 启用了版本控制，需要定义 获取当前版本的 方法
-     * !! 子类可覆盖此方法
      * @return String|null 版本号字符串 1.0.0  2.17.53 等形式的 字符串，对应着实际存在的 文件夹
      */
     public function resVersion()
@@ -865,6 +892,20 @@ class Compound extends Resource
     }
 
     /**
+     * 获取当前请求的子资源类型
+     * @return String 可能是 static|dynamic
+     */
+    public function resSubResourceType()
+    {
+        //子资源类型
+        $opts = $this->subResourceOpts;
+        if (!Is::nemarr($opts)) $opts = [];
+        $type = $opts["type"] ?? "static";
+        if (!Is::nemstr($type) || !in_array(strtolower($type), ["static", "dynamic"])) $type = "static";
+        return strtolower($type);
+    }
+
+    /**
      * 查找并获取 本地库 内部实际存在的 文件，返回资源实例
      * @return Resource|null
      */
@@ -903,7 +944,68 @@ class Compound extends Resource
     }
 
     /**
-     * 在当前请求的 复合资源 url 基础上创建新 url 实例
+     * 返回当前请求的 params 中 与 stdParams 不同的 参数数组
+     * @param Array $params 可以修改当前资源的 params 数组，得到与 stdParams 不同的 参数数组
+     * @return Array
+     */
+    public function resCustomParams($params=[])
+    {
+        $std = static::$stdParams;
+        //处理 params
+        if (Is::nemarr($params)) {
+            $ps = Arr::extend([], $this->params, $params, true);    //indexed数组覆盖
+        } else {
+            $ps = $this->params;
+        }
+        $nps = [];
+        foreach ($ps as $k => $v) {
+            if (!isset($std[$k]) && !is_null($std[$k])) {
+                $nps[$k] = $v;
+                continue;
+            }
+            if ($std[$k] === $v) continue;
+            $nps[$k] = $v;
+        }
+        return $nps;
+    }
+
+    /**
+     * 将 resCustomParams 数组转换为 url 参数形式
+     * @param Array $params 可以修改当前资源的 params 数组，得到与 stdParams 不同的 参数数组
+     * @return String 不带 ? 开头的 url query-string
+     */
+    public function resCustomParamsQs($params=[])
+    {
+        $qa = $this->resCustomParams($params);
+        if (!Is::nemarr($qa)) return "";
+        return Conv::a2u($qa);
+    }
+
+    /**
+     * 获取当前复合资源的 请求 url
+     * !! Url::current() 不一定是当前复合资源的请求 url
+     * @param String $file 可以指定此资源 url 的下一级 文件名，默认不指定，使用 resBaseName()
+     * @param Array $params 可以指定修改此资源的 params 参数，将影响生成的 url query-string，默认 []
+     * @return String url
+     */
+    public function resUrlSelf($file=null, $params=[])
+    {
+        $pather = $this->PathProcessor;
+        $basename = $this->resBaseName();
+        if (Is::nemstr($file)) {
+            $url = $pather->innerUrl($file, false);
+        } else {
+            $url = $pather->url($basename, false);
+        }
+        //获取 query-string
+        $qs = $this->resCustomParamsQs($params);
+        //生成 url
+        $url = $url.(Is::nemstr($qs) ? "?".$qs : "");
+        return $url;
+    }
+
+    /**
+     * 在当前请求的 复合资源 url 基础上创建新 url 实例，通常用于访问此复合资源内部其他子资源
      * 例如：
      *      当前请求的复合资源 url：https://host/src/foo/bar/jaz.vcom?export=css&mode=mini
      *          调用 resUrlMk("default.js?mode=full") 将得到新 url ：
@@ -996,6 +1098,53 @@ class Compound extends Resource
 
 
     /**
+     * 工具方法
+     */
+
+    /**
+     * 创建空内容的 资源实例
+     * @param String $ext 资源格式
+     * @param Array $params 实例化参数
+     * @return Resource
+     */
+    public function tempRes($ext, $params=[])
+    {
+        $fn = $this->resBaseName().".".$ext;
+        if (!Is::nemarr($params)) $params = [];
+        $params = Arr::extend([
+            "ext" => $ext,
+            "ignoreGet" => true,
+            "export" => $ext,
+        ], $params);
+        return Resource::manual(
+            "",
+            $fn,
+            $params
+        );
+    }
+
+    /**
+     * 处理子资源实例化参数
+     * @param Array $params
+     * @return Array 处理后的 子资源实例化参数
+     */
+    public function fixSubResParams($params=[])
+    {
+        if (!Is::nemarr($params)) $params = [];
+        //如果复合资源的 create === true 则所有子资源都设为 create === true
+        $create = $this->params["create"] ?? false;
+        if (!is_bool($create)) $create = false;
+        
+        //indexed 类型参数使用覆盖方式 合并
+        return Arr::extend([
+            "ignoreGet" => true,
+            "create" => $create,
+        ], $params, true);
+    }
+
+
+
+    /**
      * 静态工具
      */
 
@@ -1017,6 +1166,7 @@ class Compound extends Resource
      * 定义处理 复合资源请求的 代理响应方法，在 Src 模块中，可使用此方法，响应前端请求
      * !! Compound 子类可以覆盖此方法，实现各自特有的 响应代理方法
      * @param Array $args 前端请求 URI 数组
+     *              !! args 最后一个参数可以是 bool 表示是否忽略子类覆盖定义的 responseProxyer 方法
      * @return Mixed 
      */
     public static function responseProxyer(...$args)
@@ -1034,8 +1184,15 @@ class Compound extends Resource
             return null;
         }
 
+        //是否忽略子类中覆盖定义的 proxyer
+        $ignoreOverride = false;
+        if (is_bool(array_slice($args, -1)[0])) {
+            $ignoreOverride = array_slice($args, -1)[0];
+            $args = array_slice($args, 0, -1);
+        }
+
         //判断子类是否 重写了这个方法
-        if (Cls::isMethodOverride($comCls, "responseProxyer", Compound::class) === true) {
+        if ($ignoreOverride !== true && Cls::isMethodOverride($comCls, "responseProxyer", Compound::class) === true) {
             //子类重写了此方法，调用子类方法
             return $comCls::responseProxyer(...$args);
         }

@@ -131,7 +131,7 @@ class Vue extends Codex
         //组件库定义的 组件名称前缀，通常用于 style 样式代码中的 样式类名称
         "__PRE__" => "pre",
         //用于组件模板代码块中，代替 组件名称前缀，以便可以方便的 在不同的使用场景下，切换组件名称前缀
-        //例如：<PRE@button>...</PRE@button> 替换为 <pre-button>...</pre-button>
+        //例如：<PRE@-button>...</PRE@-button> 替换为 <pre-button>...</pre-button>
         "PRE@" => "pre",
         //此组件的 名称 pre-foo-bar 形式，用于 js 代码中
         "__VCN__" => "vcn",

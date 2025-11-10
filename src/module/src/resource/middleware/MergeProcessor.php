@@ -86,7 +86,7 @@ class MergeProcessor extends Processor
 
         //处理 $res->params["merge"]
         $mgs = $res->params["merge"] ?? [];
-        if (Is::nemstr($mgs) || $mgs==="") $mgs = $mgs==="" ? [] : Arr::mk($mgs);
+        if (Is::nemstr($mgs) || $mgs==="") $mgs = $mgs==="" ? [] : explode(",", $mgs);  //Arr::mk($mgs);
         $res->params["merge"] = $mgs;
 
         //执行一次 setMergeParams 将资源类中定义的 $dftMergeParams 写入 $this->mergeParams
@@ -477,6 +477,7 @@ class MergeProcessor extends Processor
         if (Is::nemstr($res)) {
             //传入了 文件名 | 文件路径，使用 PathProcessor 处理路径
             $pather = $this->PathProcessor;
+            //var_dump($res);
             if (strpos($res,".")===false) {
                 foreach ($allow as $aext) {
                     $fp = $pather->fixMergeFilePath($res, $aext);

@@ -9,6 +9,7 @@ namespace Spf\module;
 use Spf\App;
 use Spf\Response;
 use Spf\Module;
+use Spf\View;
 use Spf\module\src\Resource;
 use Spf\module\src\ResourceSeeker;
 use Spf\module\src\Fs;
@@ -112,6 +113,32 @@ class Src extends Module
     {
         //调用 Fs::response 方法 代理此请求
         return Fs::response(...$args);
+    }
+
+    /**
+     * view
+     * @desc 视图测试页面
+     * @auth false
+     * 
+     * @param Array $args url 参数
+     * @return Mixed
+     */
+    public function tstView(...$args)
+    {
+        //return View::page("spf/assets/view/default.php", [
+        //    "foo" => "test view",
+        //]);
+
+        return [
+            //指定使用 SPA 环境的 视图页面  静态方法@视图页面路径
+            "view" => "SpaVue2x@spf/assets/view/spa_vue2x.php",
+            "params" => [
+                //指定当前 SPA 页面要使用的 业务组件库
+                "app" => "spf/assets/vcom/app",
+                //额外参数
+                "spa_foo" => "spa is enabled"
+            ],
+        ];
     }
 
 

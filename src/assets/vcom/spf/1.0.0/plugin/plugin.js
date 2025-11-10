@@ -1,8 +1,12 @@
 /**
  * Vue 2.* 插件 base
- * CGY-VUE 基础插件
+ * spf.vcom 基础组件库 插件
  * 
  * 入口，提供 install 方法
+ * 
+ * 依赖的库：
+ *      Vue         2.*
+ *      cgy         /src/lib/cgy/default.min.js?module=tagprint
  */
 
 //需要 cgy.core.js 支持
@@ -12,21 +16,18 @@
 //需要 vue.2.7.9 支持
 //console.log(Vue);
 
-import cgy from '/src/lib/cgy.min.js';
+import cgy from '/src/lib/cgy/default.min.js?module=tagprint';
 
 import globalMethods from 'plugin/global';
 import mixin from 'plugin/mixin';
 import instanceMethods from 'plugin/instance';
 import directive from 'plugin/directive';
 
-//加载此插件需要的 components 组件库，可加载多个组件库
-import comps from '__URLPRE__.js';
-
-import mixinEvtBus from 'mixins/evt-bus';
-import mixinUiBase from 'mixins/ui-base';
-import mixinUsrBase from 'mixins/usr-base';
-import mixinNavBase from 'mixins/nav-base';
-import mixinDbBase from 'mixins/db-base';
+import mixinEvtBus from 'mixin/evt-bus';
+import mixinUiBase from 'mixin/ui-base';
+import mixinUsrBase from 'mixin/usr-base';
+import mixinNavBase from 'mixin/nav-base';
+import mixinDbBase from 'mixin/db-base';
 
 //cgy 挂到 window 上
 window.cgy = cgy;
@@ -38,7 +39,7 @@ bs.install = function(Vue, options = {}) {
     cgy.def(Vue, {
         cgy,
         host: window.location.href.split('://')[0]+'://'+window.location.href.split('://')[1].split('/')[0],
-        lib: 'https://io.cgy.design',
+        //lib: 'https://io.cgy.design',
         
         //根组件实例
         $root: {
@@ -67,8 +68,6 @@ bs.install = function(Vue, options = {}) {
         baseOptions: {},
         //base 插件 init 序列
         baseInitSequence: [],
-
-
     });
 
     // 1. 添加全局方法或 property
@@ -89,13 +88,13 @@ bs.install = function(Vue, options = {}) {
     // 2. 添加全局资源
     //注册全局组件
     //先缓存 此插件使用的 组件库名称 到 baseOptions
-    Vue.baseOptions.globalComponents = ['base'];
+    /*Vue.baseOptions.globalComponents = ['base'];
     for (let [compn, compu] of Object.entries(comps)) {
         Vue.component(
             compn,
             ()=>import(compu)
         );
-    }
+    }*/
     //Vue.directive('my-directive', { } )
     if (!cgy.is.empty(directive)) {
         for (let dir in directive) {

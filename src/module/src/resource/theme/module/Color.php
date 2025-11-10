@@ -4,17 +4,19 @@
  * 主题 颜色系统 模块
  */
 
-namespace Spf\module\src\resource\theme;
+namespace Spf\module\src\resource\theme\module;
 
+use Spf\module\src\Resource;
 use Spf\module\src\SrcException;
+use Spf\module\src\resource\theme\Module;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
 use Spf\util\Path;
 use Spf\util\Conv;
-use Spf\util\Color;
+use Spf\util\Color as ColorUtil;
 
-class ThemeColorModule extends ThemeModule 
+class Color extends Module
 {
     /**
      * 定义 此主题模块的 key
@@ -27,7 +29,7 @@ class ThemeColorModule extends ThemeModule
      * !! 覆盖父类
      */
     //此模块完整的 标准参数格式
-    protected static $stdCtx = [
+    protected static $stdDef = [
         //颜色分组
         "groups" => [
             //作为基本颜色的 颜色分组
@@ -69,6 +71,15 @@ class ThemeColorModule extends ThemeModule
             //加深|减淡 的级数
             "steps" => 3,
         ],
+
+        //alpha 透明度级数 9 表示透明度 a1~a9 = 10%~90% 所有颜色增加 9 级透明度
+        /**
+         * alpha 透明度级数
+         * 默认 9（最大） 表示透明度 a1~a9 = 10%~90% 所有颜色增加 9 级透明度
+         * 0 表示 不启用颜色透明度
+         * !! 不要使用其他 透明度级数，目前仅支持 0|9
+         */
+        "alpha" => 9,
 
         //通用 颜色参数
         "common" => [
@@ -141,11 +152,6 @@ class ThemeColorModule extends ThemeModule
                 "white"     => "#000000",
                 "black"     => "#ffffff",
             ],
-
-            //mobile 模式
-            "mobile" => [
-                //颜色完全与 common 一致...
-            ],
         ],
     ];
     //此模块中，某个 参数 item 的 标准参数格式
@@ -174,29 +180,34 @@ class ThemeColorModule extends ThemeModule
     ];
     //此模块中，所有 参数 item 的分组类型
     protected static $stdGroups = [
-        //"base", "static", "custom", 
+        "base", "static", "custom", 
     ];
-    //是否已与 ThemeModule 基类合并了 $stdFoobar
-    protected static $stdMerged = false;
-    //定义此模块的 默认 mode 模式，通常为 light
-    protected static $dftMode = "light";
+    //定义此模块支持的 mode 模式列表
+    protected static $stdModes = [
+        "light", "dark",
+    ];
 
-    
+
 
     /**
-     * 创建 SCSS 变量定义语句 rows
-     * !! 覆盖父类
-     * @param Array $ctx 当前输出的主题参数 context 中此模块的参数 context["module_name"]
-     * @return Theme 返回生成 rows 缓存后的 主题实例
+     * createExtContentRows
+     * !! 子类必须实现
+     * @param Array $ctx 要输出的 主题参数数组，通常来自于 $this->getItemByMode() 方法
+     * @param RowProcessor $rower 临时资源的 内容行处理器
+     * @return RowProcessor
      */
-    public function createScssVarsDefineRows($ctx)
+    //createScssContentRows
+    protected function createScssContentRows($ctx=[], &$rower)
     {
-        //主题实例
-        $theme = $this->theme;
-
-        //生成 颜色系统模块的 SCSS 变量定义语句，保存到 $theme->rows 缓存
+        //颜色系统经过处理的 conf 参数
         $conf = $this->origin;
 
+        /**
+         * 生成 SCSS 序列变量定义语句
+         *      $colorShiftQueue        d3,d2,d1,m,l1,l2,l3         颜色自动变化级数，最大级数，有些颜色可能不会 shift 这些级数
+         *      $colorListFooBar        red,blue,danger,...         某个颜色组 group 中包含的所有颜色 item-key
+         *      $colorListAll           red,blue,yellow,danger,...  所有颜色
+         */
         // 0    生成 $colorListGroupName 列表变量，例如：$colorListBase
         $groups = $conf["groups"] ?? [];
         $allitems = [];
@@ -209,12 +220,12 @@ class ThemeColorModule extends ThemeModule
             $vk = "colorList".Str::camel($grk, true);
             //变量值 item 名称数组
             $vv = $gritems;
-            //调用 $theme->rowDef() 方法 生成 变量 定义语句
-            $theme->rowDef($vk, $vv);
+            //调用 $rower->rowDef() 方法 生成 变量 定义语句
+            $rower->rowDef($vk, $vv);
         }
 
         // 1    生成 $colorListAll 变量
-        if (Is::nemarr($allitems)) $theme->rowDef("colorListAll", $allitems);
+        if (Is::nemarr($allitems)) $rower->rowDef("colorListAll", $allitems);
 
         // 2    生成 $colorShiftQueue
         //获取 color 模块最终输出参数的 shift 级数
@@ -225,33 +236,80 @@ class ThemeColorModule extends ThemeModule
                 array_unshift($que, "l".$i);
                 $que[] = "d".$i;
             }
-            $theme->rowDef("colorShiftQueue", $que);
+            $rower->rowDef("colorShiftQueue", $que);
         }
         //空行
-        $theme->rowEmpty(1);
+        $rower->rowEmpty(1);
 
-        // 3    生成 $color-item-m 变量
+        // 3    生成透明度级数 $colorAlphaMap
+        $alvls = $conf["alpha"] ?? 9;   //默认启用
+        if (is_int($alvls) && $alvls===9) {
+            //!! 目前仅支持：透明度级数 只能是 0 或 9
+            $als = [];
+            $rower->rowAdd("\$colorAlphaMap: (", "");
+            for ($i=1;$i<=$alvls;$i++) {
+                $alk = "a".$i;
+                $alv = round($i*0.1*255);
+                $alv = dechex((int)$alv);
+                if (strlen($alv)<2) $alv = "0".$alv;
+                //定义
+                $rower->rowAdd("$alk: $alv,","");
+                //添加到 colorListAlpha
+                $als[] = $alk;
+            }
+            $rower->rowAdd(");", "");
+            //定义 $colorListAlpha
+            $rower->rowDef("colorListAlpha", $als);
+            //空行
+            $rower->rowEmpty(1);
+        }
+
+        // 4    生成 $color-item-m 变量
         $flat = Arr::flat($ctx, "-");
         foreach ($flat as $vk => $vv) {
-            $theme->rowDef("color-".$vk, $vv);
+            $rower->rowDef("color-".$vk, $vv);
         }
         //空行
-        $theme->rowEmpty(1);
+        $rower->rowEmpty(1);
 
-        // 4    生成 $color-map: ( ... );
-        $theme->rowAdd("\$color-map: (", "");
+        // 5    生成 $color-map: ( ... );
+        $rower->rowAdd("\$colorMap: (", "");
         foreach ($flat as $vk => $vv) {
-            $theme->rowDef($vk, $vv, [
+            $rower->rowDef($vk, $vv, [
                 "prev" => "",
                 "rn" => ",",
             ]);
         }
-        $theme->rowAdd(");", "");
+        $rower->rowAdd(");", "");
         //空行
-        $theme->rowEmpty(1);
+        $rower->rowEmpty(1);
 
-        return $theme;
+        //SCSS 语句 需要包含 css 变量定义语句
+        return $this->createCssContentRows($ctx, $rower);
     }
+    //createCssContentRows
+    protected function createCssContentRows($ctx=[], &$rower)
+    {
+        /**
+         * 定义 css 颜色变量语句
+         */
+        $rower->rowAdd(":root {", "");
+        $flat = Arr::flat($ctx, "-");
+        foreach ($flat as $vk => $vv) {
+            $rower->rowDef("--color-".$vk, $vv, ["prev" => ""]);
+        }
+        $rower->rowAdd("}", "");
+        //空行
+        $rower->rowEmpty(1);
+
+        return $rower;
+    }
+
+
+
+    /**
+     * 静态方法
+     */
 
     /**
      * 判断给定的 值 是否可以作为 当前模块的 参数 item 的 值
@@ -262,9 +320,15 @@ class ThemeColorModule extends ThemeModule
     public static function isItemValue($val)
     {
         //合法的 颜色参数值，只能是 合法的 颜色字符串  #ffffff | rgba() | hsl() ...
-        if (false === Color::isColorString($val)) return false;
+        if (false === ColorUtil::isColorString($val)) return false;
         return $val;
     }
+
+
+
+    /**
+     * auto-shift 静态方法
+     */
 
     /**
      * 处理 某个 参数 item 的 auto shift
@@ -306,7 +370,7 @@ class ThemeColorModule extends ThemeModule
         $sts = $shift["steps"];
         $isDark = $conf["dark"] ?? false;
         //调用 Color 工具方法
-        $nval = Color::autoShift($oval, $lvl["max"], $lvl["min"], $sts, $isDark);
+        $nval = ColorUtil::autoShift($oval, $lvl["max"], $lvl["min"], $sts, $isDark);
         if (!Is::nemarr($nval)) {
             //处理发生错误
             return null;

@@ -1,13 +1,16 @@
 <?php
 /**
- * SPF-Theme 主题模块 基类
+ * SPF-Theme 主题子模块 基类
  * 主题中包含各种模块，例如：颜色系统模块，尺寸系统模块 等
  * 应基于此类
  */
 
 namespace Spf\module\src\resource\theme;
 
+use Spf\module\src\Resource;
+use Spf\module\src\Codex;
 use Spf\module\src\SrcException;
+use Spf\module\src\resource\Theme;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -15,7 +18,7 @@ use Spf\util\Path;
 use Spf\util\Conv;
 use Spf\util\Color;
 
-class ThemeModule 
+class Module
 {
     /**
      * 定义 此主题模块的 key
@@ -31,7 +34,7 @@ class ThemeModule
      * !! 子类必须覆盖
      */
     //此模块完整的 标准参数格式
-    protected static $stdCtx = [
+    protected static $stdDef = [
 
         //必须定义 参数 item 的 分组形式，其中必须包含所有 item key
         "groups" => [
@@ -106,13 +109,17 @@ class ThemeModule
     protected static $stdGroups = [
         "base", "static", "custom", 
     ];
-    //是否已与 ThemeModule 基类合并了 $stdFoobar
+    //定义此模块支持的 mode 模式列表
+    protected static $stdModes = [
+        "light", "dark", //...
+    ];
+    //是否已与 Module 基类合并了 $stdXxxx 默认参数
     protected static $stdMerged = false;
-    //定义此模块的 默认 mode 模式，通常为 light
-    protected static $dftMode = "light";
+    //定义此模块的 默认 mode 模式，不指定则使用 stdModes[0]
+    protected static $dftMode = "";
 
     /**
-     * 缓存 传入的 主题文件中的 此主题模块的 设置数据，已格式化为 stdCtx 格式
+     * 缓存 传入的 主题文件中的 此主题模块的 设置数据，已格式化为 stdDef 格式
      */
     protected $origin = [];
 
@@ -146,10 +153,13 @@ class ThemeModule
      */
     final public function __construct($conf=[], $theme=null)
     {
+        if (!$theme instanceof Theme) return null;
+        if (!Is::nemarr($conf)) $conf = [];
+
         //先合并 当前模块 和 模块基类的 $stdFoobar 标准数据结构
         static::mergeStd();
-        //使用 stdCtx 格式化 $conf
-        $conf = Arr::extend(static::$stdCtx, $conf);
+        //使用 stdDef 格式化 $conf
+        $conf = Arr::extend(static::$stdDef, $conf);
         //缓存
         $this->origin = $conf;
         $this->theme = $theme;
@@ -166,7 +176,7 @@ class ThemeModule
 
         $conf = $this->origin;
         //解析 主题设置内容
-        $ctx = static::parseStdCtx($conf);
+        $ctx = static::parseStdDef($conf);
 
         //开始执行 自动 shift 参数 item 值的 操作，如 颜色 加深|减淡 尺寸 增加|缩小
         $ctx = static::autoShift($ctx);
@@ -176,6 +186,37 @@ class ThemeModule
         //标记
         $this->parsed = true;
         return $this;
+    }
+
+    /**
+     * 获取当前主题子模块的 dftMode 默认 mode 模式
+     * @return String 
+     */
+    final public function getDftMode()
+    {
+        //预设支持的 modes 模式列表
+        $modes = static::$stdModes;
+        //预设的 dftMode
+        $dftm = static::$dftMode;
+        
+        //未指定则使用 modes[0]
+        if (!Is::nemstr($dftm)) return $modes[0];
+
+        //指定了不合法的 mode
+        if (!in_array($dftm, $modes)) return $modes[0];
+
+        return $dftm;
+    }
+
+    /**
+     * 此模块是否支持 给定的输出模式
+     * @param String $mode
+     * @return Bool
+     */
+    final public function supportMode($mode)
+    {
+        if (!Is::nemstr($mode)) return false;
+        return in_array($mode, static::$stdModes);
     }
 
     /**
@@ -193,7 +234,7 @@ class ThemeModule
         $ctx = $this->context;
         if (!Is::nemarr($ctx)) return [];
         //默认 mode 模式
-        $dftmode = static::$dftMode;
+        $dftmode = $this->getDftMode(); //static::$dftMode;
         $dftc = $ctx[$dftmode] ?? [];
         //获取 默认 mode 的 参数 value
         $rtn = $this->getItemsValue($dftc);
@@ -300,31 +341,133 @@ class ThemeModule
 
     /**
      * 获取 context 数据
+     * @param Array $nctx 指定此数组，则使用此数组替换 context
      * @return Array context 数据
      */
-    public function ctx() {
+    public function ctx($nctx=null) {
+        if (Is::nemarr($nctx)) $this->context = $nctx;
         return $this->context;
     }
 
-
-
     /**
-     * 资源内容创建方法
+     * 获取 conf 模块参数内容
+     * @return Array $this->origin
      */
-
-    /**
-     * 创建 SCSS 变量定义语句 rows
-     * !! 子类必须实现此方法
-     * @param Array $ctx 当前输出的主题参数 context 中此模块的参数 context["module_name"]
-     * @return Theme 返回生成 content 缓存后的 主题实例
-     */
-    public function createScssVarsDefineRows($ctx)
+    public function conf()
     {
-        //子类必须实现
-        //...
-        return $this->theme;
+        return $this->origin;
     }
 
+    /**
+     * 创建内部 临时 Codex 资源实例，通常用于生成内容行数组
+     * @param String $ext 资源后缀名
+     * @param Array $params 需要额外指定的 临时资源实例化参数
+     * @return Codex 资源实例
+     */
+    public function tempCodex($ext, $params=[])
+    {
+        if (!Is::nemarr($params)) $params = [];
+        $params = Arr::extend([
+            "ext" => $ext,
+            "belongTo" => null,
+            "ignoreGet" => true,
+            "import" => false,
+            "export" => $ext,
+        ], $params);
+
+        return Resource::manual(
+            "",
+            "SPF_Theme_temp.".$ext,
+            $params
+        );
+    }
+
+
+
+    /**
+     * 资源内容(代码行数组) 创建方法
+     * !! 如果需要，模块子类可覆盖此方法
+     * @param Array $ctx 要输出的 主题参数数组，通常来自于 $this->getItemByMode() 方法
+     * @param String $ext 内容代码类型 scss|css|js 默认 scss
+     * @param Array $params 需要额外指定的 临时资源实例化参数
+     * @return Array 内容行数组
+     */
+    public function createContentRows($ctx=[], $ext="scss", $params=[])
+    {
+        //创建一个临时 Codex 资源
+        $codex = $this->tempCodex($ext, $params);
+        //准备行数组
+        $rower = $codex->RowProcessor;
+        $rower->clearRows();
+
+        /**
+         * 调用对应的 createExtContentRows 方法
+         * 例如：createScssContentRows, createCssContentRows, ...
+         * !! 子类必须实现这些方法
+         */
+        $m = "create".Str::camel($ext, true)."ContentRows";
+        if (method_exists($this,$m)) {
+            $this->$m($ctx, $rower);
+            //输出 rows 行数组
+            $rows = array_merge([], $codex->rows);
+        } else {
+            $rows = [];
+        }
+
+        //释放临时资源
+        unset($codex);
+        //返回生成的 rows 行数组
+        return $rows;
+    }
+
+    /**
+     * createExtContentRows
+     * !! 子类必须实现
+     * @param Array $ctx 要输出的 主题参数数组，通常来自于 $this->getItemByMode() 方法
+     * @param RowProcessor $rower 临时资源的 内容行处理器
+     * @return RowProcessor
+     */
+    //createScssContentRows
+    protected function createScssContentRows($ctx=[], &$rower)
+    {
+        //子类实现...
+        return $rower;
+    }
+    //createCssContentRows
+    protected function createCssContentRows($ctx=[], &$rower)
+    {
+        //子类实现...
+        return $rower;
+    }
+    //createJsContentRows
+    protected function createJsContentRows($ctx=[], &$rower)
+    {
+        /**
+         * 将 ctx 转为 json 并使用 parse 语句
+         */
+        $json = Conv::a2j($ctx);
+        //js 变量名
+        $jsv = $this->key;
+        $rower->rowAdd("const $jsv = JSON.parse('".$json."');","");
+        $rower->rowEmpty(1);
+
+        return $rower;
+    }
+
+
+
+    /**
+     * 工具方法
+     */
+
+    /**
+     * 返回此主题模块 支持的 mode 输出模式列表 在 static::$stdModes 中定义
+     * @return Array
+     */
+    public function supportedModes()
+    {
+        return static::$stdModes;
+    }
 
 
 
@@ -333,7 +476,7 @@ class ThemeModule
      */
 
     /**
-     * 合并当前主题模块的 $stdFoobar 标准数据结构 到 ThemeModule 基类的 数据结构中，更新此模块的 $stdFoobar
+     * 合并当前主题模块的 $stdFoobar 标准数据结构 到 Module 基类的 数据结构中，更新此模块的 $stdFoobar
      * @return Bool
      */
     protected static function mergeStd()
@@ -341,13 +484,16 @@ class ThemeModule
         //只需要 合并一次
         if (static::$stdMerged === true) return true;
 
-        $stdCtx = Arr::extend(ThemeModule::$stdCtx, static::$stdCtx);
-        $stdItem = Arr::extend(ThemeModule::$stdItem, static::$stdItem);
-        $stdGroups = Arr::extend(ThemeModule::$stdGroups, static::$stdGroups);
+        //合并当前模块类 和 Module 基类中的 stdXxxx 默认参数，参数中的 indexed 数组使用覆盖模式
+        $stdDef = Arr::extend(Module::$stdDef, static::$stdDef, true);
+        $stdItem = Arr::extend(Module::$stdItem, static::$stdItem, true);
+        $stdGroups = Arr::extend(Module::$stdGroups, static::$stdGroups, true);
+        $stdModes = Arr::extend(Module::$stdModes, static::$stdModes, true);
         //更新当前 主题模块的 $stdFoobar
-        static::$stdCtx = $stdCtx;
+        static::$stdDef = $stdDef;
         static::$stdItem = $stdItem;
         static::$stdGroups = $stdGroups;
+        static::$stdModes = $stdModes;
         //标记
         static::$stdMerged = true;
 
@@ -383,13 +529,19 @@ class ThemeModule
         return false;
     }
 
+
+
+    /**
+     * 主题子模块 stdXxxx 参数静态解析方法
+     */
+
     /**
      * 解析 主题文件中 关于此主题模块的 设置参数数据
      * !! 如有需要，子类可以覆盖此方法
      * @param Array $conf 主题文件中 关于此主题模块的 设置参数数据
      * @return Array 返回解析得到的 context 数据
      */
-    public static function parseStdCtx($conf=[])
+    public static function parseStdDef($conf=[])
     {
         if (!Is::nemarr($conf)) return [];
         
@@ -416,10 +568,15 @@ class ThemeModule
 
         // 2 依次解析 $conf["modes"] 中 不同 mode 模式下的 参数 item 设置值，解析结果保存到 $res
         $cmitems = $conf["common"] ?? [];
-        //定义的 modes 模式
-        $modes = $conf["modes"] ?? [];
+        //定义的 modes 模式列表
+        $modes = static::$stdModes;
+        //传入参数中定义的 modes 
+        $modecs = $conf["modes"] ?? [];
         $res = [];
-        foreach ($modes as $mode => $modc) {
+        foreach ($modes as $mode) {
+            //读取传入的 conf["modes"] 中定义的 mode 模式参数
+            $modec = $modecs[$mode] ?? [];
+
             if (!Is::nemarr($modc)) {
                 //mode 模式下未定义 item 参数，直接使用 conf["common"]
                 $modc = Arr::copy($cmitems);
@@ -444,6 +601,9 @@ class ThemeModule
             //依次解析 item
             $modres = [];
             foreach ($items as $item) {
+                //仅在 groups 中定义了 item，在 common 和 当前 mode 下都未定义 此 item，跳过
+                if (!isset($modc[$item])) continue;
+
                 //处理 mode 模式下 item 的 通用参数
                 $itemcm = [];
                 //group
@@ -457,11 +617,7 @@ class ThemeModule
                 }
                 //合并 modcm
                 $itemcm = Arr::extend($modcm, $itemcm);
-
-                if (!isset($modc[$item])) {
-                    //仅在 groups 中定义了 item，在 common 和 当前 mode 下都未定义 此 item，跳过
-                    continue;
-                }
+                
                 //解析 item 参数
                 $itemcv = static::parseStdItem($item, $modc[$item], $itemcm);
                 //写入 modres
@@ -514,7 +670,7 @@ class ThemeModule
             }
         }
 
-        //定义了 完整的 颜色参数
+        //定义了 完整的参数形式 与 stdItem 格式一致
         if (Is::nemarr($conf)) {
             //格式化为 标准数据格式
             $conf = Arr::extend(static::$stdItem, $common, $conf, [
@@ -601,6 +757,10 @@ class ThemeModule
     }
 
 
+
+    /**
+     * auto-shift 静态方法
+     */
 
     /**
      * 对现有的主题参数 按 shift 参数要求，进行 自动 增减，如果 不存在 shift 参数则不做处理

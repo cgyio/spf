@@ -244,7 +244,20 @@ class Icon extends Compound
     protected function createDynamicJsSubResource()
     {
         //已在 stageGetIconContent 阶段 从 阿里图标库 获取过 js 文件内容，直接使用
-        $this->content = $this->jscode;
+        //$this->content = $this->jscode;
+
+        $js = Resource::manual(
+            $this->jscode,
+            $this->resBaseName().".js",
+            [
+                "ext" => "js",
+                "belongTo" => $this,
+                "ignoreGet" => false,
+                "export" => "js",
+                "esm" => "keep"
+            ]
+        );
+        $this->subResource = $js;
 
         return $this;
     }
@@ -788,7 +801,7 @@ class Icon extends Compound
             
             return [
                 //使用 视图页面 spf/view/iconset.php
-                "view" => "spf/assets/view/iconset.php",
+                "view" => "spf/assets/view/spa_vue2x.php",
                 //传入 Icon 资源实例作为视图页面参数
                 "params" => [
                     "icon" => $res

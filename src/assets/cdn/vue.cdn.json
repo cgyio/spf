@@ -38,7 +38,10 @@
                     "file": "vue.common.dev.min.js",
                     "params": {
                         "esm": false
-                    }
+                    },
+                    "fix": [
+                        "ModuleNotDefined"
+                    ]
                 },
                 "browser": {
                     "file": "vue.common.prod.min.js",

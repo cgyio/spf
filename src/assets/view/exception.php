@@ -26,7 +26,7 @@ $view->runtimeSetInit([
     //默认 页面标题
     "title" => "Error $code",
     //默认 页面 CSS 样式文件 url
-    "css" => [
+    "static" => [
         "/src/view/css/exception.css",
     ],
 ]);
