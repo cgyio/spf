@@ -9,21 +9,7 @@
 export default {
 
     cvVersion() {
-        console.log('CGY-VUE version = 1.0');
-    },
-
-    /**
-     * 执行 base plugin initSequence 中的所有方法
-     * 在 启动序列 initSequence 中的所有方法，都必须是 async 方法
-     */
-    async initBasePlugin() {
-        let options = Vue.baseOptions,
-            seq = Vue.baseInitSequence;
-        for (let i=0;i<seq.length;i++) {
-            await seq[i](options);
-        }
-        await cgy.wait(100);
-        return true;
+        console.log('SPF-Vcom version = 1.0');
     },
 
     /**
@@ -37,27 +23,260 @@ export default {
     },
 
     /**
+     * 根据传入的字符串查找对应的 组件库名称
+     * 在 Vue.vcom.list 中保存了所有组件库名称
+     * @param {String} key 包含组件库名称的字符串 如：base-button  pms-table
+     * @return {String} 找到的组件库名称
+     */
+    getVcomName(key) {
+        if (!Vue.cgy.is.string(key) || key === '') return null;
+        //如果以 . 开头 （在处理样式类名时 会出现）
+        if (key.startsWith('.')) key = key.substring(1);
+        //以连字符 - 分割
+        let glue = '-',
+            karr = key.split(glue),
+            vcs = Vue.vcom.list || [];
+        for (let i=karr.length; i>=1; i--) {
+            let arr = karr.slice(0,i),
+                vcn = arr.join(glue);
+            if (!vcs.includes(vcn)) continue;
+            return vcn;
+        }
+        //未找到
+        return null;
+    },
+
+    /**
+     * 确保某个组件已被定义
+     * @param {String} key 组件名
+     * @return {String} 如果组件已被定义，则返回 key 否则返回 null
+     */
+    ensureVcn(key) {
+        if (!Vue.cgy.is.string(key) || key === '') return null;
+        if (!Vue.cgy.is.defined(Vue.options.components[key])) return null;
+        return key;
+    },
+
+    /**
+     * 全局获取某个组件的名称，将使用对应组件库的 prefix 替换组件库名
+     * 例如：存在组件 pms 其 prefix = spf-pms 则查询组件 pms-table 将返回 spf-pms-table
+     * @param {String} key 组件名，以 组件库名称开头的
+     * @return {String} 实际存在的 组件名称
+     */
+    vcn(key) {
+        let cn = Vue.getVcomName(key);
+        //未找到对应的 组件库名称，则原样返回
+        if (!Vue.cgy.is.string(cn) || cn === '') return Vue.ensureVcn(key);
+        //用组件库 prefix 替换 key 中的组件库名称
+        let pre = Vue.vcom[cn].prefix || null;
+        if (!Vue.cgy.is.string(pre) || pre === '') return Vue.ensureVcn(key);
+        return Vue.ensureVcn(key.replace(`${cn}-`, `${pre}-`)); 
+    },
+
+
+
+    /**
+     * 在 Vue.use(plugin) 方法中使用的 工具方法
+     * 任意 vcom 组件库插件，可在 install 方法中使用这些工具
+     */
+
+    /**
+     * 处理外部传入的 options
+     * @param {Object} options 外部传入的 插件启动参数
+     * @return {Object} 处理后剩余的 options 参数
+     */
+    useInstallOptions(options) {
+        if (!cgy.is.plainObject(options)) return options;
+
+        //将外部传入的 options 中可能存在的 服务的个性化参数，覆盖到 Vue.service.options
+        if (cgy.is.defined(options.service)) {
+            let srv = options.service;
+            if (cgy.is.plainObject(srv)) {
+                Vue.service.options = cgy.extend(Vue.service.options, srv);
+            }
+            Reflect.deleteProperty(options, 'service');
+        }
+
+        //外部传入的 options 中可能包含的 组件列表参数，覆盖到 Vue.vcoms
+        if (cgy.is.defined(options.vcoms)) {
+            let vcoms = options.vcoms;
+            if (cgy.is.plainObject(vcoms)) {
+                cgy.each(vcoms, (v,k) => {
+                    if (cgy.is.undefined(Vue.vcoms[k]) || !cgy.is.plainObject(v) || cgy.is.empty(v)) return true;
+                    Vue.vcoms[k] = cgy.extend(Vue.vcoms[k], v);
+                });
+            }
+            Reflect.deleteProperty(options, 'vcoms');
+        }
+        
+        //将处理后的 options 返回，以供后续使用
+        return options;
+    },
+
+    /**
+     * 批量注册 全局|异步 组件
+     * 组件列表收集在 Vue.vcoms 中
+     * @return {Boolean} 
+     */
+    defineVcomComponents () {
+        let is = cgy.is;
+        if (!is.plainObject(Vue.vcoms) || is.empty(Vue.vcoms)) return true;
+        //注册 全局|异步 组件
+        cgy.each(Vue.vcoms, (v,k) => {
+            if (!is.plainObject(v) || is.empty(v)) return true;
+            //只支持 global|async 组件形式
+            if (['global', 'async'].includes(k) !== true) return true;
+
+            //依次定义 global|async 形式组件
+            cgy.each(v, (vcd,vcn) => {
+                /**
+                 * 组件定义只能是：
+                 *  0   {mixins:[], data: {}, methods:{}, template:``}
+                 *  1   () => import('component-url')
+                 *  2   'component-url'
+                 */
+                //传入了 0,1 形式的 组件定义
+                if (
+                    (is.plainObject(vcd) && !is.empty(vcd)) ||
+                    is(vcd, 'function,asyncfunction')
+                ) {
+                    Vue.component(vcn, vcd);
+                }
+
+                //传入了 2 形式的 组件定义
+                if (
+                    is.string(vcd) && 
+                    (vcd.startsWith('http') || vcd.startsWith('/'))
+                ) {
+                    Vue.component(vcn, ()=>import(vcd));
+                }
+            });
+            
+        });
+
+        return true;
+    },
+
+    /**
+     * 批量创建 Vue.service.support 中定义的 服务的 特殊组件实例，并挂载到 Vue.service
+     * @param {Object} options 外部传入的 插件的 install 参数
+     * @return {Object} 处理后剩余的 外部参数
+     */
+    createVcomService(options) {
+        //创建 服务单例
+        let service = Vue.service || {},
+            srvs = service.support || [],
+            imps = service.imports || {},
+            opts = service.options || {};
+
+        //外部传入的 options.useService[] 覆盖内部的 Vue.service.support
+        if (cgy.is.defined(options.useService)) {
+            let usrvs = options.useService;
+            if (cgy.is.array(usrvs) && usrvs.length>0) {
+                srvs = usrvs;
+                Vue.service.support = usrvs;
+            }
+            Reflect.deleteProperty(options, 'useService');
+        }
+
+        //依次创建 服务对应的 特殊组件实例
+        cgy.each(srvs, srv => {
+            let opti = opts[srv] || {},
+                impi = imps[srv];
+            //外部可指定 启用|关闭 服务
+            if (cgy.is.plainObject(opti) && cgy.is.defined(opti.enable) && opti.enable === false) return true;
+            //如果没有 import 服务的定义
+            if (!cgy.is.plainObject(impi) || cgy.is.empty(impi)) return true;
+
+            //创建服务单例
+            let srvo = new Vue({
+                mixins: [impi]
+            });
+
+            /**
+             * 某些服务的 特殊代码
+             */
+            if (srv === 'bus') {
+                //事件总线服务 初始化 事件的保存参数
+                srvo.event = {};
+            }
+
+            /**
+             * 将服务的 async init() 初始化方法，添加到 Vue.service.initSequence 序列
+             */
+            if (cgy.is.defined(srvo.init) && cgy.is(srvo.init, 'asyncfunction')) {
+                //init 方法插入序列，同时绑定 服务的个性化参数
+                let srvInit = srvo.init.bind(srvo, opti);
+                //将服务名称 挂载到 init.serviceName 以便报错时提供 
+                srvInit.serviceName = srv;
+                //插入 initSequence 序列
+                Vue.service.initSequence.push(srvInit);
+            }
+
+            //挂载到 Vue.service
+            cgy.def(Vue.service, {
+                [srv]: srvo
+            });
+            //挂载到 Vue.prototype
+            cgy.def(Vue.prototype, {
+                [`$${srv}`]: srvo
+            });
+
+        });
+
+        return options;
+    },
+
+
+
+    /**
+     * 执行 Vue.service.initSequence 中的所有方法
+     * 在 启动序列 initSequence 中的所有方法，都必须是 async 方法
+     * @return {Boolean|String} 所有服务 init 成功则返回 true，否则返回出错的 服务名称
+     */
+    async initServicesInSequence() {
+        let seq = Vue.service.initSequence,
+            rst = true;
+        if (!cgy.is.array(seq) || seq.length<=0) return true;
+        //依次执行
+        for (let i=0;i<seq.length;i++) {
+            let init = seq[i];
+            //已注册的 init 方法必须是 asyncfunction
+            if (!cgy.is(init, 'asyncfunction')) continue;
+            //已注册的 init 方法，已经 bind 了 options 参数，不需要额外提供
+            let rsti = await init();
+            //所有服务的 init 方法必须返回 true 
+            rst = rst && rsti;
+            if (rst !== true) {
+                //任意一个服务未成功 init 则返回服务名称，并退出，在外层方法中报错
+                return init.serviceName || 'unknown';
+            }
+        }
+        await cgy.wait(100);
+        return rst;
+    },
+
+    /**
      * 扩展 vue 根组件实例创建方法 app = new Vue(...)
      * 将生成的根组件实例挂载到 Vue.$root
      * @param Object $opt 根组件参数
      * @return Vue instance
      */
     rootApp(opt = {}) {
-        //必须在 base plugin init 之后实例化 $root
-        //因为 nav 页面组件必须在 $root 实例化之前注册
-        Vue.initBasePlugin().then(inited => {
+        //必须在 所有服务 init 完成之后 实例化 $root
+        Vue.initServicesInSequence().then(inited => {
             //console.log(inited);
-            if (!inited) {
-                throw new Error('插件 Base 未能正确初始化');
+            if (inited !== true) {
+                throw new Error(`Vcom 组件库服务 ${inited} 未能正确初始化`);
             } else {
                 let app = new Vue(opt);
                 if (app instanceof Vue) {
                     Vue.$root = app;
                     window.app = app;
-                    window.cvRoot = app;
-                    //Vue.nav.start()
+                    window.vcomRoot = app;
+                    
                     app.$elReady().then(()=>{
-                        Vue.nav.start();
+                        //Vue.nav.start();
                     });
                     return app;
                 }

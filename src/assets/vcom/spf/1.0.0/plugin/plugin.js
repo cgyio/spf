@@ -1,45 +1,158 @@
 /**
- * Vue 2.* 插件 base
- * spf.vcom 基础组件库 插件
+ * Vue 2.* 组件库插件
+ * SPF-Vcom 组件库插件
  * 
- * 入口，提供 install 方法
+ * !! 任何 vcom 基础组件库插件，都必须依赖：
+ *      Vue2.* 库，必须在 import 此插件前引入，Vue 必须全局访问
+ *      cgy 库（/src/lib/cgy/default.min.js）必须在插件开头，显示挂载到 Vue.cgy
  * 
- * 依赖的库：
- *      Vue         2.*
- *      cgy         /src/lib/cgy/default.min.js?module=tagprint
+ * !! vcom 业务组件库插件 无必须依赖的库
+ * 
+ * !! 此 vcom 组件库插件，外部使用时的参数格式：
+ * Vue.use(plugin, options) 的 options 参数形式：
+ *      {
+ *          # 插件依赖的 服务
+ *          service: {
+ *              evt: {
+ *                  # 是否启用此服务
+ *                  enable: true,
+ *                  # 其他参数
+ *                  ...
+ *              },
+ *              ui: { ... },
+ *              usr: { ... },
+ *              ...
+ *          },
+ * 
+ *          # 插件关联的 组件列表
+ *          vcoms: {
+ *              global: {
+ *                  'sv-button': defineSvButton {...},
+ *                  ...
+ *              },
+ *              async: {
+ *                  'ms-foo': ()=>import(...),
+ *                  ...
+ *              },
+ *          },
+ *      }
  */
 
-//需要 cgy.core.js 支持
-//const cgy = ...
-//console.log(cgy.version);
+import cgy from '/src/lib/cgy/default.min.js';
 
-//需要 vue.2.7.9 支持
-//console.log(Vue);
-
-import cgy from '/src/lib/cgy/default.min.js?module=tagprint';
-
+//SPF-Vcom 组件库插件的 定义文件
 import globalMethods from 'plugin/global';
 import mixin from 'plugin/mixin';
 import instanceMethods from 'plugin/instance';
 import directive from 'plugin/directive';
 
-import mixinEvtBus from 'mixin/evt-bus';
-import mixinUiBase from 'mixin/ui-base';
-import mixinUsrBase from 'mixin/usr-base';
-import mixinNavBase from 'mixin/nav-base';
-import mixinDbBase from 'mixin/db-base';
+//组件库插件依赖的 一些服务(通用功能，是一组特殊组件，全局单例，挂载到 Vue 对象上)
+//import serviceEvtBus from 'mixin/evt-bus';
+import serviceUi from 'plugin/service/ui';
+//import serviceUsr from 'plugin/service/usr';
+//import serviceNav from 'plugin/service/nav';
+//import serviceDb from 'plugin/service/db';
 
+/**
+ * vcom 基础组件的插件必须的 Vue 对象准备
+ * !! 只有 vcom 基础组件库插件需要此段代码，业务组件库插件不需要
+ */
 //cgy 挂到 window 上
 window.cgy = cgy;
+//其他需要提前挂载到 Vue 的参数
+cgy.def(Vue, {
+    //cgy 库挂载到 Vue
+    cgy,
+
+    /**
+     * 组件库插件依赖的一些服务
+     * 服务是一组特殊组件，全局单例，挂载到 Vue 对象上，并通过 mixin 挂载到组件库中每个组件的 computed 中
+     * 
+     * 需要提前定义 Vue.serviceOptions 参数，用于接收外部传入的 服务的个性化参数
+     * 可在 Vue.use(plugin, {...}) 方法中外部传入 这些服务的 个性化参数
+     * 
+     * 在 创建根组件，依次执行各服务的 async init() 初始化这些服务时，参数会传递到对应的 init 方法
+     */
+    service: {
+        //此插件支持的 服务列表
+        support: [
+            //服务 必须严格按顺序加载
+            //'bus', 'ui', //'usr', 'nav', 'db',
+            'ui'
+        ],
+        //所有启用的服务，必须对应着 import mixin/service-base.js
+        imports: {
+            //bus:    serviceEvtBus,
+            ui:     serviceUi,
+            //usr:    serviceUsr,
+            //nav:    serviceNav,
+            //db:     serviceDb,
+        },
+
+        //接受外部传入的 各服务的个性化参数
+        options: {},
+
+        //服务的 init 序列，保存着需要依次执行的 各服务的 async init() 方法
+        initSequence: [],
+
+        //服务的 特殊组件单例，全局挂载到此
+        /*
+        bus: VueComponent instance,
+        ui: null,
+        ...
+        */
+
+    },
+
+    //当前已经启用的 Vcom 组件库列表，以及各组件库信息
+    vcom: {
+        //已启用的 vcom 组件库名称 数组
+        list: [],
+
+        //各 vcom 组件库的 desc 元数据
+        /*
+        'vcn': { ... desc ... },
+        ...
+        */
+    },
+    
+    //插件使用的 组件库 定义
+    vcoms: {
+        /**
+         * 需要注册为 全局组件的 组件列表
+         * 通常是 基础组件库中的 组件
+         * 需要包含完整的 Vue2.* 组件定义代码
+         */
+        global: {
+            /*
+            'sv-button': defineSvButton {...},
+            ...
+            */
+        },
+
+        /**
+         * 需要定义为 异步组件的 组件列表
+         * 通常是 业务组件库中的 组件
+         * 定义为 () => import(url) 形式
+         */
+        async: {
+            /*
+            'pms-table': ()=>import(com-url),
+            'pms-foo': 'com-url',
+            ...
+            */
+        },
+    },
+
+});
 
 const bs = Object.create(null);
 bs.install = function(Vue, options = {}) {
 
     //扩展 Vue
     cgy.def(Vue, {
-        cgy,
+        
         host: window.location.href.split('://')[0]+'://'+window.location.href.split('://')[1].split('/')[0],
-        //lib: 'https://io.cgy.design',
         
         //根组件实例
         $root: {
@@ -53,48 +166,21 @@ bs.install = function(Vue, options = {}) {
         debug: {
             value: false,
             writable: true
-        },
-
-        //usr 用户管理器，全局管理 usr 用户
-        //usr,
-        //主页 page 管理器，用于 spa 单页应用
-        //pager,
-
-        //ui 相关
-        //样式主题/暗黑模式管理
-        //theme,
-
-        //base 插件自定义 options
-        baseOptions: {},
-        //base 插件 init 序列
-        baseInitSequence: [],
+        }
     });
 
     // 1. 添加全局方法或 property
     //Vue.myGlobalMethod = function () {
         // 逻辑...
     //}
-    //先将 options 缓存，在 initBasePlugin() 执行时将对 Vue.baseOptions 进行处理
-    Object.assign(Vue.baseOptions, options);
-
-    //应用全局方法
-    //Object.assign(Vue, globalMethods);
     cgy.def(Vue, globalMethods);
 
-    //Vue.usr.setOptions(options);
-    //Vue.pager.setOptions(options);
-    //Vue.theme.setOptions(options);
+    //处理传入的 options 参数，应用其中的 options.service | options.vcoms 等参数
+    options = Vue.useInstallOptions(options);
 
     // 2. 添加全局资源
-    //注册全局组件
-    //先缓存 此插件使用的 组件库名称 到 baseOptions
-    /*Vue.baseOptions.globalComponents = ['base'];
-    for (let [compn, compu] of Object.entries(comps)) {
-        Vue.component(
-            compn,
-            ()=>import(compu)
-        );
-    }*/
+    //定义 全局|异步 组件
+    Vue.defineVcomComponents();
     //Vue.directive('my-directive', { } )
     if (!cgy.is.empty(directive)) {
         for (let dir in directive) {
@@ -102,86 +188,37 @@ bs.install = function(Vue, options = {}) {
         }
     }
 
-    // 3. 注入组件选项
-    //Vue.mixin(mixin);
-
     // 4. 添加实例方法
     //Vue.prototype.$myMethod = function (methodOptions) {
         // 逻辑...
     //}
     cgy.def(Vue.prototype, {
-        $cgy: cgy,
-        $is: cgy.is,
-        $extend: cgy.extend,
-        $wait: cgy.wait,
-        $until: cgy.until,
+        $cgy:       cgy,
+        $is:        cgy.is,
+        $extend:    cgy.extend,
+        $each:      cgy.each,
+        $wait:      cgy.wait,
+        $until:     cgy.until,
         $log: cgy.log.ready({
-            label: 'CVue',
+            label: 'Vcom',
             sign: '>>>'
         }),
-        $request: Vue.request,
-        $req: Vue.req,
-        $lib: Vue.lib,
+        $vcn:       Vue.vcn,
+        $request:   Vue.request,
+        $req:       Vue.req,
+        $lib:       Vue.lib,
     });
 
     //引入 instanceMethods 文件
     cgy.def(Vue.prototype, instanceMethods);
 
-    //特殊组件实例，单例
-    cgy.def(Vue, {
-        
-        //事件总线
-        evtBus: new Vue({
-            mixins: [mixinEvtBus]
-        }),
-
-        //ui
-        ui: new Vue({
-            mixins: [mixinUiBase]
-        }),
-
-        //uac 权限控制
-        usr: new Vue({
-            mixins: [mixinUsrBase]
-        }),
-
-        //nav 导航管理
-        nav: new Vue({
-            mixins: [mixinNavBase]
-        }),
-
-        //db 数据库管理
-        db: new Vue({
-            mixins: [mixinDbBase]
-        }),
-    });
-    cgy.def(Vue.prototype, {
-        $bus: Vue.evtBus,
-        $ev: Vue.evtBus.$trigger,
-        $ui: Vue.ui,
-        $usr: Vue.usr,
-        $nav: Vue.nav,
-        $db: Vue.db,
-    });
-    Vue.evtBus.event = {};
-
-    //将各功能组件单例的 init 方法添加到 baseInitSequence 启动序列
-    //只有在启动序列中所有 async 函数执行完成后，才能执行根组件创建
-    let initComps = ['ui','usr','nav'];
-    for (let i=0;i<initComps.length;i++) {
-        let compi = Vue[initComps[i]],
-            init = compi.init;
-        if (cgy.is(init,'asyncfunction')) {
-            Vue.baseInitSequence.push(init.bind(compi));
-        }
-    }
+    //创建 服务单例
+    options = Vue.createVcomService(options);
     
+
+    // 3. 注入组件选项
     //混入 mixin
     Vue.mixin(mixin);
-    
-    //各功能模块准备
-    //Vue.prepareBasePluginModules(options, 'usr','pager','theme');
-    //cgy.conf(Vue, options)
 }
 
 export default bs;

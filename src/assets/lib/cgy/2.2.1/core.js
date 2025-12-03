@@ -89,7 +89,14 @@ Reflect.defineProperty(cgy, 'is', {
                     },
                     nonEmptyObject: anything => cgy.is.plainObject(anything) && !cgy.is.empty(anything),
                     eachable: anything => cgy.is.eachTypes.includes(cgy.is(anything)),
-                    realNumber: anything => !isNaN(anything*1), //!isNaN(parseInt(anything)),     //anything!=null && anything!='' && isFinite(anything),
+                    //与 php is_numeric 方法相同，必须以 数字开头的 字符
+                    numeric: anything => {
+                        if (cgy.is.string(anything)) return cgy.reg('^\\d{1,}').test(anything);
+                        if (cgy.is.number(anything)) return !isNaN(anything*1);
+                        return false;
+                    }, 
+                    //纯数字形式，可以是 100 或 '100'
+                    realNumber: anything => (cgy.is.number(anything) || cgy.is.string(anything)) && !isNaN(anything*1),
                     integer: anything => isFinite(anything) && (parseInt(anything)==anything*1),
                     float: anything => isFinite(anything) && (parseInt(anything)!=anything*1),
                     json: anything => {

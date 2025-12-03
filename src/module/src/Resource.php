@@ -552,6 +552,20 @@ class Resource
     
         //输出响应头，根据 资源后缀名设置 Content-Type
         Mime::setHeaders($this->ext, $this->name);
+
+        /**
+         * !! 针对有 params["create"] 强制忽略缓存参数的 资源
+         * create === true 则增加 响应头，禁用客户端缓存
+         */
+        if (isset($this->params["create"]) && $this->params["create"] === true) {
+            Response::$current->header->ctx([
+                "Cache-Control" => "no-cache, no-store, must-revalidate",
+                "Pragma" => "no-cache",
+                "Expires" => "0",
+            ]);
+        }
+
+        //发送响应头
         Response::$current->header->sent();
         
         //echo

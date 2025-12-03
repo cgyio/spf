@@ -1,0 +1,77 @@
+import PmsVcomComps from 'https://ms.systech.work/src/vcom/pms/1.0.0/async-default.js?create=true&ver=1.0.0';
+
+
+
+/**
+ * 合并资源 plugin.js
+ * !! 不要手动修改 !!
+ */
+
+/**
+ * Vue 2.* 组件库插件
+ * SPF-Vcom 组件库插件
+ * pms.vcom PMS 系统业务组件库
+ */
+
+//!! 业务组件库不需要 引入 cgy 库
+//import cgy from '/src/lib/cgy/default.min.js';
+
+//SPF-Vcom 组件库插件的 定义文件
+//import globalMethods from 'plugin/global';
+//import mixin from 'plugin/mixin';
+//import instanceMethods from 'plugin/instance';
+//import directive from 'plugin/directive';
+
+const pms = Object.create(null);
+pms.install = function(Vue, options = {}) {
+
+    //处理传入的 options 参数，应用其中的 options.service | options.vcoms 等参数
+    options = Vue.useInstallOptions(options);
+    
+}
+
+export default pms;
+
+
+
+/**
+ * 合并资源 temp_pms_kv3bf6.js
+ * !! 不要手动修改 !!
+ */
+
+
+cgy.each(PmsVcomComps, (v, k) => {
+Vue.vcoms.async[k] = v;
+});
+
+
+
+
+
+
+
+
+
+
+/**
+ * 合并资源 temp_pms_9pSTMt.js
+ * !! 不要手动修改 !!
+ */
+
+
+
+
+/**
+ * 写入组件库 pms 信息
+ * !! 不要手动修改 !!
+ */
+
+if (Vue.vcom.list.includes('pms')!==true) {
+    Vue.vcom.list.push('pms');
+    Vue.vcom.pms = {
+        name: 'pms',
+        isBase: false,
+    }
+}
+
+

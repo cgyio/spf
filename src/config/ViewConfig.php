@@ -72,6 +72,8 @@ class ViewConfig extends Configer
                     "file" => "spf/assets/vcom/spf.vcom.json",
                     //组件库资源实例化参数，与 Vcom|Vcom3::$stdParams 格式一致
                     "params" => [],
+                    //组件库插件在 Vue.use(plugin, options={...}) 时传入的 options 参数
+                    "options" => [],
                 ],
                 /**
                  * 在 SPA 环境基础上，可使用 业务组件库
@@ -83,6 +85,7 @@ class ViewConfig extends Configer
                     "foo" => [
                         "file" => "src/app_foo/vcom/foo.vcom.json",
                         "params" => [],
+                        "options" => [],
                     ],
                     ...
                     */

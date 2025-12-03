@@ -31,6 +31,16 @@ class Vue extends Codex
         
         //独立使用此 *.vue 组件时，需要传入一个 组件名前缀
         "prefix" => "sv",
+        //独立使用此 *.vue 组件时，需要传入一个 基础组件前缀，通常用于 业务组件库中
+        "basepre" => "sv",
+
+        //独立使用此 *.vue 组件时，可单独传入 *.vue 所在 特殊文件夹名，*.vue 文件应保存在 dir_component 指定的文件夹名下
+        /*
+        "dir_component" => "",
+        "dir_mixin" => "",
+        "dir_common" => "",
+        "dir_plugin" => "",
+        */
 
         /**
          * 输出 js 代码时的 开关参数，可选值：true|false|stand-alone
@@ -129,9 +139,11 @@ class Vue extends Codex
      */
     protected $tpls = [
         //组件库定义的 组件名称前缀，通常用于 style 样式代码中的 样式类名称
+        "__BPRE__" => "basePre",
         "__PRE__" => "pre",
         //用于组件模板代码块中，代替 组件名称前缀，以便可以方便的 在不同的使用场景下，切换组件名称前缀
         //例如：<PRE@-button>...</PRE@-button> 替换为 <pre-button>...</pre-button>
+        "BPRE@" => "basePre",
         "PRE@" => "pre",
         //此组件的 名称 pre-foo-bar 形式，用于 js 代码中
         "__VCN__" => "vcn",
@@ -205,7 +217,7 @@ class Vue extends Codex
     ];
     //样式代码块 创建为临时资源实例
     public $style = [
-        //css 创建为临时资源实例
+        //样式代码 作为 scss 创建为临时资源实例
         "resource" => null,
         //样式注入语句
         "rows" => [],
@@ -320,10 +332,13 @@ class Vue extends Codex
 
         //添加 profile 定义
         $profile = $this->profile;
+        $pjson = Conv::a2j($profile);
+        //转义 '
+        $pjson = str_replace("'", "\\'", $pjson);
         $rows[] = "";
         $rows[] = "if ($def.computed === undefined) $def.computed = {};";
         if (Is::nemarr($profile)) {
-            $rows[] = "$def.computed.profile = function() {return JSON.parse(`".Conv::a2j($profile)."`);}";
+            $rows[] = "$def.computed.profile = function() {return JSON.parse('$pjson');}";
         } else {
             $rows[] = "$def.computed.profile = function() {return {};}";
         }
@@ -494,10 +509,12 @@ class Vue extends Codex
         $temp = static::minifyCnt($temp, "css");
         if (!Is::nemstr($temp)) return $this;
 
-        //将解析得到的 css 代码，创建为 临时资源，保存到 $this->style 中
+        //将解析得到的内容 作为 scss 代码，创建为 临时资源，保存到 $this->style 中
         $style = Resource::manual($temp, $this, [
             //定义临时资源类型 ext
-            "ext" => "css",
+            "ext" => "scss",
+            //输出为 css
+            "export" => "css",
             //忽略 $_GET
             "ignoreGet" => true,
             //组件代码内部的 style 样式不启用 import 语句
@@ -527,7 +544,7 @@ class Vue extends Codex
         if (!Is::nemarr($rtn)) return $this;
         //定义了 profile
         $parse = $rtn["parse"] ?? "json";
-        $temp = $rtn["temp"];
+        $temp = $rtn["content"];
 
         //解析得到 profile
         switch ($parse) {
@@ -612,6 +629,7 @@ class Vue extends Codex
                 $vcv = $vcinfo["vcv"];
                 return [
                     "pre" => $pre,
+                    "basePre" => $vcompc["basePre"],
                     "vcv" => $vcv,
                     "vcn" => $vcn,
                     "def" => "define".$vcv,
@@ -622,69 +640,99 @@ class Vue extends Codex
             }
         }
 
+        //当前组件 不属于某个组件库，单独解析相关参数
         //连接符
         $glue = "-";
-        
+        //特殊文件夹名 可外部传入
+        $dirnames = $this->getSpecDirNameFromGet();
+        //组件名前缀 可外部传入
+        $pre = $this->params["prefix"] ?? "sv";
+        //去除前缀中可能存在的 glue 连字符
+        if (substr($pre, strlen($glue)*-1) === $glue) $pre = substr($pre, 0, strlen($glue)*-1);
         //解析当前 *.vue 文件路径，查找 components 文件夹
         $fn = pathinfo($base)["filename"];
+        //将文件名中的 _ 转为连字符
         $fn = Str::snake($fn, $glue);
         $fn = trim($fn, $glue);
-        $parr = explode("component", $pather->updir());
-        $pre = "";
+        $parr = explode($dirnames["component"], $pather->updir());
         if (count($parr)>1) {
             $path = array_slice($parr, -1)[0];
-            $pre = str_replace([DS,"/","\\"], $glue, $path);
-            $pre = trim($pre, $glue);
+        } else {
+            $path = $parr[0];
         }
-        if (Is::nemstr($pre)) $pre .= $glue;
+        if (Is::nemstr($path)) {
+            $path = str_replace([DS,"/","\\"], $glue, $path);
+            $path = trim($path, $glue);
+        }
 
-        //拼接
-        $vcn = $pre.$fn;
-
-        //去重 处理 components/button/button.vue 的情况，返回 button
+        //拼接 组件名
+        $vcn = $pre.$glue.(Is::nemstr($path) ? $path.$glue : "").$fn;
+        //去重 处理 component/button/button.vue -->  pre-button-button 的情况，返回 pre-button
         $varr = explode($glue, $vcn);
         $nvcn = [];
         foreach ($varr as $vni) {
             if (in_array($vni, $nvcn)) continue;
             $nvcn[] = $vni;
         }
-
-        //拼接
-        $vcn = $this->params["prefix"].$glue.implode($glue, $nvcn);
+        $vcn = implode($glue, $nvcn);
+        //组件名 转为 js 变量名 pre-foo-bar  -->  PreFooBar
         $vcv = Str::camel($vcn, true);
 
         //当前 *.vue 文件父路径 转为 url
         $dir = dirname($base);
         $furl = Url::src($dir, true);
+        //获取所有特殊文件夹的 路径|url 
+        $dirs = [];
+        $urls = [];
+        foreach ($dirnames as $dk => $dv) {
+            $dirs[$dk] = $dir.DS.$dv;
+            $urls[$dk] = $furl."/".$dv;
+        }
 
         return [
-            "pre" => $this->params["prefix"],
+            "pre" => $pre,
+            "basePre" => $this->params["basepre"],
             "vcv" => $vcv,
             "vcn" => $vcn,
             "def" => "define".$vcv,
 
-            "dirnames" => [
-                "component" => "component",
-                "mixin" => "mixin",
-                "plugin" => "plugin",
-                "common" => "common"
-            ],
-
-            "dirs" => [
-                "component" => $dir.DS."component",
-                "mixin" => $dir.DS."mixin",
-                "plugin" => $dir.DS."plugin",
-                "common" => $dir.DS."common"
-            ],
-
-            "urls" => [
-                "component" => "$furl/component",
-                "mixin" => "$furl/mixin",
-                "plugin" => "$furl/plugin",
-                "common" => "$furl/common"
-            ],
+            "dirnames" => $dirnames,
+            "dirs" => $dirs,
+            "urls" => $urls,
         ];
 
+    }
+
+    /**
+     * 在 此组件不属于组件库 情况下 获取可能通过 url 传递进来的 特殊文件夹名
+     * @return Array
+     *  [
+     *      "component" => "",
+     *      "mixin" => "",
+     *      "common" => "",
+     *      "plugin" => ""
+     *  ]
+     */
+    public function getSpecDirNameFromGet()
+    {
+        /**
+         * 在 此组件不属于组件库 情况下，可以通过 url 或 实例化参数传入 特殊文件夹名
+         * params[ "dir_component" | "dir_mixin" | "dir_common" | "dir_plugin" ]
+         */
+        $ps = $this->params;
+        $dirs = [
+            "component" => "component",
+            "mixin" => "mixin",
+            "plugin" => "plugin",
+            "common" => "common"
+        ];
+        foreach ($ps as $pk => $pv) {
+            if (!Is::nemstr($pk) || substr($pk, 0, 4) !== "dir_") continue;
+            $dk = substr($pk, 4);
+            if (!isset($dirs[$dk])) continue;
+            $dirs[$dk] = $pv;
+        }
+        return $dirs;
     }
 
 

@@ -42,6 +42,7 @@ class Color extends Module
                 "warn",     //yellow
                 "success",  //green
                 "primary",  //blue
+                "info",     //gray
                 //业务主题色
                 "bz",
                 //其他用途 基本色
@@ -65,21 +66,15 @@ class Color extends Module
         "shift" => [
             //自动 加深|减淡 极限值
             "lvl" => [ 
-                "max" => 96, 
-                "min" => 24 
+                "max" => 72, 
+                "min" => 48 
             ],
             //加深|减淡 的级数
             "steps" => 3,
         ],
 
         //alpha 透明度级数 9 表示透明度 a1~a9 = 10%~90% 所有颜色增加 9 级透明度
-        /**
-         * alpha 透明度级数
-         * 默认 9（最大） 表示透明度 a1~a9 = 10%~90% 所有颜色增加 9 级透明度
-         * 0 表示 不启用颜色透明度
-         * !! 不要使用其他 透明度级数，目前仅支持 0|9
-         */
-        "alpha" => 9,
+        
 
         //通用 颜色参数
         "common" => [
@@ -104,19 +99,40 @@ class Color extends Module
             "purple"    => "#ea6e9c",
             "gray"      => "#888888",
             "bz"        => "#ff8600",
-            "fc"        => "#737373",       //字体颜色
-            "bgc"       => "#f2f2f2",       //背景色
-            "bdc"       => "#efefef",       //边框色
-            "shadow"    => "#0000004d",     //阴影色，色值可添加透明度
+            "fc"        => "#555555",       //字体颜色
+            //背景色
+            "bgc" => [
+                "value" => "#f0f0f0",
+                "shift" => [
+                    //加深|减淡 l 极限值 0~1 之间 [ 最大(亮|淡), 最小(暗|深) ]
+                    "lvl" => [ 
+                        "max" => 100, 
+                        "min" => 60 
+                    ],
+                ],
+            ],
+            //边框色
+            "bdc" => [
+                "value" => "#dfdfdf",
+                "shift" => [
+                    //加深|减淡 l 极限值 0~1 之间 [ 最大(亮|淡), 最小(暗|深) ]
+                    "lvl" => [ 
+                        "max" => 64, 
+                        "min" => 54
+                    ],
+                ],
+            ],
             //静态颜色
             "white"     => "#ffffff",
             "black"     => "#000000",
+            "shadow"    => "#0000004d",     //阴影色 alpha = 0.3，色值可添加透明度
 
             //别名颜色，可直接指定 要指向的 颜色 key
             "danger"    => "red",
             "warn"      => "yellow",
             "success"   => "green",
             "primary"   => "blue",
+            "info"      => "gray",
         ],
 
         //定义所有 mode 模式下的 参数
@@ -136,21 +152,71 @@ class Color extends Module
                 "shift" => [
                     //dark 模式下，可适当调低 颜色亮度
                     "lvl" => [ 
-                        "max" => 76, 
-                        "min" => 4 
+                        "max" => 64,    //80, 
+                        "min" => 24,    //4 
                     ],
                 ],
 
                 //如果有不同于 common 设置的，在此指定
                 //dark 模式下 前景色|背景色|边框色 反转
-                "fc"        => "#8c8c8c",
-                "bgc"       => "#121212",
-                "bdc"       => "#1a1a1a",
+                "fc"        => "#bbbbbb",
+                //背景色
+                "bgc" => [
+                    "value" => "#202020",
+                    "shift" => [
+                        //加深|减淡 l 极限值 0~1 之间 [ 最大(亮|淡), 最小(暗|深) ]
+                        "lvl" => [ 
+                            "max" => 36, 
+                            "min" => 0,
+                        ],
+                    ],
+                ],
+                //边框色
+                "bdc" => [
+                    "value" => "#333333",
+                    "shift" => [
+                        //加深|减淡 l 极限值 0~1 之间 [ 最大(亮|淡), 最小(暗|深) ]
+                        "lvl" => [ 
+                            "max" => 36, 
+                            "min" => 24, 
+                        ],
+                    ],
+                ],
                 //dark 模式下 阴影为 白色
                 "shadow"    => "#ffffff4d",
                 //dark 模式下，黑白色 互换
                 "white"     => "#000000",
                 "black"     => "#ffffff",
+            ],
+        ],
+
+        //定义 color 模块的 额外数据定义
+        "extra" => [
+            /**
+             * alpha 透明度级数
+             * 默认 9（最大） 表示透明度 a1~a9 = 10%~90% 所有颜色增加 9 级透明度
+             * 0 表示 不启用颜色透明度
+             * !! 不要使用其他 透明度级数，目前仅支持 0|9
+             */
+            "alpha" => 9,
+
+            /**
+             * type 序列
+             * 定义主题系统中的 type 类型
+             * 应定义对应的 别名颜色
+             * 对应着组件中的 type 参数可选值
+             */
+            "types" => [
+                "primary", "danger", "warn", "success", "info",
+            ],
+
+            /**
+             * effect 序列
+             * 定义主题系统中的 effect 类型
+             * 对应着组件中的 effect 参数可选值
+             */
+            "effects" => [
+                "normal", "fill", "plain", "popout",
             ],
         ],
     ];
@@ -242,7 +308,7 @@ class Color extends Module
         $rower->rowEmpty(1);
 
         // 3    生成透明度级数 $colorAlphaMap
-        $alvls = $conf["alpha"] ?? 9;   //默认启用
+        $alvls = $conf["extra"]["alpha"] ?? 9;   //默认启用
         if (is_int($alvls) && $alvls===9) {
             //!! 目前仅支持：透明度级数 只能是 0 或 9
             $als = [];
@@ -264,7 +330,14 @@ class Color extends Module
             $rower->rowEmpty(1);
         }
 
-        // 4    生成 $color-item-m 变量
+        // 4    生成 extra 数据中的 typeList|effectList
+        $tps = $conf["extra"]["types"] ?? [];
+        $rower->rowDef("typeList", $tps);
+        $efs = $conf["extra"]["effects"] ?? [];
+        $rower->rowDef("effectList", $efs);
+        $rower->rowEmpty(1);
+
+        // 5    生成 $color-item-m 变量
         $flat = Arr::flat($ctx, "-");
         foreach ($flat as $vk => $vv) {
             $rower->rowDef("color-".$vk, $vv);
@@ -272,7 +345,7 @@ class Color extends Module
         //空行
         $rower->rowEmpty(1);
 
-        // 5    生成 $color-map: ( ... );
+        // 6    生成 $color-map: ( ... );
         $rower->rowAdd("\$colorMap: (", "");
         foreach ($flat as $vk => $vv) {
             $rower->rowDef($vk, $vv, [
@@ -370,7 +443,13 @@ class Color extends Module
         $sts = $shift["steps"];
         $isDark = $conf["dark"] ?? false;
         //调用 Color 工具方法
-        $nval = ColorUtil::autoShift($oval, $lvl["max"], $lvl["min"], $sts, $isDark);
+        //$nval = ColorUtil::autoShift($oval, $lvl["max"], $lvl["min"], $sts, $isDark);
+        //!! 使用 luma 亮度作为颜色加深减淡的判断方式
+        //$nval = ColorUtil::autoShiftWithLuma($oval, $lvl["max"], $lvl["min"], $sts, $isDark);
+        //!! 使用 psAlpha 算法 通过叠加纯黑|白透明图层的方式，加深|减淡 颜色
+        $nval = ColorUtil::autoShiftWithPsAlpha($oval, $lvl["max"], $lvl["min"], $sts, $isDark);
+        //var_dump($item);var_dump($oval);
+        //var_dump($nval);
         if (!Is::nemarr($nval)) {
             //处理发生错误
             return null;
@@ -380,6 +459,14 @@ class Color extends Module
         $val = Arr::extend($val, $nval);
         $manual = $shift["manual"] ?? [];
         $val = Arr::extend($val, $manual);
+
+        //为每个 颜色 创建前景色
+        $fval = [];
+        foreach ($val as $k => $c) {
+            $fc = ColorUtil::autoFrontColor($c);
+            $fval["$k-fc"] = $fc;
+        }
+        $val = Arr::extend($val, $fval);
 
         //得到的 新 value 替换原来的 value
         $conf["value"] = $val;

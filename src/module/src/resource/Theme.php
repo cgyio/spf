@@ -44,6 +44,11 @@ class Theme extends Compound
          * !! 无法通过 uri 传递，只能在实例化时传入的 参数
          */
         "combine" => [],
+
+        /**
+         * 当 export == scss 时，控制是否输出 ScssPhp 补丁文件内容，用于补丁开发期间调试 补丁文件
+         */
+        "patch" => false,
         
     ];
     
@@ -126,7 +131,9 @@ class Theme extends Compound
          */
         "styles" => [
             //基础的主题样式 scss 文件真实路径，不指定则使用 [theme-path]/base.scss 或 spf/assets/theme/base.scss
-            "base" => "spf/assets/theme/base.scss",
+            "base" => [
+                "spf/assets/theme/base.scss",
+            ],
             //依赖的外部样式文件，指定 url，使用 import 方式引入 通常用于引入第三方样式库
             "import" => [
                 //默认引入 normalize
@@ -139,9 +146,8 @@ class Theme extends Compound
             //要额外合并的 其他本地样式文件 scss|css
             "use" => [
                 //必须指定本地真实存在的 scss|css 文件 真实路径
-                /*
-                "foo_bar" => "src/css/foo_bar.scss"
-                */
+                "mixins" => "spf/assets/theme/base-mixins.scss",
+                //...
             ],
 
         ],
@@ -243,6 +249,14 @@ class Theme extends Compound
         
         //可选的 自定义主题子模块
         //...
+    ];
+
+    //主题子模块要输出到 js cssvar.extra 的 额外数据 来自 $modules[module]->getExtraByMode() 方法
+    public $themeExtraCtx = [
+        //必选子模块
+        "color" => [],
+        "size" => [],
+        "vars" => [],
     ];
 
 
@@ -359,8 +373,11 @@ class Theme extends Compound
             if (!Is::nemarr($modesi)) continue;
             //子模块还未解析，则先解析
             if ($modi->parsed !== true) $modi->parse();
+
             //获取子模块输出的 主题数据 保存到 $this->themeCtx 
             $this->themeCtx[$modk] = $modi->getItemByMode(...$modesi);
+            //获取子模块输出的 额外数据 保存到 $this->themeExtraCtx
+            $this->themeExtraCtx[$modk] = $modi->getExtraByMode(...$modesi);
         }
         return true;
     }
@@ -429,7 +446,24 @@ class Theme extends Compound
         //merge 参数
         $merge = [];
         //主题基础样式
-        $base = $sty["base"] ?? null;
+        $base = $sty["base"] ?? [];
+        if (!Is::nemarr($base)) $base = ["spf/assets/theme/base.scss"];
+        foreach ($base as $bfp) {
+            $basef = Path::find($bfp, Path::FIND_FILE);
+            //if (!file_exists($basef)) $basef = Path::find("spf/assets/theme/base.scss", Path::FIND_FILE);
+            if (!file_exists($basef)) continue;
+            //创建基础样式的资源实例
+            $baseo = Resource::create($basef, [
+                "belongTo" => null,
+                "ignoreGet" => true,
+                //base 样式不处理 import
+                "import" => false,
+                "export" => "scss",
+            ]);
+            //合并基础样式
+            if ($baseo instanceof Codex) $merge[] = $baseo;
+        }
+        /*$base = $sty["base"] ?? null;
         if (!Is::nemstr($base)) $base = "spf/assets/theme/base.scss";
         $basef = Path::find($base, Path::FIND_FILE);
         if (!file_exists($basef)) $basef = Path::find("spf/assets/theme/base.scss", Path::FIND_FILE);
@@ -442,7 +476,7 @@ class Theme extends Compound
             "export" => "scss",
         ]);
         //合并基础样式
-        if ($base instanceof Codex) $merge[] = $base;
+        if ($base instanceof Codex) $merge[] = $base;*/
 
         //use 合并额外的 本地样式资源
         $uses = $sty["use"] ?? [];
@@ -575,6 +609,8 @@ class Theme extends Compound
                 "export" => "scss",
                 "belongTo" => $this,
                 "ignoreGet" => true,
+                //!! 显示补丁文件内容，用于补丁开发期间
+                "patch" => $this->params["patch"],
                 //处理 import
                 "import" => true,
                 //合并本地资源
@@ -620,8 +656,12 @@ class Theme extends Compound
     {
         //主题参数
         $ctx = $this->themeCtx;
+        //额外的 各子模块的 数据 保存到 cssvar.extra
+        $ctx["extra"] = $this->themeExtraCtx;
         //json
         $json = Conv::a2j($ctx);
+        //!! 转义 '
+        $json = str_replace("'","\\'", $json);
         //创建临时 js
         $js = $this->tempCodex("js", [
             "import" => "keep",

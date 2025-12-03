@@ -196,7 +196,7 @@ class View extends Exporter
         ];
         //从 Response 响应配置类中 获取对应的 默认 视图文件
         $view = $this->response->config->ctx("view/exception");
-        $html = cView::page($view, $pd);
+        $html = null;   //cView::page($view, $pd);
 
         //如果视图文件不存在，则手动创建 异常输出的 html
         if (!Is::nemstr($html)) {

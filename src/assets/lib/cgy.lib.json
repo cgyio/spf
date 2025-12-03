@@ -11,7 +11,7 @@
     "main": "core.js",
     "modulePath": "module",
     "moduleDefault": [
-        "request", "csstools"
+        "localstorage", "request", "csstools"
     ],
     "useSyntax": "__VAR__.use(__MODULE__)",
     

@@ -57,6 +57,11 @@ class Scss extends Codex
         //"import" => true,
         //代码合并参数，可指定要合并输出的 其他本地资源文件，文件名|文件路径，如果不带 ext 则使用 $this->ext
         //"merge" => [],
+
+        /**
+         * 当 export == scss 时，控制是否输出 ScssPhp 补丁文件内容，用于补丁开发期间调试 补丁文件
+         */
+        "patch" => false,
         
     ];
     
@@ -107,6 +112,11 @@ class Scss extends Codex
             "MergeProcessor ?!empty(merge)" => [
                 "stage" => "export"
             ],
+
+            //!! 20251202 合并 ScssPhp 库补丁文件，生成最终 scss 内容
+            "CombineScssPatch ?export=scss&patch=true" => [
+                "break" => true
+            ],
             //调用 scss 解析工具
             "ParseScssContent ?export=css" => [
                 "break" => true
@@ -125,6 +135,12 @@ class Scss extends Codex
     public function stageStripScssCharset($params=[])
     {
         $this->content = static::stripCharset($this->content);
+        return true;
+    }
+    //!! 20251202 CombineScssPatch 合并 ScssPhp 库补丁文件，生成最终 scss 内容
+    public function stageCombineScssPatch($params=[]) {
+        //scss 文件内容 增加补丁文件内容
+        $this->content = static::patchScssPhpParser($this->content);
         return true;
     }
     //ParseScss 将 scss content 解析为 css
@@ -157,7 +173,11 @@ class Scss extends Codex
     public static function parseScss($scss="", $compressed=true)
     {
         if (!Is::nemstr($scss)) return "";
+        
+        //为 ScssPhp 库打补丁
+        $scss = static::patchScssPhpParser($scss);
         //var_dump($scss);
+
         $compiler = new scssCompiler();
         $outputStyle = $compressed ? scssOutputStyle::COMPRESSED : scssOutputStyle::EXPANDED;
         $compiler->setOutputStyle($outputStyle);
@@ -167,9 +187,48 @@ class Scss extends Codex
             $cnt = $compiler->compileString($scss)->getCss();
         } catch (\Exception $e) {
             //trigger_error("custom::Complie SCSS to CSS Error", E_USER_ERROR);
-            throw new SrcException("SCSS 文件编译为 CSS 发生错误：".$e->getMessage(), "resource/export");
+            $errmsg = $e->getMessage();
+            //合并为单行 msg
+            $errmsg = str_replace(["\r\n", "\r", "\n"]," ", $errmsg);
+            throw new SrcException("ScssPhp 编译器报错：$errmsg", "resource/export");
         }
         return $cnt;
+    }
+
+    /**
+     * !! 处理要编译的 scss 内容
+     * !! 为 ScssPhp 编译库自动打补丁
+     * 补丁文件位于：vendor/cgyio/spf/src/module/src/resource/util/scssphp-patcher.scss
+     * 需要将此文件内容，附加到 scss @import 语句之后
+     * @param String $scss 代码内容
+     * @return String 添加 补丁文件内容后的 代码
+     */
+    public static function patchScssPhpParser($scss="")
+    {
+        $rows = explode("\n", $scss);
+        $improws = [];
+        $cntrows = [];
+        foreach ($rows as $i => $row) {
+            $ri = trim($row);
+            if (
+                substr($ri, 0, 8) == "@charset" || 
+                substr($ri, 0, 7) == "@import"
+            ) {
+                $improws[] = $row;
+            } else {
+                $cntrows[] = $row;
+            }
+        }
+        //读取补丁文件
+        $ptf = Path::find("spf/module/src/resource/util/scssphp-patcher.scss", Path::FIND_FILE);
+        if (file_exists($ptf)) {
+            $ptcnt = file_get_contents($ptf);
+            $improws[] = "\n\n";
+            $improws[] = $ptcnt;
+            $improws[] = "\n\n";
+        }
+        //合并为 scss cnt 等待 编译器解析
+        return implode("\n", $improws) . implode("\n", $cntrows);
     }
 
     /**

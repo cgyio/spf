@@ -172,7 +172,11 @@ class Svg extends Plain
             $mt = preg_match("/(fill=\"\#?[0-9a-fA-F]*\")/", $path, $mts);
             if ($mt !== 1) {
                 //没有 fill="..." 片段
-                $npath = str_replace("></path>", "fill=\"#".$fc."\" ></path>", $path);
+                if (strpos($path, "></path>") !== false) {
+                    $npath = str_replace("></path>", " fill=\"#".$fc."\" ></path>", $path);
+                } else if (strpos($path, "/>") !== false) {
+                    $npath = str_replace("/>", " fill=\"#".$fc."\" />", $path);
+                }
             } else {
                 //找到代码片段，替换颜色
                 //匹配的字符串

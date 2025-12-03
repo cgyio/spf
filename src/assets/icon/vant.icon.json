@@ -1,0 +1,11 @@
+{
+    
+    "name": "vant",
+    "iconset": "vant",
+    "multicolor": false,
+    "iconcss": "spf/assets/icon/base.css",
+
+    "ext": ["js","css","svg"],
+    
+    "root": "https://at.alicdn.com/t/c/font_4006616_4rakvc5fh7.js"
+}

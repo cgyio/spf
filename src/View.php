@@ -193,7 +193,7 @@ class View extends Core
                     !Is::nemstr(Path::find($appf, Path::FIND_FILE))
                 ) { continue; }
                 $appp = $appc["params"] ?? [];
-                //注入统一的 组件名前缀
+                //!!业务组件库使用 统一的 组件名前缀
                 $appp["prefix"] = $vcprefix;
                 $appp = $this->fixResParams($appp);
                 $appres = Resource::create($appf, $appp);
@@ -289,7 +289,10 @@ class View extends Core
             $isf = Path::find($isfp, Path::FIND_FILE);
             if (!Is::nemstr($isf)) continue;
             //实例化
-            $isres = Resource::create($isf, $this->fixResParams([]));
+            $isres = Resource::create($isf, $this->fixResParams([
+                //!! iconset 图标库不统一刷新，如果有修改，需要手动刷新
+                "create" => false,
+            ]));
             if (!$isres instanceof Resource) continue;
             //缓存
             $this->iconset[] = $isres;
@@ -532,14 +535,18 @@ class View extends Core
                 $this->links = array_merge($this->links, $this->autoDarkCssLink(
                     $spa->viewUrl("ui.min.css", [
                         "theme" => $lightMode,
+                        //!! 不统一刷新
+                        "create" => false,
                     ]),
                     $spa->viewUrl("ui.min.css", [
                         "theme" => $darkMode,
+                        //!! 不统一刷新
+                        "create" => false,
                     ])
                 ));
             } else {
                 $this->links[] = [
-                    "href" => $spa->viewUrl("ui.min.css"),
+                    "href" => $spa->viewUrl("ui.min.css", ["create" => false]),
                     "rel" => "stylesheet",
                 ];
             }
@@ -553,14 +560,18 @@ class View extends Core
                     $this->links = array_merge($this->links, $this->autoDarkCssLink(
                         $appres->viewUrl("ui.min.css", [
                             "theme" => $lightMode,
+                            //!! 不统一刷新
+                            "create" => false,
                         ]),
                         $appres->viewUrl("ui.min.css", [
                             "theme" => $darkMode,
+                            //!! 不统一刷新
+                            "create" => false,
                         ])
                     ));
                 } else {
                     $this->links[] = [
-                        "href" => $appres->viewUrl("ui.min.css"),
+                        "href" => $appres->viewUrl("ui.min.css", ["create" => false]),
                         "rel" => "stylesheet",
                     ];
                 }
@@ -590,17 +601,22 @@ class View extends Core
         }
 
         //输出 SPA 环境 js
+        /**
+         * !! Vue 库 以及 第三方 UI 库 不会统一刷新
+         * 第三方库基本不会变化，因此如果发生改变，需要手动刷新
+         */
+        $ps = ["create" => false];
         //基础组件库实例中包含的 Vue 库实例
-        $this->scripts[] = $spa->viewUrl("vue.min.js");
+        $this->scripts[] = $spa->viewUrl("vue.min.js", $ps);
         //输出第三方 UI js
         if (Is::nemarr($spa->ui)) {
-            $this->scripts[] = $spa->viewUrl("ui.min.js");
+            $this->scripts[] = $spa->viewUrl("ui.min.js", $ps);
         }
         //业务组件库使用的 第三方 UI js
         if (Is::nemarr($this->spaApp)) {
             foreach ($this->spaApp as $appk => $appres) {
                 if (!Is::nemarr($appres->ui)) continue;
-                $this->scripts[] = $appres->viewUrl("ui.min.js");
+                $this->scripts[] = $appres->viewUrl("ui.min.js", $ps);
             }
         }
 
@@ -867,6 +883,9 @@ class View extends Core
     {
         if ($this->spaEnabled() !== true) return [];
 
+        //结果
+        $rtn = [];
+
         //数据源，由 基础组件库 $this->spaBase->resVcomInfo() 方法生成
         $vcinfo = $this->spaBase->resVcomInfo();
         $tpls = [
@@ -886,15 +905,6 @@ class View extends Core
             //common 文件夹名
             "__COMMON__" => "dirnames/common",
     
-            /*//component 文件夹真实路径
-            "__DIR_COMPONENT__" => "dirs/component",
-            //mixin 文件夹真实路径
-            "__DIR_MIXIN__" => "dirs/mixin",
-            //plugin 文件夹真实路径
-            "__DIR_PLUGIN__" => "dirs/plugin",
-            //common 文件夹真实路径
-            "__DIR_COMMON__" => "dirs/common",*/
-    
             //component 文件夹 url 前缀
             "__URL_COMPONENT__" => "urls/component",
             //mixin 文件夹 url 前缀
@@ -904,10 +914,42 @@ class View extends Core
             //common 文件夹 url 前缀
             "__URL_COMMON__" => "urls/common",
         ];
-        return [
+        $rtn["base"] = [
             "vcinfo" => $vcinfo,
             "tpls" => $tpls
         ];
+
+        //各业务组件库的 模板替换数据源
+        if (Is::nemarr($this->spaApp)) {
+            $apptpls = [];
+            foreach ($this->spaApp as $appk => $appres) {
+                $appvcinfo = $appres->resVcomInfo();
+                /**
+                 * 字符串模板 增加 APPK_ 前缀
+                 * 例如：
+                 *      __PRE__             --> __PMS_PRE__
+                 *      PRE@                --> PMS_PRE@
+                 *      __URL_COMPONENT__   --> __PMS_URL_COMPONENT__
+                 */
+                $appp = strtoupper($appk);
+                $atpls = [];
+                foreach ($tpls as $tplk => $tplv) {
+                    if (substr($tplk, 0,2) === "__") {
+                        $tplk = "__".$appp."_".substr($tplk, 2);
+                    } else {
+                        $tplk = $appp."_".$tplk;
+                    }
+                    $atpls[$tplk] = $tplv;
+                }
+                $apptpls[$appk] = [
+                    "vcinfo" => $appvcinfo,
+                    "tpls" => $atpls
+                ];
+            }
+            $rtn["app"] = $apptpls;
+        }
+
+        return $rtn;
     }
 
     /**
@@ -921,10 +963,28 @@ class View extends Core
 
         //生成 用于模板替换的 数据源
         $rtpl = $this->spaVcomTpls();
-        $vcinfo = $rtpl["vcinfo"] ?? [];
-        $tpls = $rtpl["tpls"] ?? [];
 
-        //替换模板
+        //先替换 业务组件库的 字符串模板
+        $apps = $rtpl["app"] ?? [];
+        if (Is::nemarr($apps)) {
+            foreach ($apps as $appk => $atpl) {
+                $vci = $atpl["vcinfo"] ?? [];
+                $tpls = $atpl["tpls"] ?? [];
+                if (!Is::nemarr($tpls)) continue;
+                foreach ($tpls as $tpl => $prop) {
+                    $vd = Arr::find($vci, $prop);
+                    if (!is_string($vd)) continue;
+                    
+                    //替换
+                    $html = str_replace($tpl, $vd, $html);
+                }
+            }
+        }
+
+        //再替换 基础组件库的 字符串模板
+        $base = $rtpl["base"] ?? [];
+        $vcinfo = $base["vcinfo"] ?? [];
+        $tpls = $base["tpls"] ?? [];
         foreach ($tpls as $tpl => $prop) {
             $vd = Arr::find($vcinfo, $prop);
             if (!is_string($vd)) continue;
@@ -940,11 +1000,11 @@ class View extends Core
      * 自动生成 SPA 环境 基础组件库插件|业务组件库插件 应用的 js 语句
      * !! 框架不会自动执行此方法，应由 各视图页面在各自内部的合适位置，调用此方法 生成并在调用位置 echo 
      *      js 代码块： import ... ; Vue.use(...); ...
-     * @param Array $baseOptions 向 基础组件库 Vue.use() 的 js 方法语句 插入 第二参数 options {}
+     * @param Array $spaOptions 向 基础组件库 Vue.use() 的 js 方法语句 插入 第二参数 options {}
      * @param Bool $eko 是否执行 echo 默认 true
      * @return String html 代码
      */
-    public function useSpaPlugin($baseOptions=[], $eko=true)
+    public function useSpaPlugin($spaOptions=[], $eko=true)
     {
         if ($this->spaEnabled() !== true) return "";
 
@@ -964,27 +1024,57 @@ class View extends Core
         if (Is::nemarr($this->spaApp)) {
             foreach ($this->spaApp as $appk => $appres) {
                 $appv = $appres->desc["var"];
-                $html[] = "import $appv from '".$appres->viewUrl("esm-browser.min.js", [], true)."';";
+                //!! 业务组件库 中所有组件都被定义为 异步组件形式
+                $html[] = "import $appv from '".$appres->viewUrl("esm-browser-async.min.js", [], true)."';";
             }
         }
 
         //准备基础组件库插件的 use options
-        if (!Is::nemarr($baseOptions)) $baseOptions = [];
+        if (!Is::nemarr($spaOptions)) $spaOptions = [];
+        //合并 $view->config->compound["spa"]["base"]["options"]
+        $confOpts = $this->config->compound["spa"]["base"]["options"] ?? [];
+        if (!Is::nemarr($confOpts)) $confOpts = [];
         //合并默认 Vue2.* 插件的 options
-        $baseOptions = Arr::extend([
+        $spaOptions = Arr::extend([
             //TODO: SPF-View 视图系统 使用 Vue2.* 插件时 默认的 插件启动参数
-            //...
-        ], $baseOptions);
+            //服务
+            "service" => [
+                //service.ui
+                "ui" => [
+                    //开启控制台输出，与 Env::$current->dev 模式关联
+                    "log" => true,  //Env::$current->dev
+                ],
+            ],
+
+        ], $confOpts, $spaOptions);
+        //json
+        $spaJson = Conv::a2j($spaOptions);
+        $spaJson = str_replace("'", "\\'", $spaJson);
         //应用基础组件库插件
-        $html[] = "Vue.use($spav, JSON.parse('".Conv::a2j($baseOptions)."'));";
+        $html[] = "const vcomOptions = {};";
+        $html[] = "vcomOptions.base = JSON.parse('$spaJson');";
+        //$html[] = "console.log(vcomOptions);";
+        $html[] = "Vue.use($spav, vcomOptions.base);";
 
         //应用所有业务组件库插件
         if (Is::nemarr($this->spaApp)) {
             foreach ($this->spaApp as $appk => $appres) {
                 $appv = $appres->desc["var"];
-                $html[] = "Vue.use($appv);";
+                $appOpts = $this->config->compound["spa"]["app"][$appk]["options"] ?? [];
+                if (!Is::nemarr($appOpts)) $appOpts = [];
+                if (Is::nemarr($appOpts)) {
+                    $appJson = Conv::a2j($appOpts);
+                    $appJson = str_replace("'","\\'",$appJson);
+                } else {
+                    $appJson = "{}";
+                }
+                $html[] = "vcomOptions.$appk = JSON.parse('$appJson');";
+                //$html[] = "console.log(vcomOptions);";
+                $html[] = "Vue.use($appv, vcomOptions.$appk);";
             }
         }
+        //所有插件的 install options 保存到 window
+        $html[] = "window.vcomOptions = vcomOptions;";
         //空行
         $html[] = "";
 
@@ -1010,16 +1100,24 @@ class View extends Core
     public function autoDarkCssLink($light, $dark)
     {
         $links = [];
-        $links[] = [
+        $llink = [
             "href" => $light,
             "media" => "(prefers-color-scheme: light), (prefers-color-scheme: no-preference)",
             "rel" => "stylesheet",
+            "name" => "color-scheme-light",
+            "light-href" => $light,
+            "dark-href" => $dark,
         ];
-        $links[] = [
+        $dlink = [
             "href" => $dark,
             "media" => "(prefers-color-scheme: dark)",
             "rel" => "stylesheet",
+            "name" => "color-scheme-dark",
+            "light-href" => $light,
+            "dark-href" => $dark,
         ];
+        $links[] = Arr::extend($extra, $llink);
+        $links[] = Arr::extend($extra, $dlink);
         return $links;
     }
 
@@ -1041,23 +1139,27 @@ class View extends Core
     public function fixResParams($params=[])
     {
         if (!Is::nemarr($params)) $params = [];
+
+        //自动参数
+        $ps = [
+            "belongTo" => null,
+            //创建视图依赖的资源实例时，默认不受 url 参数影响
+            "ignoreGet" => true,
+        ];
         //处理 忽略缓存的 config|url 参数
         if (Request::$current->gets->has("create")) {
             //如果在 url 中定义了 create
             $create = Request::$current->gets->create;
+            if (!is_bool($create)) $create = false;
         } else {
             //检查 view->config->compound["create] 参数
             $create = $this->config->compound["create"] ?? false;
             if (!is_bool($create)) $create = false;
         }
-        if ($create) $params["create"] = true;
+        if ($create) $ps["create"] = true;
 
         //其他默认的实例化参数
-        return Arr::extend([
-            "belongTo" => null,
-            //创建视图依赖的资源实例时，默认不受 url 参数影响
-            "ignoreGet" => true,
-        ], $params);
+        return Arr::extend($ps, $params);
     }
 
     /**

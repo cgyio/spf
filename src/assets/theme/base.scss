@@ -1,16 +1,594 @@
-/** SPF-Theme 基础样式 SCSS **/
-/** 此 SCSS 不处理 import 如需引入外部样式，应在 PRE.theme.json 中指定 styles.import 参数 **/
+/**
+ * SPF-Theme 主题系统配套 scss
+ * 此 SCSS 不处理 import 如需引入外部样式，应在 *.theme.json 中指定 styles.import 参数
+ * !! 不要手动修改 !!
+ * 
+ * SPF-Theme 主题系统变量：
+ *      $colorListAll                       全部颜色名称 list：red,orange,yellow,...,fc,bgc,bdc,...,primary,...
+ *      $colorListBase|Static|Custom...     不同类型的 颜色名称 list
+ *      $colorShiftQueue                    d3,d2,d1,m,l1,l2,l3
+ *      $colorMap                           包含所有颜色定义的 map
+ *      $typeList                           primary,danger,warn,success,info
+ *      $effectList                         normal,fill,plain,popout
+ *      $sizeMap                            包含所有尺寸定义的 map
+ *      $sizeShiftQueue                     xxs,xs,s,m,l,xl,xxl
+ *      $sizeStrQueue                       huge,large,medium,normal,small,mini,tiny
+ *      $sizeStrMap                         尺寸字符串 与 m|xl 映射 map
+ *      $extra[Icon|Btn]SizeQueue           icon|btn 额外的尺寸序列 48,54,64,...,128
+ *      $shapeList                          normal,pill,sharp
+ *      $varsMap                            保存所有其他 css 变量的 map
+ */
 
-/** CGY-Theme 主题 SCSS 通用 @mixin/@extend 等定义 **/
-/** !!! 不要手动修改 !!! **/
+/**
+ * !! patch for ScssPhp v1.12.1
+ */
+.spf-scssphp {
+    $l: (foo bar jaz);
+    $i: list-index($l, jaz);
+
+    content: '#{$i}';
+}
 
 
-/** @function 20250124 **/
-/** 根据输入的 $p 解析得到 left,right,top,bottom 列表 **/
-/** $p 可选：x/y/xy/all/t/r/b/l/tr/tb/.../trb/trl/.../trbl **/
-$trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
-@function trbl($p: all) {
-    $cp: [];
+
+/**
+ * 通用工具方法 @functions
+ * 解决 ScssPhp 库不支持某些 scss 函数的问题 
+ * !! 所有需要传入 function 作为参数的 都不被支持，因此 spf-each spf-filter 系列方法无效 !!! 
+ */
+
+/** 确认输入的是 带单位数值 形式，如：100px | 0.3em | 72% 如果是此形式的字符串，则转为数值 **/
+@function spf-to-num($val: null) {
+    @if $val == null {@return null;}
+    @if type-of($val) == 'number' {@return $val;}
+    @if type-of($val) == 'string' {
+        $num: to-number($val);
+        @if $num == null {@return null;}
+        @return $num;
+    }
+    @return null;
+}
+/** pow 整数次方 **/
+@function spf-pow($base: 1, $exp: 0) {
+    @if type-of($base) != 'number' or type-of($exp) != 'number' {@return null;}
+    @if $exp == 0 {@return 1;}
+    @if $base == 0 {@return 0;}
+    @if $exp == 1 {@return $base;}
+    @if $exp == -1 {@return 1 / $base;}
+    $ng: $exp < 0;
+    $pow: $base;
+    $max: abs($exp) - 1;
+    @for $i from 1 through $max {
+        $pow: $pow * $base;
+    }
+    @if $ng {
+        @return 1 / $pow;
+    } @else {
+        @return $pow;
+    }
+}
+/** 判断 string(length=1) 是否 0-9 数字字符 str-length(string) == 1 **/
+@function spf-is-dig($str: null) {
+    @if type-of($str) != 'string' or str-length($str) != 1 {@return false;}
+    $nl: ('0','1','2','3','4','5','6','7','8','9');
+    @return spf-list-includes($nl, $str);
+}
+/** 判断 string 是否是数字形式，即 只包含 0-9 字符  或  100px 形式字符串  **/
+/** 不是数字形式字符串 返回 false 否则返回转换为 number 的数值 **/
+@function spf-is-numeric-string($str: null) {
+    @if type-of($str) != 'string' {@return false;}
+    $len: str-length($str);
+    $num: '';
+    $unit: '';
+    @for $i from 1 through $len {
+        $ch: str-slice($str, $i, $i);
+        @if spf-is-dig($ch) == true {
+            @if $unit != '' {
+                //在 单位后 还有数字，返回 false
+                @return false;
+            }
+            $num: #{$num}#{$ch};
+        } @else {
+            @if $num == '' {
+                //字符串首位 非数字，返回 false
+                @return false;
+            }
+            $unit: #{$unit}#{$ch};
+        }
+    }
+    //不包含任何数字
+    @if $num == '' {@return false;}
+    //将数字字符串转为 number 并返回
+    @return spf-to-realnum($num, $unit);
+}
+/** 将纯数字形式 string 转为 number  '100' --> 100  无法转换的返回 null **/
+@function spf-to-realnum($str: null, $unit: '') {
+    @if type-of($str) != 'string' and type-of($str) != 'number' {@return null;}
+    $num: 0;
+    $no-unit: type-of($unit) != 'string' or $unit == '';
+    @if type-of($str) == 'number' {
+        @if $no-unit {@return $str;}
+        $u: unit($str);
+        @if $u == '' {
+            $num: $str;
+        } @else {
+            $num: $str / 1#{$u};
+        }
+    } @else {
+        $nmap: spf-map-from((
+            n-0: 0, n-1: 1, n-2: 2, n-3: 3, n-4: 4,
+            n-5: 5, n-6: 6, n-7: 7, n-8: 8, n-9: 9,
+        ));
+        $len: str-length($str);
+        @for $i from 1 through $len {
+            $ch: str-slice($str, $i, $i);
+            $chk: n-#{$ch};
+            @if spf-map-includes($nmap, $chk) != true {
+                @return null;
+            }
+            //$ch 转为 number
+            $dig: spf-map-get($nmap, $chk);
+            @if type-of($dig) != 'number' {
+                @return null;
+            }
+            $num: $num + $dig * spf-pow(10, $len - $i);
+        }
+    }
+    @if $no-unit {
+        @return $num;
+    } @else {
+        @return $num * 1#{$unit};
+    }
+}
+/** number 整除判断，如果 除数不带单位，自动使用被除数的单位 **/
+@function spf-is-divisible($num, $div: 0) {
+    @if type-of($num) != 'number' or type-of($div) != 'number' {@return false;}
+    @if $div <= 0 {@return false;}
+    $u: unit($num);
+    $ud: unit($div);
+    @if $ud != '' and $ud != $u {@return false;}
+    @if $ud == '' {
+        $div: $div * 1#{$u};
+    }
+    @return $num % $div == 0;
+}
+/** clamp 确保某个数值 在给定的 范围内 **/
+@function spf-clamp($min, $num, $max) {
+    $min: spf-to-num($min);
+    $max: spf-to-num($max);
+    $num: spf-to-num($num);
+    @if $num < $min {@return $min;}
+    @if $num > $max {@return $max;}
+    @return $num;
+}
+/** 任意值 转为 string **/
+@function spf-to-str($val: null, $escape: auto) {
+    @if $val == null {@return null;}
+    @if type-of($val) == 'string' {@return $val;}
+    //!! ScssPhp 库不支持 to-string 方法
+    //@return to-string($val, $escape);
+    @return $val + '';
+}
+/** 判断两个值 to-string 后是否相等 '100px' == 100px | '#ff0' == #ff0 | 'true' == true **/
+/** 针对 $b == true|false 做额外判断：任何非 0 数字视为 true 否则视为 false **/
+@function spf-eq($a: null, $b: null) {
+    @if $a == null or $b == null {@return false;}
+    @if type-of($b) == 'bool' {
+        $numa: spf-to-num($a);
+        @if $numa != null {
+            @if $b {
+                @return $a != 0;
+            } @else {
+                @return $a == 0;
+            }
+        }
+    }
+    $astr: spf-to-str($a);
+    $bstr: spf-to-str($b);
+    @return $astr == $bstr;
+}
+/** 针对 list|map|spf-map 执行 each 操作 **/
+@function spf-each($source: null, $fn: null, $separator: comma, $extras: ()) {
+    @if type-of($fn) != 'function' {@return null;}
+    $tp: type-of($source);
+    @if $tp != 'list' and $tp != 'map' {@return null;}
+    @if $tp == 'map' or ($tp == 'list' and spf-is-map($source)) {
+        @return spf-map-each($source, $fn, $extras);
+    } @else {
+        @return spf-list-each($source, $fn, $separator, $extras);
+    }
+}
+/** 按 $sep 将字符串拆分为 list **/
+@function spf-split($str: null, $sep: '-') {
+    @if $str != null {
+        $str: spf-to-str($str);
+        $list: ();
+        @if str-index($str, $sep) == null {
+            $list: spf-list-append($list, $str);
+        } @else {
+            $len: str-length($str);
+            $ts: '';
+            @for $i from 1 through $len {
+                $ch: str-slice($str, $i, $i);
+                @if $ch == $sep {
+                    $list: spf-list-append($list, $ts);
+                    $ts: '';
+                } @else {
+                    $ts: $ts + $ch;
+                    @if $i == $len {
+                        $list: spf-list-append($list, $ts);
+                    }
+                }
+            }
+        }
+        @return $list;
+    }
+    @return $str;
+}
+/** 用 $glue 将 list 拼接为字符串 **/
+@function spf-join($list: (), $glue: '-') {
+    @if length($list) <=0 {@return '';}
+    $str: '';
+    @each $i in $list {
+        $i: spf-to-str($i);
+        @if $i != null {
+            @if $str == '' {
+                $str: #{$i};
+            } @else {
+                $str: $str + $glue + $i;
+            }
+        }
+    }
+    @return $str;
+}
+/** append 默认 separator == comma  $item 支持单个元素 和 list **/
+@function spf-list-append($list: (), $item: null, $separator: comma) {
+    @if $item == null {@return $list};
+    @if type-of($item) == 'list' {
+        @return join($list, $item, $separator);
+    }
+    @return append($list, $item, $separator);
+}
+/** list-slice **/
+/**
+    slice((a,b,c), -1)      --> (c)
+    slice((a,b,c), 1, 2)    --> (a,b)
+    slice((a,b,c), 1)       --> (a,b,c)
+    slice((a,b,c), 2, -1)   --> (b,c)
+**/
+@function spf-list-slice($list: (), $start: 1, $end: 0, $separator: comma) {
+    $len: length($list);
+    @if $len <= 0 {@return ();}
+    @if $start == 0 and $end == 0 {@return ();}
+    @if $start <= 0 {$start: $start + $len + 1;}
+    @if $end <= 0 {$end: $end + $len + 1;}
+    $start: spf-clamp(1, $start, $len);
+    $end: spf-clamp(1, $end, $len);
+    @if $start > $end {
+        $t: $end;
+        $end: $start;
+        $start: $t;
+    }
+    $rtn: ();
+    @for $i from $start through $end {
+        $rtn: spf-list-append($rtn, nth($list, $i), $separator);
+    }
+    @return $rtn;
+}
+/** list-insert 插入元素到 list 输入的 $item 可以是单个元素 或 list **/
+/** 
+    insert((a,b,c), 0, d)                   --> d,a,b,c
+    insert((a,b,c), 1, d)                   --> a,d,b,c
+    insert((a,b,c), 2, d)                   --> a,b,d,c
+    insert((a,b,c), 3, d)                   --> a,b,c,d
+    insert((a,b,c), -1, d)                  --> a,b,d,c
+    insert((a,b,c), -5, d)                  --> d,a,b,c
+    insert((a,b,c), index((a,b,c), b), d)    --> a,b,d,c
+**/
+@function spf-list-insert($list: (), $index: 0, $item: null, $separator: comma) {
+    @if $item == null {@return $list;}
+    $len: length($list);
+    @if $index < 0 {$index: $index + $len;}
+    $index: spf-clamp(0, $index, $len);
+    
+    $list-a: if($index == 0, (), spf-list-slice($list, 1, $index));
+    $list-b: if($index == $len, (), spf-list-slice($list, $index + 1, $len));
+
+    @if type-of($item) == 'list' {
+        $rtn: join($list-a, $item, $separator);
+    } @else {
+        $rtn: spf-list-append($list-a, $item, $separator);
+    }
+    @if length($list-b) > 0 {
+        $rtn: join($rtn, $list-b, $separator);
+    }
+    @return $rtn;
+}
+/** 在 list 中查找目标元素，找到则返回 idx 未找到则返回 0 **/
+@function spf-list-index($list: (), $item: null) {
+    @if $item == null {@return 0;}
+    $len: length($list);
+    @for $i from 1 through $len {
+        $ch: nth($list, $i);
+        @if type-of($ch) == type-of($item) {
+            @if $ch == $item {
+                @return $i;
+            }
+        } @else {
+            @if spf-eq($ch, $item) == true {
+                @return $i;
+            }
+        }
+    }
+    @return 0;
+}
+/** 判断 list 中是否包含 item 元素 **/
+@function spf-list-includes($list: (), $item: null) {
+    @return spf-list-index($list, $item) > 0;
+}
+/** 从 list 中删除 item **/
+@function spf-list-remove($list: (), $item: null, $separator: comma) {
+    @if $item == null {@return $list;}
+    $i: spf-list-index($list, $item);
+    @if $i <= 0 {@return $list;}
+    @return spf-list-remove-index($list, $i);
+}
+@function spf-list-remove-index($list: (), $i: 0, $separator: comma) {
+    @if type-of($i) != 'number' or $i == 0 {@return $list;}
+    $len: length($list);
+    @if $i < 0 {$i: $i + $len + 1;}
+    $i: spf-clamp(1, $i, $len);
+    $la: if($i == 1, (), spf-list-slice($list, 1, $i - 1));
+    $lb: if($i == $len, (), spf-list-slice($list, $i + 1, $len));
+    @return spf-list-append($la, $lb, $separator);
+}
+/** list-each 对 list 中元素，依次执行 fn(item, index, $extras: (...) ) 方法，收集返回值 list **/
+@function spf-list-each($list: (), $fn: null, $separator: comma, $extras: ()) {
+    @if type-of($fn) != 'function' or type-of($list) != 'list' or length($list) <= 0 {@return ();}
+    $rtn: ();
+    @for $i from 1 through length($list) {
+        $v: nth($list, $i);
+        $ri: $fn($v, $i, $extras);
+        $rtn: append($rtn, $ri, $separator);
+    }
+    @return $rtn;
+}
+/** 根据传入的 $fn(item, index, $extras: (...) ) 筛选 list 返回符合条件的 新 list **/
+@function spf-list-filter($list: (), $fn: null, $separator: comma, $extras: ()) {
+    @if type-of($list) != 'list' or length($list) <= 0 or spf-is-map($list) {@return ();}
+    @if type-of($fn) != 'function' {@return $list;}
+    $nl: ();
+    @for $i from 1 through length($list) {
+        $ch: nth($list, $i);
+        $eq: $fn($ch, $i, $extras);
+        @if spf-eq($eq, true) {
+            $nl: spf-list-append($nl, $ch, $separator);
+        }
+    }
+    @return $nl;
+}
+
+.spf-for-dev {
+    $u: px;
+    $n: 100;
+    $n: $n#{$u};
+    content: '#{$n} | #{type-of($n)} ';
+}
+
+/**
+ * !! ScssPhp 库不支持 map-set 定义一个 spf-map 类型 
+ */
+/**
+    type-of($spf-map) == 'list'
+    $spf-map: (
+        //keys list
+        (padding, margin, font-size),
+        //values list
+        (12px, 8px, 14px)
+    )
+    spf-map-get($spf-map|$real-map, padding)                --> 12px
+    spf-map-del($spf-map|$real-map, padding)                --> $spf-map
+    spf-map-set($spf-map|$real-map, padding, 16px)          --> $spf-map
+    spf-map-from($real-map|$spf-map)                        --> $spf-map
+    spf-map-merge($spf-map, $real-map|$spf-map)             --> $spf-map
+    spf-map-filter($spf-map|$real-map, $keys-list)          --> $spf-map
+**/
+/** 判断一个 list 是否是有效的 spf-map **/
+@function spf-is-map($spf-map: null) {
+    @if type-of($spf-map) != 'list' or length($spf-map) != 2 {@return false;}
+    $keys: nth($spf-map, 1);
+    $vals: nth($spf-map, 2);
+    @if type-of($keys) != 'list' or type-of($vals) != 'list' {@return false;}
+    @if length($keys) != length($vals) {@return false;}
+    @return true;
+}
+/** 判断一个 spf-map 是否为空 **/
+@function spf-is-empty-map($spf-map: null) {
+    $spf-map: spf-map-from($spf-map);
+    $keys: spf-map-keys($spf-map);
+    @return length($keys) <= 0;
+}
+/** 判断是否存在 key 键 **/
+@function spf-map-includes($spf-map: null, $key: null) {
+    @if $key == null {@return false;}
+    @return spf-map-get($spf-map, $key) != null;
+}
+/** 创建一个空 spf-map **/
+@function spf-empty-map() {
+    @return ((), ());
+}
+/** 根据 map 类型数据，创建 spf-map **/
+@function spf-map-from($map: null) {
+    @if type-of($map) != 'map' {
+        @if spf-is-map($map) {@return $map;}
+        @return spf-empty-map();
+    }
+    $ks: map-keys($map);
+    $keys: ();
+    $vals: ();
+    @each $k in $ks {
+        $v: map-get($map, $k);
+        @if $v != null {
+            $keys: spf-list-append($keys, $k);
+            $vals: spf-list-append($vals, $v);
+        }
+    }
+    @return ($keys, $vals);
+}
+/** spf-map-keys **/
+@function spf-map-keys($spf-map: null) {
+    @if spf-is-map($spf-map) != true {@return ();}
+    @return nth($spf-map, 1);
+}
+/** spf-map-values **/
+@function spf-map-values($spf-map: null) {
+    @if spf-is-map($spf-map) != true {@return ();}
+    @return nth($spf-map, 2);
+}
+/** spf-map-get **/
+@function spf-map-get($spf-map: null, $key: null) {
+    @if $key == null {@return null;}
+    @if spf-is-map($spf-map) != true {
+        @if type-of($spf-map) != 'map' {@return null;}
+        @return map-get($spf-map, $key);
+    }
+    $keys: spf-map-keys($spf-map);
+    $vals: spf-map-values($spf-map);
+    $i: spf-list-index($keys, $key);
+    @if $i <= 0 {@return null;}
+    @return nth($vals, $i);
+}
+/** spf-map-set **/
+@function spf-map-set($spf-map: null, $key: null, $val: null) {
+    $spf-map: spf-map-from($spf-map);
+    @if $key == null or $val == null {@return $spf-map;}
+    $keys: spf-map-keys($spf-map);
+    $vals: spf-map-values($spf-map);
+    $i: spf-list-index($keys, $key);
+    @if $i <= 0 {
+        $keys: spf-list-append($keys, $key);
+        $vals: spf-list-append($vals, $val);
+    } @else {
+        $vals: set-nth($vals, $i, $val);
+    }
+    @return ($keys, $vals);
+}
+/** spf-map-del **/
+@function spf-map-del($spf-map: null, $key: null) {
+    $spf-map: spf-map-from($spf-map);
+    @if $key == null {@return $spf-map;}
+    $keys: spf-map-keys($spf-map);
+    $vals: spf-map-values($spf-map);
+    $i: spf-list-index($keys, $key);
+    @if $i <= 0 {@return $spf-map;}
+    $keys: spf-list-remove-index($keys, $i);
+    $vals: spf-list-remove-index($vals, $i);
+    @return ($keys, $vals);
+}
+/** spf-map-merge **/
+@function spf-map-merge($map-a: null, $map-b: null) {
+    @if type-of($map-a) == 'map' and type-of($map-b) == 'map' {
+        $map-a: map-merge($map-a, $map-b);
+        @return spf-map-from($map-a);
+    }
+    $map-a: spf-map-from($map-a);
+    $map-b: spf-map-from($map-b);
+    $isem-a: spf-is-empty-map($map-a);
+    $isem-b: spf-is-empty-map($map-b);
+    @if $isem-a == true and $isem-b == true {@return spf-empty-map();}
+    @if $isem-a == true {@return $map-b;}
+    @if $isem-b == true {@return $map-a;}
+    $keys-b: spf-map-keys($map-b);
+    $val-b: spf-map-values($map-b);
+    $rtn: $map-a;
+    @for $i from 1 through length($keys-b) {
+        $k: nth($keys-b, $i);
+        $v: nth($vals-b, $i);
+        $rtn: spf-map-set($rtn, $k, $v);
+    }
+    @return $rtn;
+}
+/** map-each 对 spf-map 中元素，依次执行 fn(value, key, $extras: (...) ) 方法，收集返回值构成的 spf-map **/
+@function spf-map-each($spf-map: null, $fn: null, $extras: ()) {
+    @if type-of($fn) != 'function' {@return spf-empty-map();}
+    $spf-map: spf-map-from($spf-map);
+    @if spf-is-empty-map($spf-map) {@return spf-empty-map();}
+    $keys: spf-map-keys($spf-map);
+    $vals: spf-map-values($spf-map);
+    $rtn: ();
+    @for $i from 1 through length($keys) {
+        $k: nth($keys, $i);
+        $v: nth($vals, $i);
+        $ri: $fn($v, $k, $extras);
+        $rtn: spf-list-append($rtn, $ri);
+    }
+    @return ($keys, $rtn);
+}
+/** 根据传入的 fn(value, key, $extras: (...) ):bool 方法 筛选 spf-map 返回符合条件的 部分 **/
+@function spf-map-filter($spf-map: null, $fn: null, $extras: ()) {
+    //@debug $fn;
+    //@debug type-of($fn);
+    @if type-of($fn) != 'function' {@return spf-empty-map();}
+    $spf-map: spf-map-from($spf-map);
+    @if spf-is-empty-map($spf-map) {@return spf-empty-map();}
+    $oks: spf-map-keys($spf-map);
+    $ovs: spf-map-values($spf-map);
+    $keys: ();
+    $vals: ();
+    @for $i from 1 through length($oks) {
+        $k: nth($oks, $i);
+        $v: nth($ovs, $i);
+        $eq: $fn($v, $k, $extras);
+        @if spf-eq($eq, true) {
+            $keys: spf-list-append($keys, $k);
+            $vals: spf-list-append($vals, $v);
+        }
+    }
+    @return ($keys, $vals);
+}
+/** 根据传入的 key-list 从 spf-map 中筛选出对应的 键值对，创建为新的 spf-map **/
+/**
+    filter($spf-map, (key,foo-bar, ...)) 将会筛选出所有 键名前缀为指定值的 键值对：new-spf-map: (
+        //keys list
+        (key,key-foo,key-bar, foo-bar,foo-bar-jaz, ...),
+        //values list
+        ( ... )
+    )
+**/
+@function spf-map-filter-keys($spf-map: null, $finds: null, $prefix: true) {
+    @if type-of($finds) != 'list' or length($finds) <= 0 {@return spf-empty-map();}
+    $spf-map: spf-map-from($spf-map);
+    @if spf-is-empty-map($spf-map) {@return spf-empty-map();}
+    $oks: spf-map-keys($spf-map);
+    $ovs: spf-map-values($spf-map);
+    $keys: ();
+    $vals: ();
+    @each $k in $finds {
+        $kpre: $k + '-';
+        $klen: str-length($kpre);
+        @for $i from 1 through length($oks) {
+            $oki: nth($oks, $i);
+            $ovi: nth($ovs, $i);
+            @if $prefix == true {
+                $opre: if(str-length($oki) < $klen, $oki, str-slice($oki, 1, $klen));
+            }
+            @if $oki == $k or ($prefix == true and $opre == $kpre) {
+                $keys: spf-list-append($keys, $oki);
+                $vals: spf-list-append($vals, $ovi);
+            }
+        }
+    }
+    @return ($keys, $vals);
+}
+
+/**
+ * 根据输入的 $p 解析得到 left,right,top,bottom 列表
+ * 20250124
+ * $p 可选：x/y/xy/all/t/r/b/l/tr/tb/.../trb/trl/.../trbl | all
+ */
+$trblQueue: t,r,b,l,tr,tb,tl,rb,rl,bl,trb,trl,rbl,tbl,trbl,x,y,xy,all;
+@function spf-trbl($p: all) {
+    $cp: ();
     @if $p == all or $p == xy {
         $cp: top,right,bottom,left;
     } @else if $p == x {
@@ -18,33 +596,445 @@ $trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
     } @else if $p == y {
         $cp: top,bottom;
     } @else {
-        @if str-index($p, t) != null { $cp: append($cp, top, comma); }
-        @if str-index($p, r) != null { $cp: append($cp, right, comma); }
-        @if str-index($p, b) != null { $cp: append($cp, bottom, comma); }
-        @if str-index($p, l) != null { $cp: append($cp, left, comma); }
+        @if str-index($p, t) != null { $cp: spf-list-append($cp, top); }
+        @if str-index($p, r) != null { $cp: spf-list-append($cp, right); }
+        @if str-index($p, b) != null { $cp: spf-list-append($cp, bottom); }
+        @if str-index($p, l) != null { $cp: spf-list-append($cp, left); }
     }
     @return $cp;
 }
-/** 生成 img url，返回 url(...) 属性值 **/
-@function icourl($icon: md-sharp-home, $fill: '', $pre: '/src/icon/') {
-    @if $fill != '' {
-        @if str-index($fill, '#') != null {
-            //去除颜色 Hex 中的 #
-            $fill: str-slice($fill, 2);
-        }   
-        $icon: #{$icon} + '?fill=' + #{$fill};
+/**
+ * 根据输入的 $r 解析得到 top-left,top-right,bottom-left,bottom-right 列表
+ * $r 可选：t|b|r|l|tl|tr|bl|br|trbl|all
+ */
+$cornerQueue: t,b,r,l,tl,tr,bl,br,tbl,tbr,btl,btr,rtl,rbl,ltr,lbr,trbl,all;
+@function spf-corner($r: all) {
+    $rlen: str-length($r);
+    @if $rlen >= 4 or $r == 'all' or $r == 'tb' or $r == 'rl' or $r == 'trbl' {
+        @return top-left,top-right,bottom-left,bottom-right;
+    } @else if $rlen == 3 {
+        //3 个字符 tbl|tbr|btl|btr|rtl|rbl|ltr|lbr 同时设置 3 个角 
+        //第一个字符 等同于 spf-corner(t|b|r|l)
+        $f: str-slice($r, 1,1);
+        $cor-a: spf-corner($f);
+        //后两个字符，表示某一个角
+        $b: str-slice($r, 2,3);
+        $cor-b: spf-corner($b);
+        @return spf-list-append($cor-a, $cor-b);
+    } @else if $rlen == 2 {
+        //2 个字符 tl|tr|bl|br 设置 1 个角
+        $cor: top,left;
+        @if str-index($r, 't') != null { $cor: set-nth($cor, 1, top); }
+        @if str-index($r, 'b') != null { $cor: set-nth($cor, 1, bottom); }
+        @if str-index($r, 'l') != null { $cor: set-nth($cor, 2, left); }
+        @if str-index($r, 'r') != null { $cor: set-nth($cor, 2, right); }
+        $corstr: spf-join($cor, '-');
+        @return spf-list-append((), $corstr);
+    } @else if $rlen == 1 {
+        //1 个字符 t|b|r|l 同时设置 2 个角
+        @if $r == 't' {
+            @return top-left,top-right;
+        } @else if $r == 'b' {
+            @return bottom-left,bottom-right;
+        } @else if $r == 'l' {
+            @return top-left,bottom-left;
+        } @else if $r == 'r' {
+            @return top-right,bottom-right;
+        }
     }
-    @return url('#{$pre}#{$icon}.svg');
+    @return ();
+}
+/** 
+ * 将 color|size 有效的 键名 key 转为 list
+ * 例如:
+ *      primary-m           primary,m
+ *      btn-xxl             btn,xxl
+ *      btn-pd-xxl          btn-pd,xxl
+ * @param $k 有效的在 color|sizeMap 中定义的 color|size 键名
+ * @param $sep 分割符 默认 -
+ * @return list  或  null
+ */
+@function spf-key-list($k: null, $sep: '-') {
+    @if type-of($k) == 'color' or type-of($k) == 'number' {@return $k;}
+    @if $k != null {
+        $list: spf-split($k, $sep);
+        $len: length($list);
+        @if $len == 2 {
+            @return $list;
+        } @else if $len == 1 {
+            $list: spf-list-append($list, m);
+            @return $list;
+        }
+        
+        $nl: spf-list-slice($list, 1, -1);
+        $rtn: ();
+        $rtn: spf-list-append($rtn, spf-join($nl, '-'));
+        $rtn: spf-list-append($rtn, nth($list, $len));
+        @return $rtn;
+    }
+    @return $k;
+}
+/** 
+ * 根据传入的 有效 color 键名，返回 加深|减淡 $n 级后的 color 键名 
+ * $n > 0 表示 加深，$n < 0 表示 减淡
+ * key-shift(btn-l1, 1)         --> btn-m
+ * key-shift(btn-l1, -2)        --> btn-l3
+ * key-shift(btn-m, 0)          --> btn-m
+ * key-shift(transparent, -2)   --> transparent
+ */
+@function spf-color-key-shift($k: null, $n: 0) {
+    @if type-of($n) != 'number' or $n ==0 {@return $k;}
+    $kl: spf-key-list($k);
+    @if type-of($kl) == 'color' {
+        //TODO: 计算颜色 加深|减淡 返回颜色值
+        @return $kl;
+    }
+    @if type-of($kl) != 'list' {@return null;}
+    $ks: nth($kl, 1);
+    $kv: nth($kl, 2);
+    $rtn: spf-list-append((), $ks);
+    @if $kv == m {
+        @if $n > 0 {
+            $rtn: spf-list-append($rtn, d#{$n});
+        } @else {
+            $rtn: spf-list-append($rtn, l#{$n});
+        }
+    } @else {
+        $kvk: str-slice($kv, 1,1);
+        $kvn: unquote(str-slice($kv, 2));
+        @if $kvk == l {
+            $kvn: if($n > 0, $kvn - $n, $kvn + abs($n));
+        } @else {
+            $kvn: if($n > 0, $kvn + $n, $kvn - abs($n));
+        }
+        @if $kvn == 0 {
+            $rtn: spf-list-append($rtn, m);
+        } @else {
+            @if $kvn < 0 {$kvk: if($kvk == l, d, l);}
+            $rtn: spf-list-append($rtn, #{$kvk}#{abs($kvn)});
+        }
+    }
+    @return spf-join($rtn, '-');
+}
+
+/** 
+ * 从 $colorMap 中读取对应的值 
+ * @param $k 可选：red-m|primary-d3 形式的 颜色键名，或 transparent|#ff0|rgb() 等形式的颜色值字符串  或  list(separator: space)
+ * @param $map 可选全部颜色 map 或 筛选后的 颜色 map 默认 $colorMap
+ * @return 选中的有效颜色色值字符串  或  list(separator: space)  或 null
+ */
+@function spf-color-get($k: null, $map: $colorMap) {
+    @if $k == null {@return null;}
+    @if type-of($k) == 'color' {@return $k;}
+    $cv: spf-map-get($map, $k);
+    @if type-of($cv) == 'color' {@return $cv;}
+    @if type-of($k) == 'list' and list-separator($k) == space {
+        $rtn: ();
+        @each $ki in $k {
+            $vi: spf-color-get($ki, $map);
+            @if $vi != null {
+                $rtn: spf-list-append($rtn, $vi, space);
+            }
+        }
+        @if length($rtn) != length($k) {@return null;}
+        @return $rtn;
+    }
+    @return null;
+}
+/** 
+ * 从 $sizeMap 中读取对应的值
+ * @param $k 可选：fs-m|btn-xl 形式的 尺寸键名  或  直接传入 尺寸数值 100px  或  list(separator: space)
+ * @param $map 可选全部尺寸 map 或 筛选后的 尺寸 map 默认 $sizeMap
+ * @return 有效的尺寸值(带单位的数值，可直接计算)  或  list(separator: space)  或  null
+ */
+@function spf-size-get($k: null, $map: $sizeMap) {
+    @if $k == null {@return null;}
+    @if type-of($k) == 'number' {@return $k;}
+    $sv: spf-map-get($map, $k);
+    @if $sv != null {@return spf-to-num($sv);}
+    @if type-of($k) == 'list' and list-separator($k) == space {
+        $rtn: ();
+        @each $ki in $k {
+            $vi: spf-size-get($ki, $map);
+            @if $vi != null {
+                $rtn: spf-list-append($rtn, $vi, space);
+            }
+        }
+        @if length($rtn) != length($k) {@return null;}
+        @return $rtn;
+    }
+    @return null;
 }
 
 
-/** @mixin 20250124 **/
 
-/** color-shift **/
+/** 通用样式注入 mixins **/
+
+/** 基础样式注入 position|width|padding|overflow ... **/
+@mixin spf-po($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $t: unset, $r: unset, $b: unset, $l: unset, $ov: unset) {
+    position: $po;
+    @if $w != unset { width: spf-size-get($w); }
+    @if $h != unset { height: spf-size-get($h); }
+    @if $mg != unset { margin: spf-size-get($mg); }
+    @if $pd != unset { padding: spf-size-get($pd); }
+    @if $l != unset { left: spf-size-get($l); }
+    @if $r != unset { right: spf-size-get($r); }
+    @if $t != unset { top: spf-size-get($t); }
+    @if $b != unset { bottom: spf-size-get($b); }
+    @if $ov != unset { overflow: $ov; }
+    box-sizing: border-box;
+}
+@mixin spf-po-ov($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $t: unset, $r: unset, $b: unset, $l: unset, $ov: hidden) {
+    @include spf-po($po, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
+}
+@mixin spf-po-abs($w: 100%, $h: unset, $mg: 0, $pd: 0, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
+    @include spf-po(absolute, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
+}
+@mixin spf-po-fix($w: 100%, $h: unset, $mg: 0, $pd: 0, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
+    @include spf-po(fixed, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
+}
+/** 基础样式注入 根据输入的 trbl 设置不同 position 位置的 padding/margin/border-width size **/
+/** $p 可选值：$trblQueue **/
+@mixin spf-size-po(
+    $size:      unset,              //要设置的尺寸 
+    $p:         '',                 //要设置尺寸值的 position 位置，可选值：$trblQueue，默认不指定，表示所有位置
+    $prop:      padding,            //要设置尺寸值的 css 属性，默认 padding，可选 padding/margin/border-width
+    $important: false               //是否增加 important
+) {
+    @if $p != '' {
+        $pa: spf-trbl($p);
+        @if type-of($pa) == 'list' {
+            @each $pi in $pa {
+                $pk: #{$prop}-#{$pi};
+                @if $prop == border-width {
+                    $pk: border-#{$pi}-width;
+                }
+                @if $important == true {
+                    #{$pk}: $size !important;
+                } @else {
+                    #{$pk}: $size;
+                }
+            }
+        }
+    } @else {
+        @if $important == true {
+            #{$pk}: $size !important;
+        } @else {
+            #{$pk}: $size;
+        }
+    }
+}
+/** 基础样式注入 根据输入的 corner 设置不同位置的 radius size **/
+/** $r 可选值：$cornerQueue **/
+@mixin spf-size-rd(
+    $size:      unset,              //要设置的尺寸 
+    $r:         '',                 //要设置尺寸值的 corner 位置，可选值：$cornerQueue，默认不指定，表示所有位置
+    $important: false               //是否增加 important
+) {
+    @if $r != '' {
+        $ra: spf-corner($r);
+        @if type-of($ra) == 'list' {
+            @each $ri in $ra {
+                $prop: border-#{$ri}-radius;
+                @if $important == true {
+                    #{$prop}: $size !important;
+                } @else {
+                    #{$prop}: $size;
+                }
+            }
+        }
+    } @else {
+        @if $important == true {
+            border-radius: $size !important;
+        } @else {
+            border-radius: $size;
+        }
+    }
+}
+/** 基础样式注入 flex 布局 **/
+@mixin spf-flex($dir: row, $x: flex-start, $y: center, $gap: unset) {
+    display: flex; flex-direction: $dir;
+    @if $dir == row {
+        align-items: $y; justify-content: $x;
+    } @else {
+        align-items: $x; justify-content: $y;
+    }
+
+    @for $i from 1 through 8 {
+        &>.flex-#{$i} {
+            $wh: if($dir == column, height, width);
+            #{$wh}: unset;
+            flex: $i;
+        }
+    }
+
+    &.flex-no-shrink {
+        &>*, &>view {
+            flex-shrink: 0;
+        }
+    }
+
+    &.flex-with-gap {
+        $gap-side: if($dir == column, top, left);
+        @if $gap != unset {
+            &>*, &>view {
+                &:not(:first-child) {
+                    margin-#{$gap-side}: $gap;
+                }
+            }
+        }
+        @each $qi in $sizeShiftQueue {
+            $gapi: spf-size-get(mg-#{$qi});
+            @if $gapi != null {
+                &.flex-gap-#{$qi} {
+                    &>*, &>view {
+                        &:not(:first-child) {
+                            margin-#{$gap-side}: $gapi;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    &.flex-center {justify-content: center; align-items: center;}
+    &.flex-start {justify-content: flex-start; align-items: flex-start;}
+    &.flex-end {justify-content: flex-end; align-items: flex-end;}
+    &.flex-stretch {justify-content: stretch; align-items: stretch;}
+
+    &[class*=flex-x-] {
+        $prop: if($dir == column, align-items, justify-content);
+        &[class*=x-center] {#{$prop}: center;}
+        &[class*=x-start] {#{$prop}: flex-start;}
+        &[class*=x-end] {#{$prop}: flex-end;}
+        &[class*=x-stretch] {#{$prop}: stretch;}
+    }
+    &[class*=flex-y-] {
+        $prop: if($dir == row, align-items, justify-content);
+        &[class*=y-center] {#{$prop}: center;}
+        &[class*=y-start] {#{$prop}: flex-start;}
+        &[class*=y-end] {#{$prop}: flex-end;}
+        &[class*=y-stretch] {#{$prop}: stretch;}
+    }
+}
+@mixin spf-flex-x($x: flex-start, $y: center, $gap: unset) {
+    @include spf-flex(row, $x, $y, $gap);
+}
+@mixin spf-flex-y($x: flex-start, $y: flex-start, $gap: unset) {
+    @include spf-flex(column, $x, $y, $gap);
+}
+/** 基础样式注入 text-ellipsis 样式 **/
+@mixin spf-text-ellipsis() {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+/** 基础样式注入 模拟移动端滚动条效果 **/
+@mixin spf-scroll(
+    $size:      6px,            //滚动条宽度
+    $fc:        bdc-d1,         //滚动条背景色，传入可通过 spf-color-get 方法获取色值的 颜色键名|transparent
+    $fc-hover:  bdc-d2,         //滚动条悬停背景色，传入可通过 spf-color-get 方法获取色值的 颜色键名|transparent
+    $bgc:       transparent,    //滚动轨道背景色，传入可通过 spf-color-get 方法获取色值的 颜色键名|transparent
+    $ov:        hidden auto,    //垂直|水平 滚动条显示
+    $round:     false,          //滚动条是否圆角
+    $behavior:  smooth
+) {
+    $fcv: spf-color-get($fc);
+    $fchv: spf-color-get($fc-hover);
+    $bgcv: spf-color-get($bgc);
+
+    overflow: $ov;
+    scroll-behavior: $behavior;
+    /* 滚动条占位宽度 = 0，内容区域 100 % */
+    scrollbar-gutter: stable;
+
+    &::-webkit-scrollbar {
+        width: $size; 
+        height: $size;
+    }
+    &::-webkit-scrollbar-track {background-color: $bgcv;}
+    &::-webkit-scrollbar-thumb  {
+        background-color: $fcv;
+        cursor: ns-resize;
+        transition: all .3s;
+
+        @if $round == true {
+            border-radius: $size / 2;
+        }
+
+        &:hover {background-color: $fchv;}
+    }
+    &::-webkit-scrollbar:horizontal {
+        cursor: ew-resize;
+    }
+
+    /* iOS 惯性回弹必备 */
+    //-webkit-overflow-scrolling: touch;
+    /* 可选：隐藏系统默认箭头按钮 */
+    //scrollbar-width: none;   /* Firefox 直接变窄，不占位 */
+}
+/** 复合样式注入 effect 一次性注入 background-color|color|border-color 样式 **/
+@mixin spf-effect-setter($bgc: unset, $fc: null, $bdc: transparent) {
+    @if $bgc != unset {
+        $bgcv: spf-color-get($bgc);
+        @if $bgcv != null {background-color: $bgcv;}
+    }
+    @if $fc != unset {
+        @if $fc == null {
+            @if $bgc == transparent or $bgc == null or $bgc == unset {
+                $fc: fc-m;
+            } @else {
+                $fc: #{$bgc}-fc;
+            }
+        }
+        $fcv: spf-color-get($fc);
+        @if $fcv != null {
+            color: $fcv;
+            &>svg[class*=icon-] {
+                color: $fcv;
+            }
+        }
+    }
+    @if $bdc != unset {
+        $bdcv: spf-color-get($bdc);
+        @if $bdcv != null {border-color: $bdcv;}
+        @if $bdcv == transparent {
+            border-width: 0;
+        } @else {
+            border: {
+                width: $size-bd-m;
+                style: solid;
+            }
+        }
+    }
+}
+/** 复合样式注入 effect 根据 effect 类型以及基础颜色，一次性注入 子样式类的 background-color|color|border-color 样式 **/
+@mixin spf-effect-type($pre: __PRE__, $effect: normal, $ckey: null) {
+    &.#{$pre}-effect-#{$effect} {
+        @if $ckey == null {
+            $cks: (
+                normal-bgc: bgc-m,
+                normal-fc: fc-m,
+                normal-bdc: bdc-m,
+                fill-bgc: bgc-
+            );
+            @if $effect == normal {
+                $bgc: bgc-m;
+                $fc: fc-m;
+                $bdc: bdc-m;
+            } @else {
+                
+            }
+        }
+    }
+}
+
+/** 批量注入样式 **/
+
 /** 根据 $list 颜色名称数组，为 当前类 或 后代类 指定颜色样式
     例如：
     .foo {
-        @include color-shift(
+        @include spf-color-shift(
             $pre:       bg-,
             $target:    child,
             $prop:      background-color,
@@ -71,42 +1061,46 @@ $trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
     .foo .bg-blue-l1-a1 { background-color: color-blue-l1-a1; }  //透明度循环
     .foo .bg-blue-l1-a2 { background-color: color-blue-l1-a2; }
 **/
-@mixin color-shift(
-    $pre:       fc-,                //样式类前缀，如：在 .fc 类中，则可以 fc- 为前缀
-    $list:      $colorListAll,      //颜色名称 list 数组，默认 $colorListAll 通用色
-    $cmap:      $colorMap,          //储存所有色值的 map，默认 $colorMap
-    $cque:      $colorShiftQueue,   //储存所有颜色 shift 变化 lvl 的 list，如：l2,l1,d1,d2 默认 $colorShiftQueue
+@mixin spf-color-shift(
     $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       fc-,                //新增颜色样式的类前缀，如：fc- 则 生成类：.foo.fc-red-m | .foo .fc-red-m
     $prop:      color,              //要设置颜色的 css 属性，可选 color/border-color/background-color/... 默认 color
     $ckey:      fc,                 //$prop 属性的默认颜色名，如：background-color 的默认颜色名为 bgc ($color-bgc-*)
     $opa:       false,              //是否启用透明度，true 表示同时循环透明度
-    $alist:     $colorListAlpha,    //定义的透明度级数序列，默认 a1~a9
-    $amap:      $colorAlphaMap      //储存所有透明序列的 map，默认 $colorAlphaMap
+    $filter:    null                //是否在 colorMap 中筛选部分颜色值 作为循环数据源  颜色键名(前缀) list
 ) {
+    
+    $list:      $colorListAll;      //颜色名称 list 数组，默认 $colorListAll 通用色
+    $cque:      $colorShiftQueue;   //储存所有颜色 shift 变化 lvl 的 list，如：l2,l1,d1,d2 默认 $colorShiftQueue
+    $alist:     $colorListAlpha;    //定义的透明度级数序列，默认 a1~a9
+    $amap:      $colorAlphaMap;     //储存所有透明序列的 map，默认 $colorAlphaMap
+    //储存 所有|筛选部分 色值的 map，默认 $colorMap
+    $cmap:      if(type-of($filter) != 'list', $colorMap, spf-map-filter-keys($colorMap, $filter));
+
     @each $c in $list {
         @each $cq in $cque {
             /**
-                针对 $pre 与 颜色名称相同的 情况
-                例如 $pre = fc- 颜色列表中又包含了 fc-m 颜色，则会生成 .fc-fc-m 颜色类
-                此处解决这个问题
-            **/
+             *  针对 $pre 与 颜色名称相同的 情况
+             *  例如 $pre = fc- 颜色列表中又包含了 fc-m 颜色，则会生成 .fc-fc-m 颜色类
+             *  此处解决这个问题
+             */
             @if $ckey == $c {
                 $ck: #{$cq};
-                $ci: map-get($cmap, #{$c}-#{$cq});
+                $ci: spf-color-get(#{$c}-#{$cq}, $cmap);
             } @else {
                 $ck: #{$c}-#{$cq};
-                $ci: map-get($cmap, $ck);
+                $ci: spf-color-get($ck, $cmap);
             }
             @if $ci != null {
                 @if $target == self {
-                    //&.fc-red-m {}
                     &.#{$pre}#{$ck} { #{$prop}: #{$ci} !important; }
                 } @else if $target == child {
-                    //& .fc-primary-d3 {}
                     & .#{$pre}#{$ck} { #{$prop}: #{$ci} !important; }
                 }
-                @if $opa == true {
-                    //通过主题系统自动生成的 colorMap 一定是 hex 形式
+                /** 判断 $ci 颜色值是否自带 透明度 自带透明度的颜色不执行透明度循环 **/
+                /** 通过主题系统自动生成的 colorMap 一定是 hex 形式 **/
+                $has-alpha: str-length($ci) > 7;
+                @if $opa == true and $has-alpha != true {
                     @each $ca in $alist {
                         $ai: map-get($amap, $ca);
                         @if $ai != null {
@@ -121,24 +1115,24 @@ $trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
                     }
                 }
             }
-        }
-        //:hover 默认使用 color-l1 级颜色
-        $ci-hov: map-get($cmap, #{$c}-l1);
-        //通过主题系统自动生成的 colorMap 一定包含 -m 原始颜色
-        $ci-old: map-get($cmap, #{$c}-m);
-        @if $ci-hov != null {
-            @if $target == self {
-                &.#{$pre}#{$c}-hoverable { 
-                    //#{$prop}: #{$ci-old} !important; 
-                    &:hover {
-                        #{$prop}: #{$ci-hov} !important; 
-                    }
-                }
-            } @else if $target == child {
-                & .#{$pre}#{$c}-hoverable { 
-                    //#{$prop}: #{$ci-old} !important; 
-                    &:hover {
-                        #{$prop}: #{$ci-hov} !important; 
+
+            /** 针对 color-m 级别的颜色 自动通过 pre-hoverable 增加悬停翻转颜色样式 **/
+            @if $cq == 'm' {
+                /** hover 默认使用 color-l1 级颜色 **/
+                $ci-hov: spf-color-get(#{$c}-l1, $cmap);
+                @if $ci-hov != null {
+                    @if $target == self {
+                        &.#{$pre}#{$ck}.#{$pre}-hoverable { 
+                            &:hover {
+                                #{$prop}: #{$ci-hov} !important; 
+                            }
+                        }
+                    } @else if $target == child {
+                        & .#{$pre}#{$ck}.#{$pre}-hoverable { 
+                            &:hover {
+                                #{$prop}: #{$ci-hov} !important; 
+                            }
+                        }
                     }
                 }
             }
@@ -146,20 +1140,32 @@ $trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
     }
 }
 /** size-shift **/
-/** 根据 $list 可选尺寸数组(如：xs,s,m,l,xl)，为 后代类 指定尺寸样式 **/
-@mixin size-shift(
-    $pre:       gap-,               //样式类前缀，如：在 .gap 类中，则可以 gap- 为前缀
-    $list:      $sizeShiftQueue,    //可选尺寸 list 数组，默认 $sizeShiftQueue 
-    $smap:      $sizeMap,           //储存所有尺寸值的 map，默认 $sizeMap
+/** 根据 $list 可选尺寸数组(如：xs,s,m,l,xl)，为 当前类 或 后代类 指定尺寸样式 **/
+@mixin spf-size-shift(
     $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
-    $skey:      gap,                //在尺寸 map 中的键名前缀，如 gap / f / btn
-    $prop:      padding,            //要设置尺寸的 css 属性，可选 padding/margin/... 默认 padding
-    $maxsz:     36,                 //手动通过数值指定尺寸，默认最大 36 对应的尺寸为 36*2 = 72 px
-    $trbl:      true                //是否自动循环输出 trbl position 参数
+    $pre:       pd-,                //样式类前缀，如：pd- 则生成类：.foo.pd-xxl | .foo .pd-xs
+    $prop:      padding,            //要设置尺寸的 css 属性，可选 padding/margin/font-size/border-width/border-radius... 默认 padding
+    $skey:      pd,                 //在尺寸 map 中的键名前缀，如 fs|pd|mg|rd|btn...
+    $manual:    null,               //手动通过数值指定尺寸 list 如：24,32,48,54
+    $trbl:      true,               //是否自动循环输出 trbl position 参数
+    $filter:    null                //是否在 sizeMap 中筛选部分尺寸值 作为循环数据源  尺寸键名(前缀) list
 ) {
+    //需要执行 位置循环的 $prop list
+    $props: padding,margin,border-width,border-radius;
+    //根据 filter 筛选部分 尺寸值
+    $smap: if(type-of($filter) != 'list', $sizeMap, spf-map-filter-keys($sizeMap, $filter));
+
     //主题系统生成的 sizeMap 一定包含 -m 原始尺寸
-    @each $sz in $list {
-        $si: map-get($smap, #{$skey}-#{$sz});
+    $msz: spf-size-get(#{$skey}-m, $smap);
+    //获取当前尺寸值序列的单位 如：px 主题系统生成的 sizeMap 相同键名一定拥有相同单位
+    @if $msz != null {
+        $mu: unit($msz);
+    } @else {
+        $mu: '';
+    }
+
+    @each $sz in $sizeShiftQueue {
+        $si: spf-size-get(#{$skey}-#{$sz}, $smap);
         @if $si != null {
             @if $target == self {
                 &.#{$pre}#{$sz} {
@@ -170,346 +1176,538 @@ $trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
                     #{$prop}: $si !important;
                 }
             }
-            @if $trbl == true {
-                @each $pi in $trblQueue {
-                    @if $target == self {
-                        &.#{$pre}#{$pi}-#{$sz} {
-                            @include size-po($size: #{$si}, $p: #{$pi}, $prop: #{$prop}, $important: true);
+            /** 对于某些 prop 还需要执行 位置循环 **/
+            @if $trbl == true and spf-list-includes($props, $prop) == true {
+                @if $prop == border-radius {
+                    /** 针对 radius 执行特殊循环 **/
+                    @each $ri in $cornerQueue {
+                        @if $target == self {
+                            //&.rd-xs.rd-tl
+                            &.#{$pre}#{$sz}.#{$pre}#{$ri} {
+                                @include spf-size-rd($si, $ri, true);
+                            }
+                        } @else if $target == child {
+                            //& .rd-xs.rd-br
+                            & .#{$pre}#{$sz}.#{$pre}#{$ri} {
+                                @include spf-size-rd($si, $ri, true);
+                            }
                         }
-                    } @else if $target == child {
-                        & .#{$pre}#{$pi}-#{$sz} {
-                            @include size-po($size: #{$si}, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                    }
+                } @else {
+                    /** 正常的 trbl 循环 **/
+                    @each $pi in $trblQueue {
+                        @if $target == self {
+                            //&.pd-xs.pd-tbl
+                            &.#{$pre}#{$sz}.#{$pre}#{$pi} {
+                                @include spf-size-po($si, $pi, $prop, true);
+                            }
+                        } @else if $target == child {
+                            //& .pd-xs.pd-tbl
+                            & .#{$pre}#{$sz}.#{$pre}#{$pi} {
+                                @include spf-size-po($si, $pi, $prop, true);
+                            }
                         }
                     }
                 }
             }
         }
     }
-    @for $sz from 1 through $maxsz {
-        $szi: $sz * 2;
-        @if $target == self {
-            &.#{$pre}#{$szi}px {
-                #{$prop}: #{$szi}px !important;
+
+    //通过手动传入尺寸值，来设置尺寸样式
+    @if type-of($manual) == 'list' {
+        @each $sz in $manual {
+            @if $target == self {
+                &.#{$pre}#{$sz}#{$mu} {
+                    #{$prop}: #{$sz}#{$mu} !important;
+                }
+            } @else if $target == child {
+                & .#{$pre}#{$sz}#{$mu} {
+                    #{$prop}: #{$sz}#{$mu} !important;
+                }
             }
-        } @else if $target == child {
-            & .#{$pre}#{$szi}px {
-                #{$prop}: #{$szi}px !important;
-            }
-        }
-        @if $trbl == true {
-            @each $pi in $trblQueue {
-                @if $target == self {
-                    &.#{$pre}#{$pi}-#{$szi}px {
-                        @include size-po($size: #{$szi}px, $p: #{$pi}, $prop: #{$prop}, $important: true);
+            /** 对于某些 prop 还需要执行 位置循环 **/
+            @if $trbl == true and spf-list-includes($props, $prop) == true {
+                @if $prop == border-radius {
+                    /** 针对 radius 执行特殊循环 **/
+                    @each $ri in $cornerQueue {
+                        @if $target == self {
+                            //&.rd-16px.rd-tl
+                            &.#{$pre}#{$sz}#{$mu}.#{$pre}#{$ri} {
+                                @include spf-size-rd(#{$sz}#{$mu}, $ri, true);
+                            }
+                        } @else if $target == child {
+                            //& .rd-16px.rd-br
+                            & .#{$pre}#{$sz}#{$mu}.#{$pre}#{$ri} {
+                                @include spf-size-rd(#{$sz}#{$mu}, $ri, true);
+                            }
+                        }
                     }
-                } @else if $target == child {
-                    & .#{$pre}#{$pi}-#{$szi}px {
-                        @include size-po($size: #{$szi}px, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                } @else {
+                    /** 正常的 trbl 循环 **/
+                    @each $pi in $trblQueue {
+                        @if $target == self {
+                            //&.pd-xs.pd-tbl
+                            &.#{$pre}#{$sz}#{$mu}.#{$pre}#{$pi} {
+                                @include spf-size-po(#{$sz}#{$mu}, $pi, $prop, true);
+                            }
+                        } @else if $target == child {
+                            //& .pd-xs.pd-tbl
+                            & .#{$pre}#{$sz}#{$mu}.#{$pre}#{$pi} {
+                                @include spf-size-po(#{$sz}#{$mu}, $pi, $prop, true);
+                            }
+                        }
                     }
                 }
             }
         }
     }
 }
-/** 根据输入的 trbl 设置不同 position 位置的 size **/
-/** $p 可选值：$trblQueue **/
-@mixin size-po(
-    $size: unset,       //要设置的尺寸 
-    $p: '',             //要设置尺寸值的 position 位置，可选值：$trblQueue，默认不指定，表示所有位置
-    $prop: padding,     //要设置尺寸值的 css 属性，默认 padding，可选 padding/margin
-    $important: false   //是否增加 important
-) {
-    @if $p != '' {
-        $pa: trbl($p);
-        @each $pi in $pa {
-            @if $important == true {
-                #{$prop}-#{$pi}: $size !important;
-            } @else {
-                #{$prop}-#{$pi}: $size;
-            }
-        }
-    } @else {
-        @if $important == true {
-            #{$prop}: $size !important;
-        } @else {
-            #{$prop}: $size;
-        }
-    }
-}
-
-/** position **/
-@mixin po($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $l: unset, $t: unset, $r: unset, $b: unset, $ov: unset) {
-    position: $po; margin: $mg; padding: $pd; 
-    @if $w != unset { width: $w; }
-    @if $h != unset { height: $h; }
-    @if $l != unset { left: $l; }
-    @if $r != unset { right: $r; }
-    @if $t != unset { top: $t; }
-    @if $b != unset { bottom: $b; }
-    @if $ov != unset { overflow: $ov; }
-    box-sizing: border-box;
-}
-@mixin po-ov($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $l: unset, $t: unset, $r: unset, $b: unset, $ov: hidden) {
-    @include po($po:#{$po}, $w:#{$w}, $h:#{$h}, $mg:#{$mg}, $pd:#{$pd}, $l:#{$l}, $r:#{$r}, $t:#{$t}, $b:#{$b}, $ov:#{$ov});
-}
-@mixin po-abs($w: 100%, $h: unset, $mg: 0, $pd: 0, $l: 0, $t: 0, $r: unset, $b: unset, $ov: hidden) {
-    @include po($po: absolute, $w:#{$w}, $h:#{$h}, $mg:#{$mg}, $pd:#{$pd}, $l:#{$l}, $r:#{$r}, $t:#{$t}, $b:#{$b}, $ov:#{$ov});
-}
-@mixin po-fix($w: 100%, $h: unset, $mg: 0, $pd: 0, $l: 0, $t: 0, $r: unset, $b: unset, $ov: hidden) {
-    @include po($po: fixed, $w:#{$w}, $h:#{$h}, $mg:#{$mg}, $pd:#{$pd}, $l:#{$l}, $r:#{$r}, $t:#{$t}, $b:#{$b}, $ov:#{$ov});
-}
-
-/** flex **/
-@mixin flex($dir: row, $x: flex-start, $y: center, $gap: unset) {
-    display: flex; flex-direction: $dir;
-    @if $dir == row {
-        align-items: $y; justify-content: $x;
-    } @else {
-        align-items: $x; justify-content: $y;
-    }
-    &>*, &>view {
-        flex-shrink: 0;
-        @if $gap != unset {
-            $side: right;
-            @if $dir == column { $side: bottom; }
-            margin-#{$side}: $gap;
-            &:last-child {
-                margin-#{$side}: 0;
-            }
-        }
-    }
-    @for $i from 1 through 4 {
-        &>.flex-#{$i} {
-            $wh: width;
-            @if $dir == column { $wh: height; }
-            #{$wh}: unset;
-            flex: $i;
-        }
-    }
-    &.flex-x-center {
-        @if $dir == row {
-            justify-content: center;
-        } @else {
-            align-items: center;
-        }
-    }
-    &.flex-y-center {
-        @if $dir == row {
-            align-items: center;
-        } @else {
-            justify-content: center;
-        }
-    }
-    &.flex-x-start {
-        @if $dir == row {
-            justify-content: flex-start;
-        } @else {
-            align-items: flex-start;
-        }
-    }
-    &.flex-y-start {
-        @if $dir == row {
-            align-items: flex-start;
-        } @else {
-            justify-content: flex-start;
-        }
-    }
-    &.flex-x-end {
-        @if $dir == row {
-            justify-content: flex-end;
-        } @else {
-            align-items: flex-end;
-        }
-    }
-    &.flex-y-end {
-        @if $dir == row {
-            align-items: flex-end;
-        } @else {
-            justify-content: flex-end;
-        }
-    }
-    &.flex-x-stretch {
-        @if $dir == row {
-            justify-content: stretch;
-        } @else {
-            align-items: stretch;
-        }
-    }
-    &.flex-y-stretch {
-        @if $dir == row {
-            align-items: stretch;
-        } @else {
-            justify-content: stretch;
-        }
-    }
-}
-@mixin flex-x($x: flex-start, $y: center, $gap: unset) {
-    @include flex($dir: row, $x:#{$x}, $y:#{$y}, $gap:#{$gap});
-}
-@mixin flex-y($x: flex-start, $y: flex-start, $gap: unset) {
-    @include flex($dir: column, $x:#{$x}, $y:#{$y}, $gap:#{$gap});
-}
-
-/** font **/
-@mixin fo($sz: $size-fs-m, $c: $color-fc-m, $w: normal, $fml: $font-fml-default, $sty: unset) {
-    font: {
-        family: $fml;
-        size: $sz;
-        weight: $w;
-    }
-    color: $c;
-    @if $sty != unset { font-style: $sty; }
-}
-/**
-    设置 self|child 中 font 相关样式
-    支持尺寸自动序列
-**/
-@mixin fo-shift(
-    $target:    self
-) {
-    //color-shift
-    @include color-shift($pre: f-, $target: #{$target}, $prop: color, $ckey: fc);
-    //size-shift
-    @include size-shift($pre: f-, $target: #{$target}, $skey: fs, $prop: font-size, $trbl: false);
-    
-    @if $target == self {
-        //weight-shift
-        &.f-bold { font-weight: bold !important; }
-        &.f-thin { font-weight: 200 !important; }
-        @for $i from 1 through 9 {
-            $b: $i * 100;
-            &.f-w#{$b} { font-weight: $b !important; }
-        }
-        //font-family
-        &.f-fml-default {font-family: $font-fml-default !important;}
-        &.f-fml-code {font-family: $font-fml-code !important;}
-        &.f-fml-yahei {font-family: $font-fml-yahei !important;}
-        &.f-fml-songti {font-family: $font-fml-songti !important;}
-        &.f-fml-fangsong {font-family: $font-fml-fangsong !important;}
-    } @else if $target == child {
-        //weight-shift
-        & .f-bold { font-weight: bold !important; }
-        & .f-thin { font-weight: 200 !important; }
-        @for $i from 1 through 9 {
-            $b: $i * 100;
-            & .f-w#{$b} { font-weight: $b !important; }
-        }
-        //font-family
-        & .f-fml-default {font-family: $font-fml-default !important;}
-        & .f-fml-code {font-family: $font-fml-code !important;}
-        & .f-fml-yahei {font-family: $font-fml-yahei !important;}
-        & .f-fml-songti {font-family: $font-fml-songti !important;}
-        & .f-fml-fangsong {font-family: $font-fml-fangsong !important;}
-    }
-}
-
-/** border **/
-/** $p 可选值：$trblQueue **/
-@mixin bd($c: $color-bdc-m, $sz: 1px, $sty: solid, $p: trbl) {
-    border: {
-        color: $c;
-        style: $sty;
-        width: 0;
-    }
-    $pa: trbl($p);
-    @each $i in $pa {
-        border-#{$i}-width: $sz;
-    }
-}
-@mixin bd-shift {
-    //color-shift
-    @include color-shift($pre: bd-, $target: self, $prop: border-color, $ckey: bd);
-    @each $pi in $trblQueue {
-        &.bd-#{$pi} {
-            $pa: trbl($pi);
-            @each $i in $pa {
-                border-#{$i}-width: 1px;
-            }
-            &.bd-bold {
-                @each $i in $pa {
-                    border-#{$i}-width: 2px;
-                }
-            }
-        }
-    }
-}
-@mixin bd-in {
-    & [class*=bd-] {
-        border: {
-            color: $color-bdc-m;
-            style: solid;
-            width: 0;
-        }
+/** 为 当前类 或 后代类 指定 通用的字体样式 **/
+@mixin spf-fo-shift($target: self, $manual: (24,32,48,54,64,72,80,96,128)) {
+    $prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    //颜色循环 .fc-red-m .fc-primary-d3
+    @include spf-color-shift($target, 'fc-', color, fc);
+    //尺寸循环 .fs-m .fs-xl .fs-32px 
+    @include spf-size-shift($target, 'fs-', font-size, fs, $manual, false);
+    //字重循环 .fw-xl .fw-m
+    @include spf-size-shift($target, 'fw-', font-weight, fw, (100,200,300,400,500,600,700,800,900), false);
+    //字重快捷类 .fw-normal|bold|thin
+    #{$prop-pre}fw-normal { font-weight: $size-fw-m !important; }
+    #{$prop-pre}fw-bold { font-weight: $size-fw-xl !important; }
+    #{$prop-pre}fw-thin { font-weight: $size-fw-xs !important; }
+    //字体族 .fml-default|code...
+    $fmls: spf-map-filter-keys($varsMap, (font-fml));
+    $fmlks: spf-map-keys($fmls);
+    @each $k in $fmlks {
+        //font-fml-foobar --> fml-foobar
+        $ki: str-slice($k, 6);
+        $kv: spf-map-get($fmls, $k);
+        #{$prop-pre}#{$ki} {font-family: unquote($kv) !important;}
     }
 
-    //color-shift
-    @include color-shift($pre: bd-, $target: child, $prop: border-color, $ckey: bd);
-    @each $pi in $trblQueue {
-        & .bd-#{$pi} {
-            $pa: trbl($pi);
-            @each $i in $pa {
-                border-#{$i}-width: 1px;
-            }
-            &.bd-bold {
-                @each $i in $pa {
-                    border-#{$i}-width: 2px;
-                }
-            }
-        }
-    }
-    
-}
-
-/** background **/
-@mixin bg($c: $color-bgc-m, $opa: 1) {
-    background-color: $c;
-    @if $opa < 1 {
-        background-color: rgba($c, $opa);
-    }
-}
-@mixin bg-shift {
-    //color-shift
-    @include color-shift($pre: bg-, $target: self, $prop: background-color, $ckey: bg, $opa: true);
-}
-@mixin bg-in {
-    //color-shift
-    @include color-shift($pre: bg-, $target: child, $prop: background-color, $ckey: bg, $opa: true);
-    //hover
-    & .bg-hover {
-        background-color: transparent !important;
+    //其他通用字体样式
+    //链接字体样式 .f-a
+    #{$prop-pre}f-a {
+        color: $color-primary-m;
+        text-decoration: underline;
+        text-underline-offset: 0.3em;
+        transition: color $ani-dura,
+                    text-underline-offset .1s;
         &:hover {
-            background-color: $color-bgc-l2 !important;
+            color: $color-primary-d1;
+            text-underline-offset: 0.2em;
+        }
+    }
+    //高亮字体 .f-highlight
+    #{$prop-pre}f-highlight {
+        box-sizing: border-box;
+        padding: .2em .3em !important;
+        margin: 0 .3em !important;
+        border: {
+            radius: .2em !important;
+            width: 0 !important;
+        }
+        background-color: $color-warn-l3 !important;
+        color: $color-warn-l3-fc !important;
+        &.hl-border {
+            border: {
+                width: 1px !important;
+                color: $color-warn-l2 !important;
+            }
+        }
+        @each $hc in $typeList {
+            $hcv: spf-color-get(#{$hc}-l3);
+            $hfcv: spf-color-get(#{$hc}-l3-fc);
+            $hbcv: spf-color-get(#{$hc}-l2);
+            @if $hcv != null {
+                &.hl-#{$hc} {
+                    background-color: $hcv !important;
+                    color: $hfcv !important;
+                    &.hl-border {
+                        border-color: $hbcv !important;
+                    }
+                }
+            }
+        }
+    }
+    //codex 代码字体
+    #{$prop-pre}f-code {
+        padding: .2em .3em !important;
+        margin: 0 .3em !important;
+        border: {
+            radius: .2em !important;
+            width: 0 !important;
+        }
+        background-color: $color-gray-l3 !important;
+        color: $color-primary-d3 !important;
+        font-family: $font-fml-code;
+    }
+    //.f-ellipsis
+    #{$prop-pre}f-ellipsis {
+        @include spf-text-ellipsis;
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的边框样式 可手动指定 border-width|radius 尺寸 list **/
+@mixin spf-bd-shift($target: self, $width: null, $radius: null) {
+    $prop-pre: if($target == self, unquote("&"), unquote("& "));
+    //颜色循环 .bdc-red-d2 .bdc-m
+    @include spf-color-shift($target, 'bdc-', border-color, bdc);
+    #{$prop-pre}[class*=bdc-] {
+        border: {
+            style: solid;
+            width: $size-bd-m;
+        }
+    }
+    //尺寸循环|位置循环 .bd-m .bd-m.bd-rl .bd-m.bd-xy
+    @include spf-size-shift($target, 'bd-', border-width, bd, $width);
+    #{$prop-pre}[class*=bd-] {
+        border: {
+            style: solid;
+            color: $color-bdc-m;
+        }
+    }
+    //圆角循环 .rd-m|xl..
+    @include spf-size-shift($target, 'rd-', border-radius, rd, $radius);
+}
+/** 为 当前类 或 后代类 指定 通用的 padding 样式 **/
+@mixin spf-pd-shift($target: self, $manual: null) {
+    //尺寸循环|位置循环 .pd-m .pd-s.pd-rl .pd-xl.pd-xy
+    @include spf-size-shift($target, 'pd-', padding, pd, $manual);
+}
+/** 为 当前类 或 后代类 指定 通用的 margin 样式 **/
+@mixin spf-mg-shift($target: self, $manual: null) {
+    //尺寸循环|位置循环 .mg-m .mg-s.mg-rl .mg-xl.mg-xy
+    @include spf-size-shift($target, 'mg-', margin, mg, $manual);
+}
+/** 为 当前类 或 后代类 指定 通用的 background 样式 **/
+@mixin spf-bg-shift($target: self, $blur: null) {
+    $prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    //颜色循环|透明度循环 .bgc-red-d2 .bgc-m .bgc-primary-l1.bgc-a6
+    @include spf-color-shift($target, 'bgc-', border-color, bgc, true);
+    //backdrop-filter: blur()
+    @if $blur == null {$blur: spf-size-get(blur-m);}
+    //.bg-blur
+    #{$prop-pre}bg-blur {
+        backdrop-filter: blur($blur);
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的 opacity 样式 **/
+@mixin spf-opa-shift($target: self) {
+    $prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    @for $opi from 1 through 10 {
+        $opik: $opi * 10;
+        $opiv: $opi / 10;
+        //.opa-10|20|100...
+        #{$prop-pre}opa-#{$opik} {
+            opacity: $opiv !important;
         }
     }
 }
-@mixin bg-blur($c: $color-bgc-m, $opa: 0.8, $blur: $size-filter-blur) {
-    @include bg($c:$c, $opa:$opa);
-    backdrop-filter: blur($blur);
-}
-
-/** margin/padding **/
-/** $p 可选值：$trblQueue **/
-@mixin pd-in {
-    @include size-shift($pre: pd-, $skey: gap, $prop: padding);
-}
-@mixin mg-in {
-    @include size-shift($pre: mg-, $skey: gap, $prop: margin);
-}
-
-/** shadow **/
-@mixin shadow($x: 4px, $y: 8px, $blur: 16px, $opa: "l1") {
-    $sc-key: "shadow";
-    @if ($opa!="") {
-        $sc-key: shadow-#{$opa};
+/** 为 当前类 或 后代类 指定 通用的 shadow 样式 **/
+@mixin spf-shadow-shift($target: self, $manual: null) {
+    $prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    //阴影颜色固定，自带透明度
+    $sdc: $color-shadow-m;
+    //阴影尺寸 自动计算
+    @each $qi in $sizeShiftQueue {
+        $sz: spf-size-get(shadow-#{$qi});
+        @if $sz != null {
+            $u: unit($sz);
+            $x: $sz / 2;
+            $y: $sz;
+            $blur: $sz + 8#{$u};
+            //.shadow-m|xl
+            #{$prop-pre}shadow-#{$qi} {
+                box-shadow: #{$x} #{$y} #{$blur} #{$sdc};
+            }
+        }
     }
-    $shadow-color: map-get($colorMap, $sc-key);
-    box-shadow: #{$x} #{$y} #{$blur} #{$shadow-color};
+}
+/** 为 当前类 或 后代类 指定 effect 样式 根据 effect 类型以及 基础颜色 一次性注入 bgc|fc|bdc 样式 **/
+@mixin spf-effect-shift($target: self, $effect: normal, $ckey: null, $pre: __PRE__) {
+    $prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    #{$prop-pre}#{$pre}-effect {
+
+    }
+}
+
+
+
+/** SPF-Theme 主题尺寸计算方法 **/
+
+/**
+ * 单行元素 根据行高，计算对应的 radius|padding|font-size|icon-size
+ * @param $sz 可选：$sizeMap 中定义的键名 btn-m|pd-xl...  或  直接传入 带单位的尺寸数值 72px
+ * @param $effect 可选3种：normal|thin|bold  正常|紧凑的|宽松的
+ * @return map ( height:, radius:, padding:, font-size:, icon-size:, )
+ */
+@function spf-bar-size-map($sz: null, $effect: 'normal') {
+    @if $sz == null {@return null;}
+    @if type-of($sz) == 'number' {
+        @return spf-bar-size-calc($sz, $effect);
+    } @else if type-of($sz) == 'string' {
+        $szn: spf-to-num($sz);
+        @if type-of($szn) == 'number' {
+            @return spf-bar-size-calc($szn, $effect);
+        }
+        $szv: spf-size-get($sz);
+        @if $szv != null {
+            @return spf-bar-size-calc($szv, $effect);
+        }
+    }
+    @return null;
+
+}
+/** 
+ * 单行元素 根据输入的 height 尺寸数值，自动计算 radius|padding|font-size|icon-size
+ * @param $sz 必须是 number 类型
+ * @param $effect 可选3种：normal|thin|bold  正常|紧凑的|宽松的
+ * @return 返回计算后的 map ( height:number, radius:number, padding:number, font-size:number, icon-size:number )
+ */
+@function spf-bar-size-calc($sz: 0, $effect: 'normal') {
+    @if type-of($sz) != 'number' {@return null;}
+    @if $effect == 'normal' {
+        //正常的
+        @return (
+            height: $sz,
+            radius: round($sz / 5),
+            padding: round($sz / 2),
+            font-size: round($sz / 2),
+            icon-size: round(($sz / 2) * 1.4),
+        );
+    } @else if $effect == 'thin' {
+        //紧凑的
+        @return (
+            height: $sz,
+            radius: round($sz / 6),
+            padding: round($sz / 2.4),
+            font-size: round($sz / 2.4),
+            icon-size: round(($sz / 2.4) * 1.4),
+        );
+    } @else if $effect == 'bold' {
+        //宽松的
+        @return (
+            height: $sz,
+            radius: round($sz / 4),
+            padding: round($sz / 1.6),
+            font-size: round($sz / 1.6),
+            icon-size: round(($sz / 1.6) * 1.4),
+        );
+    }
+}
+
+
+
+/** SPF-Theme 主题样式设置器 **/
+/** 需要引入此类样式的 元素，需要在其样式类内部 include 这些 mixins **/
+
+
+/** 复合样式，不带 !important **/
+//主题系统中元素的 status 状态序列
+$statusList: normal,hover,active;
+/** 
+ * 复合样式 通过 .foo-effect-normal|fill|plain|popout 同时控制 color|background-color|border-color 样式 
+ * @param $pre effect 样式类前缀 例如： btn|tag... --> .btn-effect-normal|.tag-effect-plain ...
+ * @return 向目标类 .foo-effect-*** 中注入对应样式
+ */
+@mixin spf-effect($pre: __PRE__) {
+    &.#{$pre}-effect {
+        //默认颜色
+        //effect: normal
+        &.#{$pre}-effect-normal {
+            //status: normal
+            @include spf-effect-setter(bgc-m, fc-m, bdc-m);
+            //status: hover
+            &.#{$pre}-hoverable:hover {
+                @include spf-effect-setter(bgc-d1, fc-d1, bdc-d1);
+            }
+            //status: active
+            &.#{$pre}-active {
+                @include spf-effect-setter(bgc-d2, fc-d2, bdc-d2);
+                &.#{$pre}-hoverable:hover {
+                    @include spf-effect-setter(bgc-d2, fc-d2, bdc-d2);
+                }
+            }
+        }
+        //effect: fill
+        &.#{$pre}-effect-fill {
+            //status: normal
+            @include spf-effect-setter(bgc-m, fc-m);
+            //status: hover
+            &.#{$pre}-hoverable:hover {
+                @include spf-effect-setter(bgc-d1, fc-d1);
+            }
+            //status: active
+            &.#{$pre}-active {
+                @include spf-effect-setter(bgc-d2, fc-d2);
+                &.#{$pre}-hoverable:hover {
+                    @include spf-effect-setter(bgc-d2, fc-d2);
+                }
+            }
+        }
+        //effect: plain
+        &.#{$pre}-effect-plain {
+            //status: normal
+            @include spf-effect-setter(transparent, fc-m, bdc-m);
+            //status: hover
+            &.#{$pre}-hoverable:hover {
+                @include spf-effect-setter(transparent, fc-d1, bdc-d1);
+            }
+            //status: active
+            &.#{$pre}-active {
+                @include spf-effect-setter(transparent, fc-d2, bdc-d2);
+                &.#{$pre}-hoverable:hover {
+                    @include spf-effect-setter(transparent, fc-d2, bdc-d2);
+                }
+            }
+        }
+        //effect: popout
+        &.#{$pre}-effect-popout {
+            //status: normal
+            @include spf-effect-setter(transparent, fc-m);
+            //status: hover
+            &.#{$pre}-hoverable:hover {
+                @include spf-effect-setter(fc-m);
+            }
+            //status: active
+            &.#{$pre}-active {
+                @include spf-effect-setter(fc-d2);
+                &.#{$pre}-hoverable:hover {
+                    @include spf-effect-setter(fc-d2);
+                }
+            }
+        }
+        //颜色循环
+        @each $ck in $colorListAll {
+            @if spf-map-includes($colorMap, #{$ck}-m) {
+                &.#{$pre}-#{$ck} {
+                    //effect: normal
+                    &.#{$pre}-effect-normal {
+                        //status: normal
+                        @include spf-effect-setter(#{$ck}-l3, null, #{$ck}-l2);
+                        //status: hover
+                        &.#{$pre}-hoverable:hover {
+                            @include spf-effect-setter(#{$ck}-l2, null, #{$ck}-l1);
+                        }
+                        //status: active
+                        &.#{$pre}-active {
+                            @include spf-effect-setter(#{$ck}-l1, null, #{$ck}-m);
+                            &.#{$pre}-hoverable:hover {
+                                @include spf-effect-setter(#{$ck}-l1, null, #{$ck}-m);
+                            }
+                        }
+                    }
+                    //effect: fill
+                    &.#{$pre}-effect-fill {
+                        //status: normal
+                        @include spf-effect-setter(#{$ck}-m);
+                        //status: hover
+                        &.#{$pre}-hoverable:hover {
+                            @include spf-effect-setter(#{$ck}-l1);
+                        }
+                        //status: active
+                        &.#{$pre}-active {
+                            @include spf-effect-setter(#{$ck}-d1);
+                            &.#{$pre}-hoverable:hover {
+                                @include spf-effect-setter(#{$ck}-d1);
+                            }
+                        }
+                    }
+                    //effect: plain
+                    &.#{$pre}-effect-plain {
+                        //status: normal
+                        @include spf-effect-setter(transparent, #{$ck}-m, #{$ck}-m);
+                        //status: hover
+                        &.#{$pre}-hoverable:hover {
+                            @include spf-effect-setter(transparent, #{$ck}-l1, #{$ck}-l1);
+                        }
+                        //status: active
+                        &.#{$pre}-active {
+                            @include spf-effect-setter(transparent, #{$ck}-d1, #{$ck}-d1);
+                            &.#{$pre}-hoverable:hover {
+                                @include spf-effect-setter(transparent, #{$ck}-d1, #{$ck}-d1);
+                            }
+                        }
+                    }
+                    //effect: popout
+                    &.#{$pre}-effect-popout {
+                        //status: normal
+                        @include spf-effect-setter(transparent, #{$ck}-m);
+                        //status: hover
+                        &.#{$pre}-hoverable:hover {
+                            @include spf-effect-setter(#{$ck}-m);
+                        }
+                        //status: active
+                        &.#{$pre}-active {
+                            @include spf-effect-setter(#{$ck}-d1);
+                            &.#{$pre}-hoverable:hover {
+                                @include spf-effect-setter(#{$ck}-d1);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+/** 复合样式 任意 panel 块状面板元素 **/
+@mixin spf-panel(
+    $effect:        normal,     //面板的 宽松|紧凑 排版，将影响 padding|内容行默认行高，可选：normal|thin|bold
+) {
+    //TODO:
+}
+
+
+
+
+
+//forDev
+.spf-test {
+
+    $k: btn-l2;
+    //$kn: str-slice($k, 6);
+    //$kn: spf-to-num('100px');
+    //$kn: unquote('100px');
+    //$kn: spf-is-realnum-string('100');
+    //$kn: spf-to-str(100);
+    //$kn: spf-is-numeric-string('500');
+    //$ku: px;
+    //$kn: 100;
+    //$kn: #{$kn} * 1;
+    //$kn: spf-pow(10, -2);
+    $kn: spf-to-realnum('500','px');
+    content: '#{$kn}|#{type-of($kn)}';
+
+    //$k-l1: spf-color-key-shift($k, -1);
+    //$k-d2: spf-color-key-shift($k, 2);
+    //$k-d4: spf-color-key-shift($k, 4);
+    //content: '#{$k}|#{$k-l1}|#{$k-d2}|#{$k-d4}';
+
+    /*@include spf-po($mg: 0 mg-m, $pd: pd-xs pd-m);
+    border-color: spf-color-get(#ff0 danger-m);
+
+    margin: spf-size-get(16px btn-xxl);
+    width: spf-size-get(btn-m);
+    background-color: spf-color-get(cyan-d3);*/
+
+    //返回 null
+    border-color: spf-color-get(cyan-d6);
+
+    //@include spf-effect(btn)
+
+    /*$nmap: spf-map-filter-keys($sizeMap, (btn,fs));
+    $nks: spf-map-keys($nmap);
+    $nvs: spf-map-values($nmap);
+    $nkstr: spf-join($nks, '|');
+    content: '#{$nkstr}';
+    font-size: spf-map-get($nmap, btn-fs-m);
+    height: spf-map-get($nmap, btn-xxl);*/
 }
 
 
 
 /** other **/
-@mixin nicescroll($size: 0, $radius: 0, $bgc: transparent, $bgc-hover: $color-bdc-d1, $ov: hidden overlay, $behavior: smooth) {
+/*@mixin nicescroll($size: 0, $radius: 0, $bgc: transparent, $bgc-hover: $color-bdc-d1, $ov: hidden overlay, $behavior: smooth) {
     overflow: $ov;
     scroll-behavior: $behavior;
     &::-webkit-scrollbar {width: $size; height: $size;}
@@ -533,6 +1731,15 @@ $trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
             transition: $item $dura;
         }
     }
+}*/
+
+
+
+/** animation keyframe **/
+/** spin **/
+@keyframes spin {
+    from    {transform: rotate(0deg);}
+    to      {transform: rotate(360deg);}
 }
 
 
@@ -540,23 +1747,54 @@ $trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
 /** 初始化 body 样式 **/
 body, view, .page {
     margin: 0; padding: 0;
-    @include fo;
-    @include bg($c: $color-bgc-l3);
-    @include fo-shift($target: child);
-    @include bd-in;
-    @include bg-in;
-    @include pd-in;
-    @include mg-in;
+    //后代元素的 margin|padding 样式
+    @include spf-mg-shift(child);
+    @include spf-pd-shift(child);
 
-    .flex-x {
-        @include flex-x;
+    //默认字体
+    font: {
+        size: $size-fs-m;
+        weight: $size-fw-m;
+        family: $font-fml-default;
     }
-    .flex-y {
-        @include flex-y;
-    }
+    color: $color-fc-m;
+    //后代元素的字体样式
+    @include spf-fo-shift(child);
 
-    .ellipsis {
-        @include text-ellipsis;
+    //默认背景
+    background-color: $color-bgc-m;
+    //后代元素的背景样式
+    @include spf-bg-shift(child);
+
+    //默认的边框样式
+    border: {
+        width: 0;
+        style: solid;
+        color: transparent;
+        radius: 0;
+    }
+    //后代元素的 边框样式
+    @include spf-bd-shift(child);
+
+    //后代元素的 flex 样式
+    .flex-x {@include spf-flex-x($gap: $size-mg-m);}
+    .flex-y {@include spf-flex-y($gap: $size-mg-m);}
+
+    //后代元素的 特殊样式
+    //opacity
+    @include spf-opa-shift(child);
+    //shadow
+    @include spf-shadow-shift(child);
+    //scrollbar
+    .spf-scroll, .spf-scroll-y {
+        @include spf-scroll;
+        .scroll-thin {@include spf-scroll($size: 4px);}
+        .scroll-bold {@include spf-scroll($size: 8px);}
+    }
+    .spf-scroll-x {
+        @include spf-scroll($ov: auto hidden);
+        .scroll-thin {@include spf-scroll($size: 4px, $ov: auto hidden);}
+        .scroll-bold {@include spf-scroll($size: 8px, $ov: auto hidden);}
     }
 }
 
@@ -565,7 +1803,7 @@ body, view, .page {
 }
 
 .__PRE__-foo-bar {
-    @include po-abs;
+    @include spf-po-abs;
 }
 
 

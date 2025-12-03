@@ -107,6 +107,16 @@ class Icon extends Compound
         //指定此图标库使用的 css 文件 默认使用 spf/assets/icon/base.css
         "iconcss" => "spf/assets/icon/base.css",
 
+        //是否启用版本控制
+        "enableVersion" => true,
+        //指定可以通过 @|latest 访问的 版本号
+        "version" => [
+            //当前使用的 默认版本 可省略版本号，如：/src/vue.lib  相当于  /src/vue.lib?ver=@
+            "@" => "1.0.0",
+            //最新版本号，如：/src/vue.lib?ver=latest
+            "latest" => "1.0.0",
+        ],
+
         //允许输出的 ext 类型数组，必须是 Mime 类中支持的后缀名类型
         "ext" => ["js","css","svg"],
 
@@ -119,6 +129,26 @@ class Icon extends Compound
          * !! 此处的 根路径指定 阿里图标库的某个 Symbol 引用的 js 文件地址 通常以 //at.alicdn.com/t/c/... 开头
          */
         "root" => "",
+
+        //复合资源中包含的资源定义
+        "content" => [
+            //!! 这是默认定义，可在 *.icon.json 文件中覆盖
+            "1.0.0" => [
+                "js" => [
+                    "default" => [],
+                ],
+                "css" => [
+                    "default" => [
+                        "disableCache" => true
+                    ]
+                ],
+                "svg" => [
+                    "default" => [
+                        "disableCache" => true
+                    ]
+                ],
+            ]
+        ],
 
 
     ];

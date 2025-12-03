@@ -1,0 +1,2714 @@
+@import 'https://ms.systech.work/src/cdn/normalize/default.css';
+@import 'https://ms.systech.work/src/cdn/animate/default.css';
+
+
+
+
+
+
+/**
+ * 主题模块 color 生成语句
+ * 不要手动修改
+ */
+
+$colorListBase: red,orange,yellow,green,cyan,blue,purple,gray,danger,warn,success,primary,bz,fc,bgc,bdc;
+$colorListStatic:   white,black,shadow;
+$colorListAll:  red,orange,yellow,green,cyan,blue,purple,gray,danger,warn,success,primary,bz,fc,bgc,bdc,white,black,shadow;
+$colorShiftQueue:   l6,l5,l4,l3,l2,l1,m,d1,d2,d3,d4,d5,d6;
+
+$colorAlphaMap: (
+a1: 1a,
+a2: 33,
+a3: 4d,
+a4: 66,
+a5: 80,
+a6: 99,
+a7: b3,
+a8: cc,
+a9: e6,
+);
+$colorListAlpha:    a1,a2,a3,a4,a5,a6,a7,a8,a9;
+
+$color-red-m:   #fa5151;
+$color-red-d3:  #770404;
+$color-red-d2:  #bc0606;
+$color-red-d1:  #f80d0d;
+$color-red-l1:  #fb8383;
+$color-red-l2:  #fdbaba;
+$color-red-l3:  #feebeb;
+$color-red-m-fc:    #000000b3;
+$color-red-d3-fc:   #ffffffb3;
+$color-red-d2-fc:   #ffffffb3;
+$color-red-d1-fc:   #ffffffb3;
+$color-red-l1-fc:   #000000b3;
+$color-red-l2-fc:   #000000b3;
+$color-red-l3-fc:   #000000b3;
+$color-orange-m:    #ff8600;
+$color-orange-d3:   #7a4100;
+$color-orange-d2:   #a85a00;
+$color-orange-d1:   #d17000;
+$color-orange-l1:   #ffac4d;
+$color-orange-l2:   #ffd29e;
+$color-orange-l3:   #fff5eb;
+$color-orange-m-fc: #000000b3;
+$color-orange-d3-fc:    #ffffffb3;
+$color-orange-d2-fc:    #ffffffb3;
+$color-orange-d1-fc:    #000000b3;
+$color-orange-l1-fc:    #000000b3;
+$color-orange-l2-fc:    #000000b3;
+$color-orange-l3-fc:    #000000b3;
+$color-yellow-m:    #fa9d3b;
+$color-yellow-d3:   #773f03;
+$color-yellow-d2:   #b35f05;
+$color-yellow-d1:   #f48106;
+$color-yellow-l1:   #fcbc79;
+$color-yellow-l2:   #fdd7af;
+$color-yellow-l3:   #fef5eb;
+$color-yellow-m-fc: #000000b3;
+$color-yellow-d3-fc:    #ffffffb3;
+$color-yellow-d2-fc:    #ffffffb3;
+$color-yellow-d1-fc:    #000000b3;
+$color-yellow-l1-fc:    #000000b3;
+$color-yellow-l2-fc:    #000000b3;
+$color-yellow-l3-fc:    #000000b3;
+$color-green-m: #07c160;
+$color-green-d3:    #04763b;
+$color-green-d2:    #058f48;
+$color-green-d1:    #06a754;
+$color-green-l1:    #30f891;
+$color-green-l2:    #8efbc3;
+$color-green-l3:    #ebfef4;
+$color-green-m-fc:  #000000b3;
+$color-green-d3-fc: #ffffffb3;
+$color-green-d2-fc: #ffffffb3;
+$color-green-d1-fc: #ffffffb3;
+$color-green-l1-fc: #000000b3;
+$color-green-l2-fc: #000000b3;
+$color-green-l3-fc: #000000b3;
+$color-cyan-m:  #01c4b3;
+$color-cyan-d3: #017a70;
+$color-cyan-d2: #019387;
+$color-cyan-d1: #01ad9e;
+$color-cyan-l1: #2afeec;
+$color-cyan-l2: #8afef5;
+$color-cyan-l3: #ebfffd;
+$color-cyan-m-fc:   #000000b3;
+$color-cyan-d3-fc:  #ffffffb3;
+$color-cyan-d2-fc:  #ffffffb3;
+$color-cyan-d1-fc:  #ffffffb3;
+$color-cyan-l1-fc:  #000000b3;
+$color-cyan-l2-fc:  #000000b3;
+$color-cyan-l3-fc:  #000000b3;
+$color-blue-m:  #1485ee;
+$color-blue-d3: #083f72;
+$color-blue-d2: #0b579d;
+$color-blue-d1: #0e6ec8;
+$color-blue-l1: #5dabf4;
+$color-blue-l2: #a4d0f9;
+$color-blue-l3: #ecf5fe;
+$color-blue-m-fc:   #ffffffb3;
+$color-blue-d3-fc:  #ffffffb3;
+$color-blue-d2-fc:  #ffffffb3;
+$color-blue-d1-fc:  #ffffffb3;
+$color-blue-l1-fc:  #000000b3;
+$color-blue-l2-fc:  #000000b3;
+$color-blue-l3-fc:  #000000b3;
+$color-purple-m:    #ea6e9c;
+$color-purple-d3:   #6b0f31;
+$color-purple-d2:   #aa184e;
+$color-purple-d1:   #e12d6f;
+$color-purple-l1:   #f098b9;
+$color-purple-l2:   #f6c1d4;
+$color-purple-l3:   #fcedf3;
+$color-purple-m-fc: #000000b3;
+$color-purple-d3-fc:    #ffffffb3;
+$color-purple-d2-fc:    #ffffffb3;
+$color-purple-d1-fc:    #ffffffb3;
+$color-purple-l1-fc:    #000000b3;
+$color-purple-l2-fc:    #000000b3;
+$color-purple-l3-fc:    #000000b3;
+$color-gray-m:  #888888;
+$color-gray-d3: #3d3d3d;
+$color-gray-d2: #575757;
+$color-gray-d1: #6e6e6e;
+$color-gray-l1: #ababab;
+$color-gray-l2: #d1d1d1;
+$color-gray-l3: #f5f5f5;
+$color-gray-m-fc:   #000000b3;
+$color-gray-d3-fc:  #ffffffb3;
+$color-gray-d2-fc:  #ffffffb3;
+$color-gray-d1-fc:  #ffffffb3;
+$color-gray-l1-fc:  #000000b3;
+$color-gray-l2-fc:  #000000b3;
+$color-gray-l3-fc:  #000000b3;
+$color-danger-m:    #fa5151;
+$color-danger-d3:   #770404;
+$color-danger-d2:   #bc0606;
+$color-danger-d1:   #f80d0d;
+$color-danger-l1:   #fb8383;
+$color-danger-l2:   #fdbaba;
+$color-danger-l3:   #feebeb;
+$color-danger-m-fc: #000000b3;
+$color-danger-d3-fc:    #ffffffb3;
+$color-danger-d2-fc:    #ffffffb3;
+$color-danger-d1-fc:    #ffffffb3;
+$color-danger-l1-fc:    #000000b3;
+$color-danger-l2-fc:    #000000b3;
+$color-danger-l3-fc:    #000000b3;
+$color-warn-m:  #fa9d3b;
+$color-warn-d3: #773f03;
+$color-warn-d2: #b35f05;
+$color-warn-d1: #f48106;
+$color-warn-l1: #fcbc79;
+$color-warn-l2: #fdd7af;
+$color-warn-l3: #fef5eb;
+$color-warn-m-fc:   #000000b3;
+$color-warn-d3-fc:  #ffffffb3;
+$color-warn-d2-fc:  #ffffffb3;
+$color-warn-d1-fc:  #000000b3;
+$color-warn-l1-fc:  #000000b3;
+$color-warn-l2-fc:  #000000b3;
+$color-warn-l3-fc:  #000000b3;
+$color-success-m:   #07c160;
+$color-success-d3:  #04763b;
+$color-success-d2:  #058f48;
+$color-success-d1:  #06a754;
+$color-success-l1:  #30f891;
+$color-success-l2:  #8efbc3;
+$color-success-l3:  #ebfef4;
+$color-success-m-fc:    #000000b3;
+$color-success-d3-fc:   #ffffffb3;
+$color-success-d2-fc:   #ffffffb3;
+$color-success-d1-fc:   #ffffffb3;
+$color-success-l1-fc:   #000000b3;
+$color-success-l2-fc:   #000000b3;
+$color-success-l3-fc:   #000000b3;
+$color-primary-m:   #1485ee;
+$color-primary-d3:  #083f72;
+$color-primary-d2:  #0b579d;
+$color-primary-d1:  #0e6ec8;
+$color-primary-l1:  #5dabf4;
+$color-primary-l2:  #a4d0f9;
+$color-primary-l3:  #ecf5fe;
+$color-primary-m-fc:    #ffffffb3;
+$color-primary-d3-fc:   #ffffffb3;
+$color-primary-d2-fc:   #ffffffb3;
+$color-primary-d1-fc:   #ffffffb3;
+$color-primary-l1-fc:   #000000b3;
+$color-primary-l2-fc:   #000000b3;
+$color-primary-l3-fc:   #000000b3;
+$color-bz-m:    #ff8600;
+$color-bz-d3:   #7a4100;
+$color-bz-d2:   #a85a00;
+$color-bz-d1:   #d17000;
+$color-bz-l1:   #ffac4d;
+$color-bz-l2:   #ffd29e;
+$color-bz-l3:   #fff5eb;
+$color-bz-m-fc: #000000b3;
+$color-bz-d3-fc:    #ffffffb3;
+$color-bz-d2-fc:    #ffffffb3;
+$color-bz-d1-fc:    #000000b3;
+$color-bz-l1-fc:    #000000b3;
+$color-bz-l2-fc:    #000000b3;
+$color-bz-l3-fc:    #000000b3;
+$color-fc-m:    #737373;
+$color-fc-d3:   #3d3d3d;
+$color-fc-d2:   #4f4f4f;
+$color-fc-d1:   #616161;
+$color-fc-l1:   #9e9e9e;
+$color-fc-l2:   #c9c9c9;
+$color-fc-l3:   #f5f5f5;
+$color-fc-m-fc: #ffffffb3;
+$color-fc-d3-fc:    #ffffffb3;
+$color-fc-d2-fc:    #ffffffb3;
+$color-fc-d1-fc:    #ffffffb3;
+$color-fc-l1-fc:    #000000b3;
+$color-fc-l2-fc:    #000000b3;
+$color-fc-l3-fc:    #000000b3;
+$color-bgc-m:   #f2f2f2;
+$color-bgc-d3:  #3d3d3d;
+$color-bgc-d2:  #7a7a7a;
+$color-bgc-d1:  #b5b5b5;
+$color-bgc-l1:  #f2f2f2;
+$color-bgc-l2:  #f5f5f5;
+$color-bgc-l3:  #f5f5f5;
+$color-bgc-m-fc:    #000000b3;
+$color-bgc-d3-fc:   #ffffffb3;
+$color-bgc-d2-fc:   #ffffffb3;
+$color-bgc-d1-fc:   #000000b3;
+$color-bgc-l1-fc:   #000000b3;
+$color-bgc-l2-fc:   #000000b3;
+$color-bgc-l3-fc:   #000000b3;
+$color-bdc-m:   #efefef;
+$color-bdc-d3:  #3d3d3d;
+$color-bdc-d2:  #787878;
+$color-bdc-d1:  #b5b5b5;
+$color-bdc-l1:  #f2f2f2;
+$color-bdc-l2:  #f2f2f2;
+$color-bdc-l3:  #f5f5f5;
+$color-bdc-m-fc:    #000000b3;
+$color-bdc-d3-fc:   #ffffffb3;
+$color-bdc-d2-fc:   #ffffffb3;
+$color-bdc-d1-fc:   #000000b3;
+$color-bdc-l1-fc:   #000000b3;
+$color-bdc-l2-fc:   #000000b3;
+$color-bdc-l3-fc:   #000000b3;
+$color-white-m: #ffffff;
+$color-black-m: #000000;
+$color-shadow-m:    #0000004d;
+
+$colorMap: (
+red-m:  #fa5151,
+red-d3: #770404,
+red-d2: #bc0606,
+red-d1: #f80d0d,
+red-l1: #fb8383,
+red-l2: #fdbaba,
+red-l3: #feebeb,
+red-m-fc:   #000000b3,
+red-d3-fc:  #ffffffb3,
+red-d2-fc:  #ffffffb3,
+red-d1-fc:  #ffffffb3,
+red-l1-fc:  #000000b3,
+red-l2-fc:  #000000b3,
+red-l3-fc:  #000000b3,
+orange-m:   #ff8600,
+orange-d3:  #7a4100,
+orange-d2:  #a85a00,
+orange-d1:  #d17000,
+orange-l1:  #ffac4d,
+orange-l2:  #ffd29e,
+orange-l3:  #fff5eb,
+orange-m-fc:    #000000b3,
+orange-d3-fc:   #ffffffb3,
+orange-d2-fc:   #ffffffb3,
+orange-d1-fc:   #000000b3,
+orange-l1-fc:   #000000b3,
+orange-l2-fc:   #000000b3,
+orange-l3-fc:   #000000b3,
+yellow-m:   #fa9d3b,
+yellow-d3:  #773f03,
+yellow-d2:  #b35f05,
+yellow-d1:  #f48106,
+yellow-l1:  #fcbc79,
+yellow-l2:  #fdd7af,
+yellow-l3:  #fef5eb,
+yellow-m-fc:    #000000b3,
+yellow-d3-fc:   #ffffffb3,
+yellow-d2-fc:   #ffffffb3,
+yellow-d1-fc:   #000000b3,
+yellow-l1-fc:   #000000b3,
+yellow-l2-fc:   #000000b3,
+yellow-l3-fc:   #000000b3,
+green-m:    #07c160,
+green-d3:   #04763b,
+green-d2:   #058f48,
+green-d1:   #06a754,
+green-l1:   #30f891,
+green-l2:   #8efbc3,
+green-l3:   #ebfef4,
+green-m-fc: #000000b3,
+green-d3-fc:    #ffffffb3,
+green-d2-fc:    #ffffffb3,
+green-d1-fc:    #ffffffb3,
+green-l1-fc:    #000000b3,
+green-l2-fc:    #000000b3,
+green-l3-fc:    #000000b3,
+cyan-m: #01c4b3,
+cyan-d3:    #017a70,
+cyan-d2:    #019387,
+cyan-d1:    #01ad9e,
+cyan-l1:    #2afeec,
+cyan-l2:    #8afef5,
+cyan-l3:    #ebfffd,
+cyan-m-fc:  #000000b3,
+cyan-d3-fc: #ffffffb3,
+cyan-d2-fc: #ffffffb3,
+cyan-d1-fc: #ffffffb3,
+cyan-l1-fc: #000000b3,
+cyan-l2-fc: #000000b3,
+cyan-l3-fc: #000000b3,
+blue-m: #1485ee,
+blue-d3:    #083f72,
+blue-d2:    #0b579d,
+blue-d1:    #0e6ec8,
+blue-l1:    #5dabf4,
+blue-l2:    #a4d0f9,
+blue-l3:    #ecf5fe,
+blue-m-fc:  #ffffffb3,
+blue-d3-fc: #ffffffb3,
+blue-d2-fc: #ffffffb3,
+blue-d1-fc: #ffffffb3,
+blue-l1-fc: #000000b3,
+blue-l2-fc: #000000b3,
+blue-l3-fc: #000000b3,
+purple-m:   #ea6e9c,
+purple-d3:  #6b0f31,
+purple-d2:  #aa184e,
+purple-d1:  #e12d6f,
+purple-l1:  #f098b9,
+purple-l2:  #f6c1d4,
+purple-l3:  #fcedf3,
+purple-m-fc:    #000000b3,
+purple-d3-fc:   #ffffffb3,
+purple-d2-fc:   #ffffffb3,
+purple-d1-fc:   #ffffffb3,
+purple-l1-fc:   #000000b3,
+purple-l2-fc:   #000000b3,
+purple-l3-fc:   #000000b3,
+gray-m: #888888,
+gray-d3:    #3d3d3d,
+gray-d2:    #575757,
+gray-d1:    #6e6e6e,
+gray-l1:    #ababab,
+gray-l2:    #d1d1d1,
+gray-l3:    #f5f5f5,
+gray-m-fc:  #000000b3,
+gray-d3-fc: #ffffffb3,
+gray-d2-fc: #ffffffb3,
+gray-d1-fc: #ffffffb3,
+gray-l1-fc: #000000b3,
+gray-l2-fc: #000000b3,
+gray-l3-fc: #000000b3,
+danger-m:   #fa5151,
+danger-d3:  #770404,
+danger-d2:  #bc0606,
+danger-d1:  #f80d0d,
+danger-l1:  #fb8383,
+danger-l2:  #fdbaba,
+danger-l3:  #feebeb,
+danger-m-fc:    #000000b3,
+danger-d3-fc:   #ffffffb3,
+danger-d2-fc:   #ffffffb3,
+danger-d1-fc:   #ffffffb3,
+danger-l1-fc:   #000000b3,
+danger-l2-fc:   #000000b3,
+danger-l3-fc:   #000000b3,
+warn-m: #fa9d3b,
+warn-d3:    #773f03,
+warn-d2:    #b35f05,
+warn-d1:    #f48106,
+warn-l1:    #fcbc79,
+warn-l2:    #fdd7af,
+warn-l3:    #fef5eb,
+warn-m-fc:  #000000b3,
+warn-d3-fc: #ffffffb3,
+warn-d2-fc: #ffffffb3,
+warn-d1-fc: #000000b3,
+warn-l1-fc: #000000b3,
+warn-l2-fc: #000000b3,
+warn-l3-fc: #000000b3,
+success-m:  #07c160,
+success-d3: #04763b,
+success-d2: #058f48,
+success-d1: #06a754,
+success-l1: #30f891,
+success-l2: #8efbc3,
+success-l3: #ebfef4,
+success-m-fc:   #000000b3,
+success-d3-fc:  #ffffffb3,
+success-d2-fc:  #ffffffb3,
+success-d1-fc:  #ffffffb3,
+success-l1-fc:  #000000b3,
+success-l2-fc:  #000000b3,
+success-l3-fc:  #000000b3,
+primary-m:  #1485ee,
+primary-d3: #083f72,
+primary-d2: #0b579d,
+primary-d1: #0e6ec8,
+primary-l1: #5dabf4,
+primary-l2: #a4d0f9,
+primary-l3: #ecf5fe,
+primary-m-fc:   #ffffffb3,
+primary-d3-fc:  #ffffffb3,
+primary-d2-fc:  #ffffffb3,
+primary-d1-fc:  #ffffffb3,
+primary-l1-fc:  #000000b3,
+primary-l2-fc:  #000000b3,
+primary-l3-fc:  #000000b3,
+bz-m:   #ff8600,
+bz-d3:  #7a4100,
+bz-d2:  #a85a00,
+bz-d1:  #d17000,
+bz-l1:  #ffac4d,
+bz-l2:  #ffd29e,
+bz-l3:  #fff5eb,
+bz-m-fc:    #000000b3,
+bz-d3-fc:   #ffffffb3,
+bz-d2-fc:   #ffffffb3,
+bz-d1-fc:   #000000b3,
+bz-l1-fc:   #000000b3,
+bz-l2-fc:   #000000b3,
+bz-l3-fc:   #000000b3,
+fc-m:   #737373,
+fc-d3:  #3d3d3d,
+fc-d2:  #4f4f4f,
+fc-d1:  #616161,
+fc-l1:  #9e9e9e,
+fc-l2:  #c9c9c9,
+fc-l3:  #f5f5f5,
+fc-m-fc:    #ffffffb3,
+fc-d3-fc:   #ffffffb3,
+fc-d2-fc:   #ffffffb3,
+fc-d1-fc:   #ffffffb3,
+fc-l1-fc:   #000000b3,
+fc-l2-fc:   #000000b3,
+fc-l3-fc:   #000000b3,
+bgc-m:  #f2f2f2,
+bgc-d3: #3d3d3d,
+bgc-d2: #7a7a7a,
+bgc-d1: #b5b5b5,
+bgc-l1: #f2f2f2,
+bgc-l2: #f5f5f5,
+bgc-l3: #f5f5f5,
+bgc-m-fc:   #000000b3,
+bgc-d3-fc:  #ffffffb3,
+bgc-d2-fc:  #ffffffb3,
+bgc-d1-fc:  #000000b3,
+bgc-l1-fc:  #000000b3,
+bgc-l2-fc:  #000000b3,
+bgc-l3-fc:  #000000b3,
+bdc-m:  #efefef,
+bdc-d3: #3d3d3d,
+bdc-d2: #787878,
+bdc-d1: #b5b5b5,
+bdc-l1: #f2f2f2,
+bdc-l2: #f2f2f2,
+bdc-l3: #f5f5f5,
+bdc-m-fc:   #000000b3,
+bdc-d3-fc:  #ffffffb3,
+bdc-d2-fc:  #ffffffb3,
+bdc-d1-fc:  #000000b3,
+bdc-l1-fc:  #000000b3,
+bdc-l2-fc:  #000000b3,
+bdc-l3-fc:  #000000b3,
+white-m:    #ffffff,
+black-m:    #000000,
+shadow-m:   #0000004d,
+);
+
+:root {
+--color-red-m:  #fa5151;
+--color-red-d3: #770404;
+--color-red-d2: #bc0606;
+--color-red-d1: #f80d0d;
+--color-red-l1: #fb8383;
+--color-red-l2: #fdbaba;
+--color-red-l3: #feebeb;
+--color-red-m-fc:   #000000b3;
+--color-red-d3-fc:  #ffffffb3;
+--color-red-d2-fc:  #ffffffb3;
+--color-red-d1-fc:  #ffffffb3;
+--color-red-l1-fc:  #000000b3;
+--color-red-l2-fc:  #000000b3;
+--color-red-l3-fc:  #000000b3;
+--color-orange-m:   #ff8600;
+--color-orange-d3:  #7a4100;
+--color-orange-d2:  #a85a00;
+--color-orange-d1:  #d17000;
+--color-orange-l1:  #ffac4d;
+--color-orange-l2:  #ffd29e;
+--color-orange-l3:  #fff5eb;
+--color-orange-m-fc:    #000000b3;
+--color-orange-d3-fc:   #ffffffb3;
+--color-orange-d2-fc:   #ffffffb3;
+--color-orange-d1-fc:   #000000b3;
+--color-orange-l1-fc:   #000000b3;
+--color-orange-l2-fc:   #000000b3;
+--color-orange-l3-fc:   #000000b3;
+--color-yellow-m:   #fa9d3b;
+--color-yellow-d3:  #773f03;
+--color-yellow-d2:  #b35f05;
+--color-yellow-d1:  #f48106;
+--color-yellow-l1:  #fcbc79;
+--color-yellow-l2:  #fdd7af;
+--color-yellow-l3:  #fef5eb;
+--color-yellow-m-fc:    #000000b3;
+--color-yellow-d3-fc:   #ffffffb3;
+--color-yellow-d2-fc:   #ffffffb3;
+--color-yellow-d1-fc:   #000000b3;
+--color-yellow-l1-fc:   #000000b3;
+--color-yellow-l2-fc:   #000000b3;
+--color-yellow-l3-fc:   #000000b3;
+--color-green-m:    #07c160;
+--color-green-d3:   #04763b;
+--color-green-d2:   #058f48;
+--color-green-d1:   #06a754;
+--color-green-l1:   #30f891;
+--color-green-l2:   #8efbc3;
+--color-green-l3:   #ebfef4;
+--color-green-m-fc: #000000b3;
+--color-green-d3-fc:    #ffffffb3;
+--color-green-d2-fc:    #ffffffb3;
+--color-green-d1-fc:    #ffffffb3;
+--color-green-l1-fc:    #000000b3;
+--color-green-l2-fc:    #000000b3;
+--color-green-l3-fc:    #000000b3;
+--color-cyan-m: #01c4b3;
+--color-cyan-d3:    #017a70;
+--color-cyan-d2:    #019387;
+--color-cyan-d1:    #01ad9e;
+--color-cyan-l1:    #2afeec;
+--color-cyan-l2:    #8afef5;
+--color-cyan-l3:    #ebfffd;
+--color-cyan-m-fc:  #000000b3;
+--color-cyan-d3-fc: #ffffffb3;
+--color-cyan-d2-fc: #ffffffb3;
+--color-cyan-d1-fc: #ffffffb3;
+--color-cyan-l1-fc: #000000b3;
+--color-cyan-l2-fc: #000000b3;
+--color-cyan-l3-fc: #000000b3;
+--color-blue-m: #1485ee;
+--color-blue-d3:    #083f72;
+--color-blue-d2:    #0b579d;
+--color-blue-d1:    #0e6ec8;
+--color-blue-l1:    #5dabf4;
+--color-blue-l2:    #a4d0f9;
+--color-blue-l3:    #ecf5fe;
+--color-blue-m-fc:  #ffffffb3;
+--color-blue-d3-fc: #ffffffb3;
+--color-blue-d2-fc: #ffffffb3;
+--color-blue-d1-fc: #ffffffb3;
+--color-blue-l1-fc: #000000b3;
+--color-blue-l2-fc: #000000b3;
+--color-blue-l3-fc: #000000b3;
+--color-purple-m:   #ea6e9c;
+--color-purple-d3:  #6b0f31;
+--color-purple-d2:  #aa184e;
+--color-purple-d1:  #e12d6f;
+--color-purple-l1:  #f098b9;
+--color-purple-l2:  #f6c1d4;
+--color-purple-l3:  #fcedf3;
+--color-purple-m-fc:    #000000b3;
+--color-purple-d3-fc:   #ffffffb3;
+--color-purple-d2-fc:   #ffffffb3;
+--color-purple-d1-fc:   #ffffffb3;
+--color-purple-l1-fc:   #000000b3;
+--color-purple-l2-fc:   #000000b3;
+--color-purple-l3-fc:   #000000b3;
+--color-gray-m: #888888;
+--color-gray-d3:    #3d3d3d;
+--color-gray-d2:    #575757;
+--color-gray-d1:    #6e6e6e;
+--color-gray-l1:    #ababab;
+--color-gray-l2:    #d1d1d1;
+--color-gray-l3:    #f5f5f5;
+--color-gray-m-fc:  #000000b3;
+--color-gray-d3-fc: #ffffffb3;
+--color-gray-d2-fc: #ffffffb3;
+--color-gray-d1-fc: #ffffffb3;
+--color-gray-l1-fc: #000000b3;
+--color-gray-l2-fc: #000000b3;
+--color-gray-l3-fc: #000000b3;
+--color-danger-m:   #fa5151;
+--color-danger-d3:  #770404;
+--color-danger-d2:  #bc0606;
+--color-danger-d1:  #f80d0d;
+--color-danger-l1:  #fb8383;
+--color-danger-l2:  #fdbaba;
+--color-danger-l3:  #feebeb;
+--color-danger-m-fc:    #000000b3;
+--color-danger-d3-fc:   #ffffffb3;
+--color-danger-d2-fc:   #ffffffb3;
+--color-danger-d1-fc:   #ffffffb3;
+--color-danger-l1-fc:   #000000b3;
+--color-danger-l2-fc:   #000000b3;
+--color-danger-l3-fc:   #000000b3;
+--color-warn-m: #fa9d3b;
+--color-warn-d3:    #773f03;
+--color-warn-d2:    #b35f05;
+--color-warn-d1:    #f48106;
+--color-warn-l1:    #fcbc79;
+--color-warn-l2:    #fdd7af;
+--color-warn-l3:    #fef5eb;
+--color-warn-m-fc:  #000000b3;
+--color-warn-d3-fc: #ffffffb3;
+--color-warn-d2-fc: #ffffffb3;
+--color-warn-d1-fc: #000000b3;
+--color-warn-l1-fc: #000000b3;
+--color-warn-l2-fc: #000000b3;
+--color-warn-l3-fc: #000000b3;
+--color-success-m:  #07c160;
+--color-success-d3: #04763b;
+--color-success-d2: #058f48;
+--color-success-d1: #06a754;
+--color-success-l1: #30f891;
+--color-success-l2: #8efbc3;
+--color-success-l3: #ebfef4;
+--color-success-m-fc:   #000000b3;
+--color-success-d3-fc:  #ffffffb3;
+--color-success-d2-fc:  #ffffffb3;
+--color-success-d1-fc:  #ffffffb3;
+--color-success-l1-fc:  #000000b3;
+--color-success-l2-fc:  #000000b3;
+--color-success-l3-fc:  #000000b3;
+--color-primary-m:  #1485ee;
+--color-primary-d3: #083f72;
+--color-primary-d2: #0b579d;
+--color-primary-d1: #0e6ec8;
+--color-primary-l1: #5dabf4;
+--color-primary-l2: #a4d0f9;
+--color-primary-l3: #ecf5fe;
+--color-primary-m-fc:   #ffffffb3;
+--color-primary-d3-fc:  #ffffffb3;
+--color-primary-d2-fc:  #ffffffb3;
+--color-primary-d1-fc:  #ffffffb3;
+--color-primary-l1-fc:  #000000b3;
+--color-primary-l2-fc:  #000000b3;
+--color-primary-l3-fc:  #000000b3;
+--color-bz-m:   #ff8600;
+--color-bz-d3:  #7a4100;
+--color-bz-d2:  #a85a00;
+--color-bz-d1:  #d17000;
+--color-bz-l1:  #ffac4d;
+--color-bz-l2:  #ffd29e;
+--color-bz-l3:  #fff5eb;
+--color-bz-m-fc:    #000000b3;
+--color-bz-d3-fc:   #ffffffb3;
+--color-bz-d2-fc:   #ffffffb3;
+--color-bz-d1-fc:   #000000b3;
+--color-bz-l1-fc:   #000000b3;
+--color-bz-l2-fc:   #000000b3;
+--color-bz-l3-fc:   #000000b3;
+--color-fc-m:   #737373;
+--color-fc-d3:  #3d3d3d;
+--color-fc-d2:  #4f4f4f;
+--color-fc-d1:  #616161;
+--color-fc-l1:  #9e9e9e;
+--color-fc-l2:  #c9c9c9;
+--color-fc-l3:  #f5f5f5;
+--color-fc-m-fc:    #ffffffb3;
+--color-fc-d3-fc:   #ffffffb3;
+--color-fc-d2-fc:   #ffffffb3;
+--color-fc-d1-fc:   #ffffffb3;
+--color-fc-l1-fc:   #000000b3;
+--color-fc-l2-fc:   #000000b3;
+--color-fc-l3-fc:   #000000b3;
+--color-bgc-m:  #f2f2f2;
+--color-bgc-d3: #3d3d3d;
+--color-bgc-d2: #7a7a7a;
+--color-bgc-d1: #b5b5b5;
+--color-bgc-l1: #f2f2f2;
+--color-bgc-l2: #f5f5f5;
+--color-bgc-l3: #f5f5f5;
+--color-bgc-m-fc:   #000000b3;
+--color-bgc-d3-fc:  #ffffffb3;
+--color-bgc-d2-fc:  #ffffffb3;
+--color-bgc-d1-fc:  #000000b3;
+--color-bgc-l1-fc:  #000000b3;
+--color-bgc-l2-fc:  #000000b3;
+--color-bgc-l3-fc:  #000000b3;
+--color-bdc-m:  #efefef;
+--color-bdc-d3: #3d3d3d;
+--color-bdc-d2: #787878;
+--color-bdc-d1: #b5b5b5;
+--color-bdc-l1: #f2f2f2;
+--color-bdc-l2: #f2f2f2;
+--color-bdc-l3: #f5f5f5;
+--color-bdc-m-fc:   #000000b3;
+--color-bdc-d3-fc:  #ffffffb3;
+--color-bdc-d2-fc:  #ffffffb3;
+--color-bdc-d1-fc:  #000000b3;
+--color-bdc-l1-fc:  #000000b3;
+--color-bdc-l2-fc:  #000000b3;
+--color-bdc-l3-fc:  #000000b3;
+--color-white-m:    #ffffff;
+--color-black-m:    #000000;
+--color-shadow-m:   #0000004d;
+}
+
+
+/**
+ * 主题模块 size 生成语句
+ * 不要手动修改
+ */
+
+$sizeShiftQueue:    xxxxs,xxxs,xxs,xs,s,m,l,xl,xxl,xxxl,xxxxl;
+
+$size-fs-m: 14px;
+$size-fs-l: 16px;
+$size-fs-s: 12px;
+$size-fs-xl:    18px;
+$size-fs-xs:    10px;
+$size-fs-xxl:   22px;
+$size-fs-xxs:   10px;
+$size-fs-xxxl:  26px;
+$size-fs-xxxs:  9px;
+$size-fs-xxxxl: 32px;
+$size-fs-xxxxs: 8px;
+$size-fw-m: 400;
+$size-fw-l: 500;
+$size-fw-s: 300;
+$size-fw-xl:    700;
+$size-fw-xs:    200;
+$size-fw-xxl:   900;
+$size-fw-xxs:   100;
+$size-mg-m: 16px;
+$size-mg-l: 20px;
+$size-mg-s: 12px;
+$size-mg-xl:    24px;
+$size-mg-xs:    8px;
+$size-mg-xxl:   28px;
+$size-mg-xxs:   4px;
+$size-pd-m: 12px;
+$size-pd-l: 16px;
+$size-pd-s: 8px;
+$size-pd-xl:    20px;
+$size-pd-xs:    4px;
+$size-pd-xxl:   24px;
+$size-pd-xxs:   0px;
+$size-rd-m: 8px;
+$size-rd-l: 10px;
+$size-rd-s: 6px;
+$size-rd-xl:    12px;
+$size-rd-xs:    4px;
+$size-rd-xxl:   14px;
+$size-rd-xxs:   2px;
+$size-bar-m:    36px;
+$size-bar-l:    40px;
+$size-bar-s:    32px;
+$size-bar-xl:   44px;
+$size-bar-xs:   28px;
+$size-bar-xxl:  48px;
+$size-bar-xxs:  24px;
+$size-icon-m:   24px;
+$size-icon-l:   28px;
+$size-icon-s:   20px;
+$size-icon-xl:  32px;
+$size-icon-xs:  16px;
+$size-icon-xxl: 36px;
+$size-icon-xxs: 12px;
+$size-btn-m:    32px;
+$size-btn-l:    36px;
+$size-btn-s:    28px;
+$size-btn-xl:   42px;
+$size-btn-xs:   24px;
+$size-btn-xxl:  48px;
+$size-btn-xxs:  20px;
+$size-btn-fs-m: 14px;
+$size-btn-fs-l: 16px;
+$size-btn-fs-s: 12px;
+$size-btn-fs-xl:    18px;
+$size-btn-fs-xs:    10px;
+$size-btn-fs-xxl:   20px;
+$size-btn-fs-xxs:   10px;
+$size-btn-gap-m:    14px;
+$size-btn-gap-l:    16px;
+$size-btn-gap-s:    12px;
+$size-btn-gap-xl:   20px;
+$size-btn-gap-xs:   10px;
+$size-btn-gap-xxl:  24px;
+$size-btn-gap-xxs:  8px;
+$size-btn-rd-m: 8px;
+$size-btn-rd-l: 9px;
+$size-btn-rd-s: 7px;
+$size-btn-rd-xl:    10px;
+$size-btn-rd-xs:    6px;
+$size-btn-rd-xxl:   12px;
+$size-btn-rd-xxs:   5px;
+$size-bd-m: 1px;
+
+$sizeMap: (
+fs-m:   14px,
+fs-l:   16px,
+fs-s:   12px,
+fs-xl:  18px,
+fs-xs:  10px,
+fs-xxl: 22px,
+fs-xxs: 10px,
+fs-xxxl:    26px,
+fs-xxxs:    9px,
+fs-xxxxl:   32px,
+fs-xxxxs:   8px,
+fw-m:   400,
+fw-l:   500,
+fw-s:   300,
+fw-xl:  700,
+fw-xs:  200,
+fw-xxl: 900,
+fw-xxs: 100,
+mg-m:   16px,
+mg-l:   20px,
+mg-s:   12px,
+mg-xl:  24px,
+mg-xs:  8px,
+mg-xxl: 28px,
+mg-xxs: 4px,
+pd-m:   12px,
+pd-l:   16px,
+pd-s:   8px,
+pd-xl:  20px,
+pd-xs:  4px,
+pd-xxl: 24px,
+pd-xxs: 0px,
+rd-m:   8px,
+rd-l:   10px,
+rd-s:   6px,
+rd-xl:  12px,
+rd-xs:  4px,
+rd-xxl: 14px,
+rd-xxs: 2px,
+bar-m:  36px,
+bar-l:  40px,
+bar-s:  32px,
+bar-xl: 44px,
+bar-xs: 28px,
+bar-xxl:    48px,
+bar-xxs:    24px,
+icon-m: 24px,
+icon-l: 28px,
+icon-s: 20px,
+icon-xl:    32px,
+icon-xs:    16px,
+icon-xxl:   36px,
+icon-xxs:   12px,
+btn-m:  32px,
+btn-l:  36px,
+btn-s:  28px,
+btn-xl: 42px,
+btn-xs: 24px,
+btn-xxl:    48px,
+btn-xxs:    20px,
+btn-fs-m:   14px,
+btn-fs-l:   16px,
+btn-fs-s:   12px,
+btn-fs-xl:  18px,
+btn-fs-xs:  10px,
+btn-fs-xxl: 20px,
+btn-fs-xxs: 10px,
+btn-gap-m:  14px,
+btn-gap-l:  16px,
+btn-gap-s:  12px,
+btn-gap-xl: 20px,
+btn-gap-xs: 10px,
+btn-gap-xxl:    24px,
+btn-gap-xxs:    8px,
+btn-rd-m:   8px,
+btn-rd-l:   9px,
+btn-rd-s:   7px,
+btn-rd-xl:  10px,
+btn-rd-xs:  6px,
+btn-rd-xxl: 12px,
+btn-rd-xxs: 5px,
+bd-m:   1px,
+);
+
+$sizeStrQueue:  huge,large,medium,normal,small,mini,tiny;
+$sizeStrMap: (
+huge:   'xxl',
+large:  'xl',
+medium: 'l',
+normal: 'm',
+small:  's',
+mini:   'xs',
+tiny:   'xxs',
+);
+
+$extraIconSizeQueue:    48,54,64,72,88,96,128;
+$extraBtnSizeQueue: 54,64,72,88,96,128;
+
+:root {
+--size-fs-m:    14px;
+--size-fs-l:    16px;
+--size-fs-s:    12px;
+--size-fs-xl:   18px;
+--size-fs-xs:   10px;
+--size-fs-xxl:  22px;
+--size-fs-xxs:  10px;
+--size-fs-xxxl: 26px;
+--size-fs-xxxs: 9px;
+--size-fs-xxxxl:    32px;
+--size-fs-xxxxs:    8px;
+--size-fw-m:    400;
+--size-fw-l:    500;
+--size-fw-s:    300;
+--size-fw-xl:   700;
+--size-fw-xs:   200;
+--size-fw-xxl:  900;
+--size-fw-xxs:  100;
+--size-mg-m:    16px;
+--size-mg-l:    20px;
+--size-mg-s:    12px;
+--size-mg-xl:   24px;
+--size-mg-xs:   8px;
+--size-mg-xxl:  28px;
+--size-mg-xxs:  4px;
+--size-pd-m:    12px;
+--size-pd-l:    16px;
+--size-pd-s:    8px;
+--size-pd-xl:   20px;
+--size-pd-xs:   4px;
+--size-pd-xxl:  24px;
+--size-pd-xxs:  0px;
+--size-rd-m:    8px;
+--size-rd-l:    10px;
+--size-rd-s:    6px;
+--size-rd-xl:   12px;
+--size-rd-xs:   4px;
+--size-rd-xxl:  14px;
+--size-rd-xxs:  2px;
+--size-bar-m:   36px;
+--size-bar-l:   40px;
+--size-bar-s:   32px;
+--size-bar-xl:  44px;
+--size-bar-xs:  28px;
+--size-bar-xxl: 48px;
+--size-bar-xxs: 24px;
+--size-icon-m:  24px;
+--size-icon-l:  28px;
+--size-icon-s:  20px;
+--size-icon-xl: 32px;
+--size-icon-xs: 16px;
+--size-icon-xxl:    36px;
+--size-icon-xxs:    12px;
+--size-btn-m:   32px;
+--size-btn-l:   36px;
+--size-btn-s:   28px;
+--size-btn-xl:  42px;
+--size-btn-xs:  24px;
+--size-btn-xxl: 48px;
+--size-btn-xxs: 20px;
+--size-btn-fs-m:    14px;
+--size-btn-fs-l:    16px;
+--size-btn-fs-s:    12px;
+--size-btn-fs-xl:   18px;
+--size-btn-fs-xs:   10px;
+--size-btn-fs-xxl:  20px;
+--size-btn-fs-xxs:  10px;
+--size-btn-gap-m:   14px;
+--size-btn-gap-l:   16px;
+--size-btn-gap-s:   12px;
+--size-btn-gap-xl:  20px;
+--size-btn-gap-xs:  10px;
+--size-btn-gap-xxl: 24px;
+--size-btn-gap-xxs: 8px;
+--size-btn-rd-m:    8px;
+--size-btn-rd-l:    9px;
+--size-btn-rd-s:    7px;
+--size-btn-rd-xl:   10px;
+--size-btn-rd-xs:   6px;
+--size-btn-rd-xxl:  12px;
+--size-btn-rd-xxs:  5px;
+--size-bd-m:    1px;
+}
+
+
+/**
+ * 主题模块 vars 生成语句
+ * 不要手动修改
+ */
+
+$font-fml-default:  -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+$font-fml-code: 'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace;
+$font-fml-fangsong: 'Times New Roman', '仿宋';
+$font-fml-yahei:    '微软雅黑', 'Microsoft Yahei';
+$font-fml-songti:   'Times New Roman', '宋体';
+$ani-dura:  0.3s;
+
+:root {
+--font-fml-default: -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+--font-fml-code:    'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace;
+--font-fml-fangsong:    'Times New Roman', '仿宋';
+--font-fml-yahei:   '微软雅黑', 'Microsoft Yahei';
+--font-fml-songti:  'Times New Roman', '宋体';
+--ani-dura: 0.3s;
+}
+
+
+
+
+
+/**
+ * 合并资源 base.scss
+ * !! 不要手动修改 !!
+ */
+
+/** SPF-Theme 基础样式 SCSS **/
+/** 此 SCSS 不处理 import 如需引入外部样式，应在 PRE.theme.json 中指定 styles.import 参数 **/
+
+/** CGY-Theme 主题 SCSS 通用 @mixin/@extend 等定义 **/
+/** !!! 不要手动修改 !!! **/
+
+
+/** @function 20250124 **/
+/** 根据输入的 $p 解析得到 left,right,top,bottom 列表 **/
+/** $p 可选：x/y/xy/all/t/r/b/l/tr/tb/.../trb/trl/.../trbl **/
+$trblQueue: x,y,t,r,b,l,tr,tb,tl,trb,trl,rb,rl,rbl,bl,all,xy,trbl;
+@function trbl($p: all) {
+    $cp: [];
+    @if $p == all or $p == xy {
+        $cp: top,right,bottom,left;
+    } @else if $p == x {
+        $cp: left,right;
+    } @else if $p == y {
+        $cp: top,bottom;
+    } @else {
+        @if str-index($p, t) != null { $cp: append($cp, top, comma); }
+        @if str-index($p, r) != null { $cp: append($cp, right, comma); }
+        @if str-index($p, b) != null { $cp: append($cp, bottom, comma); }
+        @if str-index($p, l) != null { $cp: append($cp, left, comma); }
+    }
+    @return $cp;
+}
+/** 生成 img url，返回 url(...) 属性值 **/
+@function icourl($icon: md-sharp-home, $fill: '', $pre: '/src/icon/') {
+    @if $fill != '' {
+        @if str-index($fill, '#') != null {
+            //去除颜色 Hex 中的 #
+            $fill: str-slice($fill, 2);
+        }   
+        $icon: #{$icon} + '?fill=' + #{$fill};
+    }
+    @return url('#{$pre}#{$icon}.svg');
+}
+
+
+/** @mixin 20250124 **/
+
+/** color-shift **/
+/** 根据 $list 颜色名称数组，为 当前类 或 后代类 指定颜色样式
+    例如：
+    .foo {
+        @include color-shift(
+            $pre:       bg-,
+            $target:    child,
+            $prop:      background-color,
+            $ckey:      bg,
+            $opa:       true
+        );
+    }
+    编译后：
+    .foo * { background-color: color-bg; }  //如果存在 color-{ckey}
+    .foo .bg-l1 { background-color: color-bg-l1; }
+    .foo .bg-l2 { background-color: color-bg-l2; }
+    .foo .bg-l1-a1 { background-color: color-bg-l1-a1; }  //透明度循环
+    .foo .bg-l1-a2 { background-color: color-bg-l1-a2; }
+    .foo .bg-red { background-color: color-red; }
+    .foo .bg-red-hover { background-color: color-red; }
+    .foo .bg-red-hover:hover { background-color: color-red-l1; }
+    .foo .bg-red-l1 { background-color: color-red-l1; }
+    .foo .bg-red-l2 { background-color: color-red-l2; }
+    .foo .bg-red-l1-a1 { background-color: color-red-l1-a1; }  //透明度循环
+    .foo .bg-red-l1-a2 { background-color: color-red-l1-a2; }
+    .foo .bg-blue { background-color: color-blue; }
+    .foo .bg-blue-l1 { background-color: color-blue-l1; }
+    .foo .bg-blue-l2 { background-color: color-blue-l2; }
+    .foo .bg-blue-l1-a1 { background-color: color-blue-l1-a1; }  //透明度循环
+    .foo .bg-blue-l1-a2 { background-color: color-blue-l1-a2; }
+**/
+@mixin color-shift(
+    $pre:       fc-,                //样式类前缀，如：在 .fc 类中，则可以 fc- 为前缀
+    $list:      $colorListAll,      //颜色名称 list 数组，默认 $colorListAll 通用色
+    $cmap:      $colorMap,          //储存所有色值的 map，默认 $colorMap
+    $cque:      $colorShiftQueue,   //储存所有颜色 shift 变化 lvl 的 list，如：l2,l1,d1,d2 默认 $colorShiftQueue
+    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $prop:      color,              //要设置颜色的 css 属性，可选 color/border-color/background-color/... 默认 color
+    $ckey:      fc,                 //$prop 属性的默认颜色名，如：background-color 的默认颜色名为 bgc ($color-bgc-*)
+    $opa:       false,              //是否启用透明度，true 表示同时循环透明度
+    $alist:     $colorListAlpha,    //定义的透明度级数序列，默认 a1~a9
+    $amap:      $colorAlphaMap      //储存所有透明序列的 map，默认 $colorAlphaMap
+) {
+    @each $c in $list {
+        @each $cq in $cque {
+            /**
+                针对 $pre 与 颜色名称相同的 情况
+                例如 $pre = fc- 颜色列表中又包含了 fc-m 颜色，则会生成 .fc-fc-m 颜色类
+                此处解决这个问题
+            **/
+            @if $ckey == $c {
+                $ck: #{$cq};
+                $ci: map-get($cmap, #{$c}-#{$cq});
+            } @else {
+                $ck: #{$c}-#{$cq};
+                $ci: map-get($cmap, $ck);
+            }
+            @if $ci != null {
+                @if $target == self {
+                    //&.fc-red-m {}
+                    &.#{$pre}#{$ck} { #{$prop}: #{$ci} !important; }
+                } @else if $target == child {
+                    //& .fc-primary-d3 {}
+                    & .#{$pre}#{$ck} { #{$prop}: #{$ci} !important; }
+                }
+                @if $opa == true and $c != shadow {
+                    //通过主题系统自动生成的 colorMap 一定是 hex 形式
+                    //shadow 颜色自带了透明度
+                    @each $ca in $alist {
+                        $ai: map-get($amap, $ca);
+                        //shadow 颜色自带透明度
+                        @if $ai != null {
+                            @if $target == self {
+                                //&.fc-red-m-a6 {}
+                                &.#{$pre}#{$ck}-#{$ca} { #{$prop}: #{$ci}#{$ai} !important; }
+                            } @else if $target == child {
+                                //& .fc-primary-d3-a2 {}
+                                & .#{$pre}#{$ck}-#{$ca} { #{$prop}: #{$ci}#{$ai} !important; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        //:hover 默认使用 color-l1 级颜色
+        $ci-hov: map-get($cmap, #{$c}-l1);
+        //通过主题系统自动生成的 colorMap 一定包含 -m 原始颜色
+        $ci-old: map-get($cmap, #{$c}-m);
+        @if $ci-hov != null {
+            @if $target == self {
+                &.#{$pre}#{$c}-hoverable { 
+                    //#{$prop}: #{$ci-old} !important; 
+                    &:hover {
+                        #{$prop}: #{$ci-hov} !important; 
+                    }
+                }
+            } @else if $target == child {
+                & .#{$pre}#{$c}-hoverable { 
+                    //#{$prop}: #{$ci-old} !important; 
+                    &:hover {
+                        #{$prop}: #{$ci-hov} !important; 
+                    }
+                }
+            }
+        }
+    }
+}
+/** size-shift **/
+/** 根据 $list 可选尺寸数组(如：xs,s,m,l,xl)，为 后代类 指定尺寸样式 **/
+@mixin size-shift(
+    $pre:       gap-,               //样式类前缀，如：在 .gap 类中，则可以 gap- 为前缀
+    $list:      $sizeShiftQueue,    //可选尺寸 list 数组，默认 $sizeShiftQueue 
+    $smap:      $sizeMap,           //储存所有尺寸值的 map，默认 $sizeMap
+    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $skey:      gap,                //在尺寸 map 中的键名前缀，如 gap / f / btn
+    $prop:      padding,            //要设置尺寸的 css 属性，可选 padding/margin/... 默认 padding
+    $maxsz:     36,                 //手动通过数值指定尺寸，默认最大 36 对应的尺寸为 36*2 = 72 px
+    $trbl:      true                //是否自动循环输出 trbl position 参数
+) {
+    //主题系统生成的 sizeMap 一定包含 -m 原始尺寸
+    @each $sz in $list {
+        $si: map-get($smap, #{$skey}-#{$sz});
+        @if $si != null {
+            @if $target == self {
+                &.#{$pre}#{$sz} {
+                    #{$prop}: $si !important;
+                }
+            } @else if $target == child {
+                & .#{$pre}#{$sz} {
+                    #{$prop}: $si !important;
+                }
+            }
+            @if $trbl == true {
+                @each $pi in $trblQueue {
+                    @if $target == self {
+                        &.#{$pre}#{$pi}-#{$sz} {
+                            @include size-po($size: #{$si}, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                        }
+                    } @else if $target == child {
+                        & .#{$pre}#{$pi}-#{$sz} {
+                            @include size-po($size: #{$si}, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    @for $sz from 1 through $maxsz {
+        $szi: $sz * 2;
+        @if $target == self {
+            &.#{$pre}#{$szi}px {
+                #{$prop}: #{$szi}px !important;
+            }
+        } @else if $target == child {
+            & .#{$pre}#{$szi}px {
+                #{$prop}: #{$szi}px !important;
+            }
+        }
+        @if $trbl == true {
+            @each $pi in $trblQueue {
+                @if $target == self {
+                    &.#{$pre}#{$pi}-#{$szi}px {
+                        @include size-po($size: #{$szi}px, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                    }
+                } @else if $target == child {
+                    & .#{$pre}#{$pi}-#{$szi}px {
+                        @include size-po($size: #{$szi}px, $p: #{$pi}, $prop: #{$prop}, $important: true);
+                    }
+                }
+            }
+        }
+    }
+}
+/** 根据输入的 trbl 设置不同 position 位置的 size **/
+/** $p 可选值：$trblQueue **/
+@mixin size-po(
+    $size: unset,       //要设置的尺寸 
+    $p: '',             //要设置尺寸值的 position 位置，可选值：$trblQueue，默认不指定，表示所有位置
+    $prop: padding,     //要设置尺寸值的 css 属性，默认 padding，可选 padding/margin
+    $important: false   //是否增加 important
+) {
+    @if $p != '' {
+        $pa: trbl($p);
+        @each $pi in $pa {
+            @if $important == true {
+                #{$prop}-#{$pi}: $size !important;
+            } @else {
+                #{$prop}-#{$pi}: $size;
+            }
+        }
+    } @else {
+        @if $important == true {
+            #{$prop}: $size !important;
+        } @else {
+            #{$prop}: $size;
+        }
+    }
+}
+
+/** position **/
+@mixin po($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $l: unset, $t: unset, $r: unset, $b: unset, $ov: unset) {
+    position: $po; margin: $mg; padding: $pd; 
+    @if $w != unset { width: $w; }
+    @if $h != unset { height: $h; }
+    @if $l != unset { left: $l; }
+    @if $r != unset { right: $r; }
+    @if $t != unset { top: $t; }
+    @if $b != unset { bottom: $b; }
+    @if $ov != unset { overflow: $ov; }
+    box-sizing: border-box;
+}
+@mixin po-ov($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $l: unset, $t: unset, $r: unset, $b: unset, $ov: hidden) {
+    @include po($po:#{$po}, $w:#{$w}, $h:#{$h}, $mg:#{$mg}, $pd:#{$pd}, $l:#{$l}, $r:#{$r}, $t:#{$t}, $b:#{$b}, $ov:#{$ov});
+}
+@mixin po-abs($w: 100%, $h: unset, $mg: 0, $pd: 0, $l: 0, $t: 0, $r: unset, $b: unset, $ov: hidden) {
+    @include po($po: absolute, $w:#{$w}, $h:#{$h}, $mg:#{$mg}, $pd:#{$pd}, $l:#{$l}, $r:#{$r}, $t:#{$t}, $b:#{$b}, $ov:#{$ov});
+}
+@mixin po-fix($w: 100%, $h: unset, $mg: 0, $pd: 0, $l: 0, $t: 0, $r: unset, $b: unset, $ov: hidden) {
+    @include po($po: fixed, $w:#{$w}, $h:#{$h}, $mg:#{$mg}, $pd:#{$pd}, $l:#{$l}, $r:#{$r}, $t:#{$t}, $b:#{$b}, $ov:#{$ov});
+}
+
+/** flex **/
+@mixin flex($dir: row, $x: flex-start, $y: center, $gap: unset) {
+    display: flex; flex-direction: $dir;
+    @if $dir == row {
+        align-items: $y; justify-content: $x;
+    } @else {
+        align-items: $x; justify-content: $y;
+    }
+    &>*, &>view {
+        flex-shrink: 0;
+        @if $gap != unset {
+            $side: right;
+            @if $dir == column { $side: bottom; }
+            margin-#{$side}: $gap;
+            &:last-child {
+                margin-#{$side}: 0;
+            }
+        }
+    }
+    @for $i from 1 through 4 {
+        &>.flex-#{$i} {
+            $wh: width;
+            @if $dir == column { $wh: height; }
+            #{$wh}: unset;
+            flex: $i;
+        }
+    }
+    &.flex-x-center {
+        @if $dir == row {
+            justify-content: center;
+        } @else {
+            align-items: center;
+        }
+    }
+    &.flex-y-center {
+        @if $dir == row {
+            align-items: center;
+        } @else {
+            justify-content: center;
+        }
+    }
+    &.flex-x-start {
+        @if $dir == row {
+            justify-content: flex-start;
+        } @else {
+            align-items: flex-start;
+        }
+    }
+    &.flex-y-start {
+        @if $dir == row {
+            align-items: flex-start;
+        } @else {
+            justify-content: flex-start;
+        }
+    }
+    &.flex-x-end {
+        @if $dir == row {
+            justify-content: flex-end;
+        } @else {
+            align-items: flex-end;
+        }
+    }
+    &.flex-y-end {
+        @if $dir == row {
+            align-items: flex-end;
+        } @else {
+            justify-content: flex-end;
+        }
+    }
+    &.flex-x-stretch {
+        @if $dir == row {
+            justify-content: stretch;
+        } @else {
+            align-items: stretch;
+        }
+    }
+    &.flex-y-stretch {
+        @if $dir == row {
+            align-items: stretch;
+        } @else {
+            justify-content: stretch;
+        }
+    }
+}
+@mixin flex-x($x: flex-start, $y: center, $gap: unset) {
+    @include flex($dir: row, $x:#{$x}, $y:#{$y}, $gap:#{$gap});
+}
+@mixin flex-y($x: flex-start, $y: flex-start, $gap: unset) {
+    @include flex($dir: column, $x:#{$x}, $y:#{$y}, $gap:#{$gap});
+}
+
+/** font **/
+@mixin fo($sz: $size-fs-m, $c: $color-fc-m, $w: normal, $fml: $font-fml-default, $sty: unset) {
+    font: {
+        family: $fml;
+        size: $sz;
+        weight: $w;
+    }
+    color: $c;
+    @if $sty != unset { font-style: $sty; }
+}
+/**
+    设置 self|child 中 font 相关样式
+    支持尺寸自动序列
+**/
+@mixin fo-shift(
+    $target:    self
+) {
+    //color-shift
+    @include color-shift($pre: f-, $target: #{$target}, $prop: color, $ckey: fc);
+    //size-shift
+    @include size-shift($pre: f-, $target: #{$target}, $skey: fs, $prop: font-size, $trbl: false);
+    
+    @if $target == self {
+        //weight-shift
+        &.f-bold { font-weight: bold !important; }
+        &.f-thin { font-weight: 200 !important; }
+        @for $i from 1 through 9 {
+            $b: $i * 100;
+            &.f-w#{$b} { font-weight: $b !important; }
+        }
+        //font-family
+        &.f-fml-default {font-family: $font-fml-default !important;}
+        &.f-fml-code {font-family: $font-fml-code !important;}
+        &.f-fml-yahei {font-family: $font-fml-yahei !important;}
+        &.f-fml-songti {font-family: $font-fml-songti !important;}
+        &.f-fml-fangsong {font-family: $font-fml-fangsong !important;}
+    } @else if $target == child {
+        //weight-shift
+        & .f-bold { font-weight: bold !important; }
+        & .f-thin { font-weight: 200 !important; }
+        @for $i from 1 through 9 {
+            $b: $i * 100;
+            & .f-w#{$b} { font-weight: $b !important; }
+        }
+        //font-family
+        & .f-fml-default {font-family: $font-fml-default !important;}
+        & .f-fml-code {font-family: $font-fml-code !important;}
+        & .f-fml-yahei {font-family: $font-fml-yahei !important;}
+        & .f-fml-songti {font-family: $font-fml-songti !important;}
+        & .f-fml-fangsong {font-family: $font-fml-fangsong !important;}
+    }
+}
+
+/** border **/
+/** $p 可选值：$trblQueue **/
+@mixin bd($c: $color-bdc-m, $sz: 1px, $sty: solid, $p: trbl) {
+    border: {
+        color: $c;
+        style: $sty;
+        width: 0;
+    }
+    $pa: trbl($p);
+    @each $i in $pa {
+        border-#{$i}-width: $sz;
+    }
+}
+@mixin bd-shift {
+    //color-shift
+    @include color-shift($pre: bd-, $target: self, $prop: border-color, $ckey: bdc);
+    @each $pi in $trblQueue {
+        &.bd-#{$pi} {
+            $pa: trbl($pi);
+            @each $i in $pa {
+                border-#{$i}-width: 1px;
+            }
+            &.bd-bold {
+                @each $i in $pa {
+                    border-#{$i}-width: 2px;
+                }
+            }
+        }
+    }
+}
+@mixin bd-in {
+    & [class*=bd-] {
+        border: {
+            color: $color-bdc-m;
+            style: solid;
+            width: 0;
+        }
+    }
+
+    //color-shift
+    @include color-shift($pre: bd-, $target: child, $prop: border-color, $ckey: bdc);
+    @each $pi in $trblQueue {
+        & .bd-#{$pi} {
+            $pa: trbl($pi);
+            @each $i in $pa {
+                border-#{$i}-width: 1px;
+            }
+            &.bd-bold {
+                @each $i in $pa {
+                    border-#{$i}-width: 2px;
+                }
+            }
+        }
+    }
+    
+}
+
+/** background **/
+@mixin bg($c: $color-bgc-m, $opa: 1) {
+    background-color: $c;
+    @if $opa < 1 {
+        background-color: rgba($c, $opa);
+    }
+}
+@mixin bg-shift {
+    //color-shift
+    @include color-shift($pre: bg-, $target: self, $prop: background-color, $ckey: bgc, $opa: true);
+}
+@mixin bg-in {
+    //color-shift
+    @include color-shift($pre: bg-, $target: child, $prop: background-color, $ckey: bgc, $opa: true);
+    //hover
+    & .bg-hover {
+        background-color: transparent !important;
+        &:hover {
+            background-color: $color-bgc-l2 !important;
+        }
+    }
+}
+@mixin bg-blur($c: $color-bgc-m, $opa: 0.8, $blur: $size-filter-blur) {
+    @include bg($c:$c, $opa:$opa);
+    backdrop-filter: blur($blur);
+}
+
+/** margin/padding **/
+/** $p 可选值：$trblQueue **/
+@mixin pd-in {
+    @include size-shift($pre: pd-, $target: child, $skey: pd, $prop: padding);
+}
+@mixin mg-in {
+    @include size-shift($pre: mg-, $target: child, $skey: mg, $prop: margin);
+}
+
+/** opacity**/
+@mixin opa {
+    @for $opi from 1 through 10 {
+        $opik: $opi * 10;
+        $opiv: $opi / 10;
+        &.opa-#{$opik} {
+            opacity: $opiv !important;
+        }
+    }
+}
+@mixin opa-in {
+    @for $opi from 1 through 10 {
+        $opik: $opi * 10;
+        $opiv: $opi / 10;
+        & .opa-#{$opik} {
+            opacity: $opiv !important;
+        }
+    }
+}
+
+/** shadow **/
+@mixin shadow($x: 4px, $y: 8px, $blur: 16px, $opa: "l1") {
+    $sc-key: "shadow";
+    @if ($opa!="") {
+        $sc-key: shadow-#{$opa};
+    }
+    $shadow-color: map-get($colorMap, $sc-key);
+    box-shadow: #{$x} #{$y} #{$blur} #{$shadow-color};
+}
+
+
+
+/** other **/
+@mixin nicescroll($size: 0, $radius: 0, $bgc: transparent, $bgc-hover: $color-bdc-d1, $ov: hidden overlay, $behavior: smooth) {
+    overflow: $ov;
+    scroll-behavior: $behavior;
+    &::-webkit-scrollbar {width: $size; height: $size;}
+    &::-webkit-scrollbar-thumb  {
+        background-color: $bgc;
+        transition: all .3s;
+    }
+    &:hover::-webkit-scrollbar-thumb  {background-color: $bgc-hover;}
+    &::-webkit-scrollbar-track {background-color: transparent; }
+    &::-webkit-scrollbar-thumb  {border-radius: $radius;}
+}
+@mixin text-ellipsis {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+@mixin trans($items: all, $dura: $ani-trans-dura) {
+    @if $items == all {transition: all $dura; }
+    @if $items != all {
+        @each $item in $items {
+            transition: $item $dura;
+        }
+    }
+}
+
+
+
+/** animation keyframe **/
+/** spin **/
+@keyframes spin {
+    from    {transform: rotate(0deg);}
+    to      {transform: rotate(360deg);}
+}
+
+
+
+/** 初始化 body 样式 **/
+body, view, .page {
+    margin: 0; padding: 0;
+    @include fo;
+    @include bg($c: $color-bgc-l3);
+    @include fo-shift($target: child);
+    @include bd-in;
+    @include bg-in;
+    @include pd-in;
+    @include mg-in;
+    @include opa-in;
+
+    .flex-x {
+        @include flex-x;
+    }
+    .flex-y {
+        @include flex-y;
+    }
+
+    .ellipsis {
+        @include text-ellipsis;
+    }
+}
+
+[v-cloak] {
+    display: none !important;
+}
+
+.spf-foo-bar {
+    @include po-abs;
+}
+
+
+
+
+
+
+/**
+ * 合并资源 temp_spf_GJb66j.scss
+ * !! 不要手动修改 !!
+ */
+
+
+
+
+/**
+ * 合并资源 base.scss
+ * !! 不要手动修改 !!
+ */
+
+.spf-vcom-base {
+    width: $size-btn-m;
+}
+
+
+
+/**
+ * 合并资源 icon.scss
+ * !! 不要手动修改 !!
+ */
+
+.spf-icon-wrapper {
+    width: 1em; height: 1em;
+    //vertical-align: -0.15em;
+    //margin-top: 0.05em;
+    fill: currentColor;
+    overflow: hidden;
+    transition: all $ani-dura;
+
+    //默认 size
+    font-size: $size-icon-m;
+
+    //默认 color
+    color: $color-fc-m;
+
+    //huge,large,medium,normal,small,mini,tiny
+    @each $isz in $sizeStrQueue {
+        //normal --> m
+        $iszk: map-get($sizeStrMap, $isz);
+        //实际尺寸
+        $iszv: map-get($sizeMap, icon-#{$iszk});
+        &.icon-#{$isz}, &.icon-#{$iszk} {
+            font-size: $iszv;
+        }
+    }
+
+    //手动输入 icon 尺寸
+    @each $sz in $extraIconSizeQueue {
+        &.icon-#{$sz}px {
+            font-size: #{$sz}px;
+        }
+    } 
+    
+    //默认 icon 颜色的 加深减淡
+    @each $cli in $colorShiftQueue {
+        //具体颜色
+        $cliv: map-get($colorMap, fc-#{$cli});
+        @if $cliv != null {
+            &.icon-#{$cli} {
+                color: $cliv;
+            }
+        }
+    }
+
+    //其他颜色 只 加深减淡 1 级
+    @each $cli in $colorListAll {
+        //默认颜色
+        $cliv: map-get($colorMap, #{$cli}-m);
+        @if $cliv != null {
+            &.icon-#{$cli}, &.icon-#{$cli}-m {
+                color: $cliv;
+            }
+            
+            //自动 加深减淡 1 级
+            $cliv-l: map-get($colorMap, #{$cli}-l1);
+            @if $cliv-l != null {
+                //减淡
+                &.icon-#{$cli}-hover {
+                    color: $cliv-l;
+                }
+            }
+            $cliv-d: map-get($colorMap, #{$cli}-d1);
+            @if $cliv-d != null {
+                //加深
+                &.icon-#{$cli}-visited {
+                    color: $cliv-d;
+                }
+            }
+        }
+    }
+
+    //旋转
+    /*&.icon-spin {
+        animation: spin 1s linear infinite;
+    }*/
+    
+}
+
+/** icon-logo **/
+.spf-icon-logo {
+    //vertical-align: -0.15em;
+    //margin-top: 0.05em;
+    fill: currentColor;
+    overflow: hidden;
+    transition: all $ani-dura;
+
+    /** 普通长方形 logo **/
+    //默认 size
+    height: $size-icon-m; width: auto;
+
+    //huge,large,medium,normal,small,mini,tiny
+    @each $isz in $sizeStrQueue {
+        //normal --> m
+        $iszk: map-get($sizeStrMap, $isz);
+        //实际尺寸
+        $iszv: map-get($sizeMap, icon-#{$iszk});
+        &.icon-#{$isz}, &.icon-#{$iszk} {
+            height: $iszv;
+        }
+    }
+
+    //手动输入 icon 尺寸
+    @each $sz in $extraIconSizeQueue {
+        &.icon-#{$sz}px {
+            height: #{$sz}px;
+        }
+    } 
+
+    /** 正方形 logo **/
+    &.icon-square {
+        width: 1em; height: 1em;
+        //默认 size
+        font-size: $size-icon-m;
+
+        //huge,large,medium,normal,small,mini,tiny
+        @each $isz in $sizeStrQueue {
+            //normal --> m
+            $iszk: map-get($sizeStrMap, $isz);
+            //实际尺寸
+            $iszv: map-get($sizeMap, icon-#{$iszk});
+            &.icon-#{$isz}, &.icon-#{$iszk} {
+                font-size: $iszv;
+            }
+        }
+    
+        //手动输入 icon 尺寸
+        @each $sz in $extraIconSizeQueue {
+            &.icon-#{$sz}px {
+                font-size: #{$sz}px;
+            }
+        } 
+    }
+
+    /** 多色 logo 统一为 单色 **/
+    //颜色 只 加深减淡 1 级
+    @each $cli in $colorListAll {
+        //默认颜色
+        $cliv: map-get($colorMap, #{$cli}-m);
+        @if $cliv != null {
+            &.icon-#{$cli}, &.icon-#{$cli}-m {
+                color: $cliv;
+            }
+            
+            //自动 加深减淡 1 级
+            $cliv-l: map-get($colorMap, #{$cli}-l1);
+            @if $cliv-l != null {
+                //减淡
+                &.icon-#{$cli}-hover {
+                    color: $cliv-l;
+                }
+            }
+            $cliv-d: map-get($colorMap, #{$cli}-d1);
+            @if $cliv-d != null {
+                //加深
+                &.icon-#{$cli}-visited {
+                    color: $cliv-d;
+                }
+            }
+        }
+    }
+}
+
+
+
+/**
+ * 合并资源 group.scss
+ * !! 不要手动修改 !!
+ */
+
+
+
+
+/**
+ * 合并资源 button.scss
+ * !! 不要手动修改 !!
+ */
+
+/** 定义 额外的 btn 尺寸 已在 SPF-Theme 主题的 size 模块中定义 **/
+//$extraBtnSizeQueue: 54,64,72,88,96,128;
+
+/** 定义通用计算函数 **/
+//从 $sizeMap 中获取 btn-* 尺寸值 100px 形式
+@function btn-sz-get($k) {@return map-get($sizeMap, btn-#{$k});}
+//从 $colorMap 中获取 $k 指定的 颜色 
+@function btn-clr-get($k: 'transparent') {
+    @if $k == 'transparent' {
+        $cv: transparent;
+    } @else {
+        $cv: map-get($colorMap, $k);
+        @if $cv == null {
+            $cv: transparent;
+        }
+    }
+    @return $cv;
+}
+//根据 尺寸值数字 计算 rd|gap|fs 返回 数字
+@function btn-sz-rd($szn) {@return $szn/4;}
+@function btn-sz-gap($szn) {@return $szn/2;}
+@function btn-sz-fs($szn) {@return $szn/2;}
+//根据 尺寸值数字 计算 rd|gap|fs 返回 100px 带单位
+@function btn-sz-rd-s($szn) {$rd: btn-sz-rd($szn); @return #{$rd}px;}
+@function btn-sz-gap-s($szn) {$gap: btn-sz-gap($szn); @return #{$gap}px;}
+@function btn-sz-fs-s($szn) {$fs: btn-sz-fs($szn); @return #{$fs}px;}
+//根据传入的 szk 尺寸键(m|s|xl...) 和 szn 尺寸数字 返回对应 btn|rd|gap|fs 实际尺寸值 100px 带单位，返回 map
+@function btn-sz-map($szk: 'm', $szn: null) {
+    @if $szn != null {
+        $szv: #{$szn}px;
+        $szrd: btn-sz-rd-s($szn);
+        $szgap: btn-sz-gap-s($szn);
+        $szfs: btn-sz-fs-s($szn);
+    } @else {
+        $szv: btn-sz-get($k: #{$szk});
+        $szrd: btn-sz-get($k: rd-#{$szk});
+        $szgap: btn-sz-get($k: gap-#{$szk});
+        $szfs: btn-sz-get($k: fs-#{$szk});
+    }
+    @return (
+        sz: $szv,
+        rd: $szrd,
+        gap: $szgap,
+        fs: $szfs
+    );
+}
+
+/** 定义通用 mixin **/
+//set btn size 设置按钮尺寸 通用参数
+@mixin btn-set-size($szk: 'm', $szn: null) {
+    $szm: btn-sz-map($szk, $szn);
+    $szv: map-get($szm, sz);
+    $szrd: map-get($szm, rd);
+    $szgap: map-get($szm, gap);
+    $szfs: map-get($szm, fs);
+    height: $szv;
+    padding: 0 $szgap;
+    font-size: $szfs;
+    //icon 与 label 间距
+    &>svg.spf-icon-wrapper+label, &>label+svg.spf-icon-wrapper {
+        margin-left: calc(#{$szgap} / 2);
+    }
+    // btn 与 btn 的间距
+    &+.spf-btn {
+        margin-left: calc(#{$szgap} / 2);
+    }
+    //icon
+    &>svg.spf-icon-wrapper {
+        font-size: calc(#{$szfs} * 1.4);
+        //默认 图标在左 
+        margin-left: calc(#{$szgap} * -0.3);
+    }
+    //btn-icon-right 图标在右
+    &.btn-icon-right {
+        //图标在右
+        &>svg.spf-icon-wrapper {
+            margin-right: calc(#{$szgap} * -0.3);
+        }
+    }
+}
+//set btn color 设置按钮颜色 通用参数
+@mixin btn-set-color($bgk: 'primary-m', $fck: null, $bdk: transparent) {
+    $bgc: btn-clr-get($bgk);
+    @if $fck == null {
+        $fc: btn-clr-get(#{$bgk}-fc);
+    } @else {
+        $fc: btn-clr-get($fck);
+    }
+    $bdc: btn-clr-get($bdk);
+    background-color: $bgc;
+    border-color: $bdc;
+    color: $fc;
+    //icon
+    &>svg.spf-icon-wrapper {
+        color: $fc;
+    }
+}
+//set btn-radius-*
+@mixin btn-set-radius($szk: 'm', $szn: null) {
+    $szm: btn-sz-map($szk, $szn);
+    $szv: map-get($szm, sz);
+    $szrd: map-get($szm, rd);
+    $szgap: map-get($szm, gap);
+    //-normal
+    padding: 0 $szgap;
+    border-radius: $szrd;
+    //-pill
+    &.btn-radius-pill {
+        padding: 0 calc(#{$szv} / 2);
+        border-radius: calc(#{$szv} / 2);
+    }
+    //-sharp
+    &.btn-radius-sharp {
+        border-radius: 0;
+    }
+}
+//set btn-stretch-square
+@mixin btn-set-stretch-square($szk: 'm', $szn: null) {
+    $szm: btn-sz-map($szk, $szn);
+    $szv: map-get($szm, sz);
+    $szfs: map-get($szm, fs);
+    width: $szv; height: $szv; padding: 0;
+    //icon
+    &>svg.spf-icon-wrapper {
+        margin-left: 0;
+        margin-right: 0;
+    }
+    //square && popout 时 放大 icon
+    &.btn-popout {
+        &>svg.spf-icon-wrapper {
+            font-size: calc(#{$szfs} * 1.6);
+        }
+    }
+}
+//set btn-effect-*
+@mixin btn-set-effect($ck: null) {
+    //-normal
+    @if $ck == null {
+        @include btn-set-color(bgc-m, fc-d1, bdc-d1);
+    } @else {
+        @include btn-set-color(#{$ck}-l2, null, #{$ck}-l1);
+    }
+
+    @if $ck == null {
+        $ck: primary;
+    }
+    //-fill
+    &.btn-effect-fill {
+        @include btn-set-color(#{$ck}-m);
+        border-width: 0;
+    }
+    //-plain
+    &.btn-effect-plain {
+        @include btn-set-color(transparent, #{$ck}-m, #{$ck}-m);
+    }
+}
+//set hover btn-effect-*
+@mixin btn-set-effect-hover($ck: null) {
+    @if $ck == null {
+        $ck: primary;
+    }
+    //-normal
+    @include btn-set-color(#{$ck}-l3, null, #{$ck}-l2);
+    //-fill
+    &.btn-effect-fill {
+        @include btn-set-color(#{$ck}-l1);
+        border-width: 0;
+    }
+    //-plain
+    &.btn-effect-plain {
+        @include btn-set-color(transparent, #{$ck}-l1, #{$ck}-l1);
+    }
+}
+//set active btn-effect-*
+@mixin btn-set-effect-active($ck: null) {
+    @if $ck == null {
+        $ck: primary;
+    }
+    //-normal
+    @include btn-set-color(#{$ck}-l1, null, #{$ck}-m);
+    //-fill
+    &.btn-effect-fill {
+        @include btn-set-color(#{$ck}-d1);
+        border-width: 0;
+    }
+    //-plain
+    &.btn-effect-plain {
+        @include btn-set-color(transparent, #{$ck}-d1, #{$ck}-d1);
+    }
+}
+//set btn-popout
+@mixin btn-set-popout($ck: null) {
+    //未悬停效果
+    @if $ck == null {
+        $ck: fc;
+    }
+    @include btn-set-color(transparent, #{$ck}-m);
+    border-width: 0;
+    //覆盖 effect 效果
+    &.btn-effect {
+        @include btn-set-color(transparent, #{$ck}-m);
+        border-width: 0;
+        &.btn-effect-fill, &.btn-effect-plain {
+            @include btn-set-color(transparent, #{$ck}-m);
+            border-width: 0;
+        }
+    }
+}
+//set hover btn-popout
+@mixin btn-set-popout-hover($ck: null) {
+    @if $ck == null {
+        $ck: primary;
+    }
+    //默认弹出背景
+    @include btn-set-color(#{$ck}-l1);
+    //应用 effect 效果
+    &.btn-effect {
+        @include btn-set-effect-hover($ck);
+        //-plain
+        &.btn-effect-plain {
+            border-width: 1px;
+        }
+    }
+}
+//set active btn-popout
+@mixin btn-set-popout-active($ck: null) {
+    @if $ck == null {
+        $ck: primary;
+    }
+    //默认选中效果
+    @include btn-set-color(#{$ck}-d1);
+    //应用 effect 效果
+    &.btn-effect {
+        @include btn-set-effect-active($ck);
+        //-plain
+        &.btn-effect-plain {
+            border-width: 1px;
+        }
+    }
+}
+//set btn-link
+@mixin btn-set-link($ck: null) {
+    //未悬停效果
+    @if $ck == null {
+        $ck: primary;
+    }
+    @include btn-set-color(transparent, #{$ck}-m);
+    //label 文字移除下划线
+    &>label {
+        text-decoration: underline;
+        text-underline-offset: 0.3em;
+    }
+    //覆盖 effect 效果
+    &.btn-effect {
+        @include btn-set-color(transparent, #{$ck}-m);
+        border-width: 0;
+        &.btn-effect-fill, &.btn-effect-plain {
+            @include btn-set-color(transparent, #{$ck}-m);
+            border-width: 0;
+        }
+    }
+}
+//set hover btn-link
+@mixin btn-set-link-hover($ck: null) {
+    @if $ck == null {
+        $ck: primary;
+    }
+    @include btn-set-color(transparent, #{$ck}-l1);
+    //label 文字增加下划线
+    &>label {
+        text-decoration: underline;
+        text-underline-offset: 0.2em;
+    }
+    //覆盖 effect 效果
+    &.btn-effect {
+        @include btn-set-color(transparent, #{$ck}-l1);
+        border-width: 0;
+        &.btn-effect-fill, &.btn-effect-plain {
+            @include btn-set-color(transparent, #{$ck}-l1);
+            border-width: 0;
+        }
+    }
+}
+//set active btn-link
+@mixin btn-set-link-active($ck: null) {
+    @if $ck == null {
+        $ck: primary;
+    }
+    @include btn-set-color(transparent, #{$ck}-d2);
+    //label 文字移除下划线
+    &>label {
+        text-decoration: underline;
+        text-underline-offset: 0.3em;
+    }
+    //覆盖 effect 效果
+    &.btn-effect {
+        @include btn-set-color(transparent, #{$ck}-d2);
+        border-width: 0;
+        &.btn-effect-fill, &.btn-effect-plain {
+            @include btn-set-color(transparent, #{$ck}-d2);
+            border-width: 0;
+        }
+    }
+}
+//set btn-link size
+@mixin btn-set-link-size() {
+    overflow: visible;
+    //无 height padding border radius
+    height: unset; padding: 0; border-radius: 0;
+    border-width: 0;
+    //icon 无 margin
+    &>svg.spf-icon-wrapper {
+        margin: 0;
+    }
+    //icon label 间距 固定
+    &>svg.spf-icon-wrapper+label, &>label+svg.spf-icon-wrapper {
+        margin-left: 0.2em;
+    }
+}
+
+.spf-btn {
+    @include po-ov($w: unset, $h: $size-btn-m, $pd: 0 $size-btn-gap-m, $mg: 0);
+    @include flex-x($x: center, $y: center);
+    min-width: $size-btn-m;
+    font-size: $size-btn-fs-m;
+    font-family: $font-fml-default;
+    border: {
+        style: solid;
+        width: 1px;
+    }
+    cursor: pointer;
+    transition: background-color $ani-dura,
+                border-color $ani-dura,
+                transform .1s;
+
+    //icon 图标默认样式
+    &>svg.spf-icon-wrapper {
+        cursor: pointer;
+        transition: color .1s;
+    }
+
+    &>label {
+        //margin-top: -0.1em;
+        @include text-ellipsis;
+        overflow: unset;
+        cursor: pointer;
+        transition: color .1s,
+                    text-underline-offset .1s;
+    }
+    //在 表格单元格中
+    &.btn-incell>label {
+        width: 0; text-align: center;
+    }
+    //当作页面标题
+    &.btn-astitle>label {
+        font-weight: bold;
+        font-size: 1.2em;
+    }
+
+    /** 设置按钮尺寸 通用参数 **/
+    @include btn-set-size;
+
+    /** 设置按钮颜色 通用参数 **/
+    @include btn-set-color(bgc-m, fc-d1, bdc-d1);
+
+
+
+    /** btn-radius-* **/
+    &.btn-radius {
+        @include btn-set-radius;
+    }
+
+    /** btn-stretch-* **/
+    &.btn-stretch {
+        //-full-line
+        &.btn-stretch-full-line {
+            flex: 1;
+            //&>label {
+            //    flex: 1;
+            //}
+        }
+        //-square
+        &.btn-stretch-square {
+            @include btn-set-stretch-square;
+            //icon
+            &>svg.spf-icon-wrapper {
+                margin-left: 0;
+                margin-right: 0;
+            }
+        }
+    }
+
+    /** btn-effect-* **/
+    &.btn-effect {
+        @include btn-set-effect;
+    }
+
+    /** btn-popout 背景悬停弹出 **/
+    &.btn-popout {
+        @include btn-set-popout;
+    }
+
+    /** btn-link 链接样式按钮 **/
+    &.btn-link {
+        @include btn-set-link-size;
+        @include btn-set-link;
+    }
+
+    /** btn-hoverable 悬停 **/
+    &.btn-hoverable:hover {
+        //effect 效果
+        @include btn-set-effect-hover;
+        //btn-popout
+        &.btn-popout {
+            @include btn-set-popout-hover;
+        }
+        //btn-link
+        &.btn-link {
+            @include btn-set-link-hover;
+        }
+    }
+
+    /** btn-active 选中 **/
+    &.btn-active {
+        //effect 效果
+        @include btn-set-effect-active;
+        //btn-popout
+        &.btn-popout {
+            @include btn-set-popout-active;
+        }
+        //btn-link
+        &.btn-link {
+            @include btn-set-link-active;
+        }
+        //覆盖悬停效果，悬停样式相同
+        &.btn-hoverable:hover {
+            @include btn-set-effect-active;
+            &.btn-popout {
+                @include btn-set-popout-active;
+            }
+            &.btn-link {
+                @include btn-set-link-active;
+            }
+        }
+    }
+
+    /** btn-mouse-down 点击微缩 **/
+    &.btn-mouse-down {
+        transform: scale(0.9);
+    }
+
+    /** btn-disabled 失效 **/
+    &.btn-disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        &>svg.spf-icon-wrapper {cursor: not-allowed;}
+        &>label {cursor: not-allowed;}
+    }
+
+    /** size 循环 **/
+    //size 循环 huge,large,medium,normal,small,mini,tiny
+    @each $sz in $sizeStrQueue {
+        //normal --> m
+        $szk: map-get($sizeStrMap, $sz);
+        @if $szk != null {
+            &.btn-#{$sz}, &.btn-#{$szk} {
+                //设置尺寸 通用参数
+                @include btn-set-size($szk: #{$szk});
+                //btn-radius-*
+                &.btn-radius {
+                    @include btn-set-radius($szk: #{$szk});
+                }
+                //btn-stretch-* 
+                &.btn-stretch {
+                    //-square
+                    &.btn-stretch-square {
+                        @include btn-set-stretch-square($szk: #{$szk});
+                    }
+                }
+                //btn-link
+                &.btn-link {
+                    @include btn-set-link-size;
+                }
+            }
+        }
+    }
+    //size 循环 $extraBtnSizeQueue
+    @each $szn in $extraBtnSizeQueue {
+        &.btn-#{$szn}px {
+            //设置尺寸 通用参数
+            @include btn-set-size($szn: $szn);
+            //btn-radius-*
+            &.btn-radius {
+                @include btn-set-radius($szn: $szn);
+            }
+            //btn-stretch-* 
+            &.btn-stretch {
+                //-square
+                &.btn-stretch-square {
+                    @include btn-set-stretch-square($szn: $szn);
+                }
+            }
+            //btn-link
+            &.btn-link {
+                @include btn-set-link-size;
+            }
+        }
+    }
+
+    /** color 循环 **/
+    @each $ck in $colorListAll {
+        &.btn-#{$ck}, &.btn-#{$ck}-m {
+            //设置按钮颜色 通用参数
+            @include btn-set-color(#{$ck}-l2, null, #{$ck}-l1);
+            /** btn-effect-* **/
+            &.btn-effect {
+                @include btn-set-effect($ck);
+            }
+
+            /** btn-popout 背景悬停弹出 **/
+            &.btn-popout {
+                @include btn-set-popout($ck);
+            }
+
+            /** btn-link 链接样式按钮 **/
+            &.btn-link {
+                @include btn-set-link($ck);
+            }
+
+            /** btn-hoverable 悬停 **/
+            &.btn-hoverable:hover {
+                //effect 效果
+                @include btn-set-effect-hover($ck);
+                //btn-popout
+                &.btn-popout {
+                    @include btn-set-popout-hover($ck);
+                }
+                //btn-link
+                &.btn-link {
+                    @include btn-set-link-hover($ck);
+                }
+            }
+
+            /** btn-active 选中 **/
+            &.btn-active {
+                //effect 效果
+                @include btn-set-effect-active($ck);
+                //btn-popout
+                &.btn-popout {
+                    @include btn-set-popout-active($ck);
+                }
+                //btn-link
+                &.btn-link {
+                    @include btn-set-link-active($ck);
+                }
+                //覆盖悬停效果，悬停样式相同
+                &.btn-hoverable:hover {
+                    @include btn-set-effect-active($ck);
+                    &.btn-popout {
+                        @include btn-set-popout-active($ck);
+                    }
+                    &.btn-link {
+                        @include btn-set-link-active($ck);
+                    }
+                }
+            }
+        }
+    }
+
+
+
+}
+
+
+
+//set btn-group-radius
+@mixin btns-set-radius($szk: 'm', $szn: null) {
+    $szm: btn-sz-map($szk, $szn);
+    $szv: map-get($szm, sz);
+    $szrd: map-get($szm, rd);
+    //-normal
+    &>.spf-btn {
+        //第一个按钮
+        &:first-child {
+            border-top-right-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            border-top-left-radius: #{$szrd} !important;
+            border-bottom-left-radius: #{$szrd} !important;
+        }
+        //最后一个按钮
+        &:last-child {
+            border-top-left-radius: 0 !important;
+            border-bottom-left-radius: 0 !important;
+            border-top-right-radius: #{$szrd} !important;
+            border-bottom-right-radius: #{$szrd} !important;
+        }
+        //中间元素
+        &:not(:first-child):not(:last-child) {
+            border-radius: 0 !important;
+        }
+    }
+    //-pill
+    &.btns-radius-pill {
+        &>.spf-btn {
+            //第一个按钮
+            &:first-child {
+                border-top-right-radius: 0 !important;
+                border-bottom-right-radius: 0 !important;
+                border-top-left-radius: calc(#{$szv} / 2) !important;
+                border-bottom-left-radius: calc(#{$szv} / 2) !important;
+            }
+            //最后一个按钮
+            &:last-child {
+                border-top-left-radius: 0 !important;
+                border-bottom-left-radius: 0 !important;
+                border-top-right-radius: calc(#{$szv} / 2) !important;
+                border-bottom-right-radius: calc(#{$szv} / 2) !important;
+            }
+            //中间元素
+            &:not(:first-child):not(:last-child) {
+                border-radius: 0 !important;
+            }
+        }
+    }
+    //-sharp
+    &.btns-radius-sharp {
+        &>.spf-btn {
+            border-radius: 0 !important;
+        }
+    }
+}
+
+.spf-btn-group {
+    @include po-ov($w: unset, $h: $size-btn-m, $pd: 0, $mg: 0);
+    @include flex-x($x: center, $y: center);
+    min-width: $size-btn-m;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+
+    &+.spf-btn-group {
+        margin-left: calc(#{$size-btn-gap-m} / 2);
+    }
+
+    //内部按钮
+    &>.spf-btn {
+        margin: 0 !important;
+        //取消点击缩放
+        &.btn-mouse-down {
+            transform: none !important;
+        }
+    }
+
+    /** btns-radius-* **/
+    &.btns-radius {
+        @include btns-set-radius;
+    }
+
+    /** btn-full-line **/
+    &.btns-full-line {
+        flex: 1;
+        &>.spf-btn {
+            flex: 1 !important;
+        }
+    }
+
+    /** btn-effect-* **/
+    &.btns-effect {
+        //默认 effect 带边框，强制内部 btn 组件使用 btn-group 样式
+        &>.spf-btn {
+            //相邻按钮的后一个
+            &+.spf-btn {
+                border-left-width: 0 !important;
+            }
+            //与 active 按钮相邻的 后一个
+            &.btn-active+.spf-btn {
+                border-left-width: 1px !important;
+            }
+            //选中的内部按钮
+            &.btn-active:not(:last-child) {
+                border-right-width: 0 !important;
+            }
+
+            //应用 btn-group 样式到 内部按钮
+            @include btn-set-color(bgc-m, fc-d1, bdc-d1);
+            /** btn-effect-* **/
+            &.btn-effect {
+                @include btn-set-effect;
+            }
+
+            /** btn-hoverable 悬停 **/
+            &.btn-hoverable:hover {
+                //effect 效果
+                @include btn-set-effect-hover;
+            }
+
+            /** btn-active 选中 **/
+            &.btn-active {
+                //effect 效果
+                @include btn-set-effect-active;
+                //覆盖悬停效果，悬停样式相同
+                &.btn-hoverable:hover {
+                    @include btn-set-effect-active;
+                }
+            }
+        }
+        //-fill 都不带边框
+        &.btns-effect-fill {
+            &>.spf-btn {
+                //所有按钮
+                border-width: 0 !important;
+            }
+        }
+        //-plain 线框
+        &.btns-effect-plain {
+            
+            /*&>.spf-btn {
+                //相邻按钮的后一个
+                &+.spf-btn {
+                    border-left-width: 0 !important;
+                }
+            }*/
+        }
+    }
+
+    /** size 循环 **/
+    //size 循环 huge,large,medium,normal,small,mini,tiny
+    @each $sz in $sizeStrQueue {
+        //normal --> m
+        $szk: map-get($sizeStrMap, $sz);
+        @if $szk != null {
+            &.btns-#{$sz}, &.btns-#{$szk} {
+                //设置尺寸 通用参数
+                height: btn-sz-get($szk);
+                &+.spf-btn-group {
+                    $szgap: btn-sz-get(gap-#{$szk});
+                    margin-left: calc(#{$szgap} / 2);
+                }
+
+                //btns-radius-*
+                &.btns-radius {
+                    @include btns-set-radius($szk: #{$szk});
+                }
+            }
+        }
+    }
+    //size 循环 $extraBtnSizeQueue
+    @each $szn in $extraBtnSizeQueue {
+        &.btn-#{$szn}px {
+            //设置尺寸 通用参数
+            height: #{$szn}px;
+            &+.spf-btn-group {
+                $szgap: btn-sz-gap($szn);
+                margin-left: calc(#{$szgap}px / 2);
+            }
+
+            //btns-radius-*
+            &.btns-radius {
+                @include btns-set-radius($szn: $szn);
+            }
+        }
+    }
+
+    /** color 循环 **/
+    @each $ck in $colorListAll {
+        &.btns-#{$ck}, &.btns-#{$ck}-m {
+            &>.spf-btn{
+                //设置按钮颜色 通用参数
+                @include btn-set-color(#{$ck}-l2, null, #{$ck}-l1);
+                /** btn-effect-* **/
+                &.btn-effect {
+                    @include btn-set-effect($ck);
+                }
+    
+                /** btn-hoverable 悬停 **/
+                &.btn-hoverable:hover {
+                    //effect 效果
+                    @include btn-set-effect-hover($ck);
+                }
+    
+                /** btn-active 选中 **/
+                &.btn-active {
+                    //effect 效果
+                    @include btn-set-effect-active($ck);
+                    //覆盖悬停效果，悬停样式相同
+                    &.btn-hoverable:hover {
+                        @include btn-set-effect-active($ck);
+                    }
+                }
+            }
+        }
+    }
+
+
+}
+
+
+
+/**
+ * 合并资源 theme.scss
+ * !! 不要手动修改 !!
+ */
+
+
+
+.spf-theme-color-row {
+    @include po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+    @include flex-x($x: center, $y: center);
+    background: transparent;
+    border: none;
+
+    &>.spf-theme-color-item+.spf-theme-color-item {
+        margin-left: 1px !important;
+    }
+}
+
+.spf-theme-color-item {
+    @include po-ov($w: unset, $h: unset, $pd: $size-pd-m, $mg: 0);
+    min-width: 128px; min-height: 72px;
+    @include flex-y($x: stretch, $y: center);
+    background-color: $color-bgc-m;
+    border: none;
+    font-size: $size-fs-m;
+    color: $color-fc-m;
+
+    &>.item-title {
+        @include po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include flex-x($x: flex-start, $y: center);
+        font: {
+            size: 1.2em;
+            weight: $size-fw-xl;
+        }
+    }
+    &>.item-body {
+        @include po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include flex-x($x: center, $y: center);
+        flex: 1;
+    }
+    &>.item-desc {
+        @include po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include flex-x($x: center, $y: center);
+        opacity: 0.8;
+    }
+
+    @each $clr in $colorListBase {
+        @each $que in $colorShiftQueue {
+            $ck: #{$clr}-#{$que};
+            $fck: #{$ck}-fc;
+            &.item-#{$ck} {
+                $bgc: map-get($colorMap, $ck);
+                $fcv: map-get($colorMap, $fck);
+                @if $bgc != null {
+                    background-color: #{$bgc};
+                }
+                @if $fcv != null {
+                    color: #{$fcv};
+                }
+            }
+        }
+    }
+
+
+}
+
+
+
+/**
+ * 合并资源 foo.scss
+ * !! 不要手动修改 !!
+ */
+
+.spf-foo-base {
+    display: none;
+}
+
+
+
+
+
+
+
+

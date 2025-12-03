@@ -1,0 +1,1 @@
+export default {'spf-sv-pms-layout': ()=>{import('https://ms.systech.work/src/vcom/pms/1.0.0/component/layout.vue?export=js&prefix=spf-sv-pms&regist=false&inject=false&esm=true')},'spf-sv-pms-page-index': ()=>{import('https://ms.systech.work/src/vcom/pms/1.0.0/component/page/index.vue?export=js&prefix=spf-sv-pms&regist=false&inject=false&esm=true')},}

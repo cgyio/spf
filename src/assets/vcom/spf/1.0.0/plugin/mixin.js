@@ -46,7 +46,7 @@ export default {
             /**
              * api requesting flag
              */
-            cssvar: Vue.ui.cssvar,
+            //cssvar: Vue.ui.cssvar,
         }
     },
 
@@ -61,6 +61,7 @@ export default {
         /**
          * 定义这些计算变量为了可以在 vue 开发工具中看到这些功能组件的单例实例
          */
+        /*
         //访问 ui 实例
         $UI() {return Vue.ui;},
         //访问 usr 实例
@@ -69,7 +70,7 @@ export default {
         $NAV() {return Vue.nav;},
         //访问 db 实例
         $DB() {return Vue.db;},
-
+        */
     },
 
     methods: {

@@ -109,9 +109,23 @@ class Vars extends Module
         $flat = Arr::flat($ctx,"-");
         foreach ($flat as $vk => $vv) {
             $rower->rowDef($vk, $vv, [
-                "quote" => "\"",
+                //"quote" => "\"",
             ]);
         }
+        $rower->rowEmpty(1);
+
+        // 1    生成 $varsMap
+        $rower->rowAdd("\$varsMap: (", "");
+        foreach ($flat as $vk => $vv) {
+            $rower->rowDef($vk, $vv, [
+                "prev" => "",
+                "rn" => ",",
+                "quote" => strpos($vv, "'") !== false ? "\"" : "",
+            ]);
+        }
+        $rower->rowAdd(")", ";");
+        $rower->rowEmpty(1);
+
         //空行
         $rower->rowEmpty(1);
 

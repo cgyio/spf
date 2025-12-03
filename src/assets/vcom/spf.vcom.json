@@ -9,7 +9,7 @@
     },
 
     "required": [
-        "icon"
+        "icon-*", "button-*", "theme-*"
     ],
     "loadmode": {
         "basic": [
@@ -17,55 +17,49 @@
         ]
     },
 
-    "ext": ["js","css","vue","scss"],
+    "vue": {
 
-    "content": {
-        "1.0.0": {
-            "js": {
-                "default": {
-                    "comment": "输出使用 ESM 导出的所有组件的定义代码，包含样式插入语句",
-                    "params": {}
+        "ui": {
+            "element-ui": {
+                "file": "spf/assets/cdn/element-ui.cdn.json",
+                "params": {
+                    "ver": "@"
                 },
-                "esm-browser": {
-                    "comment": "输出使用 ESM 导出的插件定义代码，所有组件都被定义为全局组件，外部只需要 use 此插件即可完成环境准备",
-                    "params": {}
-                },
-                "iconset": {
-                    "comment": "如果组件库使用了一个或多个本地图标库，则输出图标库对应的创建雪碧图的 JS 语句",
-                    "param": {}
-                }
-            },
-
-            "css": {
-                "default": {
-                    "comment": "输出组件库样式文件，已应用主题，以及组件库指定的需要合并的所有样式文件",
-                    "params": {}
-                },
-                "iconset": {
-                    "comment": "如果组件库使用了一个或多个本地图标库，则输出图标库对应的样式文件",
-                    "params": {}
-                }
-            },
-
-            "scss": {
-                "default": {
-                    "comment": "输出组件库样式的原始 SCSS 代码，未经编译的原始代码",
-                    "params": {
-                        "export": "scss",
-                        "ignoreGet": true
-                    }
-                }
-            },
-
-            "vue": {
-                "default": {
-                    "comment": "输出组件库中某个组件的原始 vue 代码",
-                    "params": {
-                        "export": "vue",
-                        "ignoreGet": true
+                "export": {
+                    "ui.js": {
+                        "export": "js",
+                        "file": "default"
+                    },
+                    "esm-ui.js": {
+                        "export": "js",
+                        "file": "esm-browser"
+                    },
+                    "ui.css": {
+                        "light": {
+                            "export": "css",
+                            "file": "light"
+                        },
+                        "dark": {
+                            "export": "css",
+                            "file": "dark"
+                        }
                     }
                 }
             }
         }
-    }
+    },
+
+    "theme": {
+        "enable": true,
+        "file": "spf/assets/theme/spf",
+        "params": {
+            "mode": "light"
+        }
+    },
+
+    "iconset": [
+        "spf/assets/icon/vant",
+        "spf/assets/icon/spf"
+    ]
+    
 }

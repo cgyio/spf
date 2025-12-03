@@ -1,7 +1,7 @@
 <template>
     <div
-        :class="computedClass"
-        :style="computedStyle"
+        :class="styComputedClassStr.root"
+        :style="styComputedStyleStr.root"
         :title-bak="title"
         @click="whenBtnClick"
         @mouseenter="whenMouseEnter"
@@ -10,47 +10,40 @@
         @mouseup="whenMouseUp"
     >
         <PRE@-icon
-            v-if="icon!='' && !iconRight"
+            v-if="!isEmptyIcon && !iconRight"
             :icon="icon"
-            :size="iconSize"
-            :color="popoutColor"
+            :size="styComputedStyle.icon.fontSize"
             :spin="spin"
-            :custom-class="(label!=''?'btn-icon-left':'')+' '+(iconClass==''?'':iconClass)"
+            :custom-class="iconClass"
             :custom-style="iconStyle"
         ></PRE@-icon>
         <label 
-            v-if="label!=''"
-            :style="popoutColor!=''?'color:'+popoutColor+';':''"
+            v-if="!isEmptyLabel && stretch!=='square'"
+            :class="labelClass"
+            :style="labelStyle"
         >{{label}}</label>
         <PRE@-icon
-            v-if="icon!='' && iconRight"
+            v-if="!isEmptyIcon && iconRight"
             :icon="icon"
-            :size="iconSize"
-            :color="popoutColor"
+            :size="styComputedStyle.icon.fontSize"
             :spin="spin"
-            :custom-class="(label!=''?'btn-icon-right':'')+' '+(iconClass==''?'':iconClass)"
+            :custom-class="iconClass"
             :custom-style="iconStyle"
         ></PRE@-icon>
     </div>
 </template>
 
 <script>
-import mixinBase from '__URL_MIXIN__/base.js';
+import mixinBase from '../../mixin/base.js';
 
 export default {
     mixins: [mixinBase],
     props: {
 
-        //样式前缀
-        cssPre: {
-            type: String,
-            default: 'btn-'
-        },
-
         //图标名称，来自加载的图标包，在 cssvar 中指定
         icon: {
             type: String,
-            default: ''
+            default: '-empty-'
         },
 
         //按钮文字
@@ -75,51 +68,60 @@ export default {
             default: ''
         },
 
+        //label 额外样式
+        labelClass: {
+            type: String,
+            default: ''
+        },
+        labelStyle: {
+            type: [String, Object],
+            default: ''
+        },
+
         /**
-         * 开关
+         * 样式开关
          */
-        //disabled
-        //disabled: {
-        //    type: Boolean,
-        //    default: false
-        //},
-        //active
-        active: {
-            type: Boolean,
-            default: false
-        },
-        /**
-         * popout 可以指定弹出之前的 按钮图标/文本 颜色
-         * popout = true 则使用 type 指定的 颜色
-         * popout = fc.d2 则使用 cssvar.color.fc.d2 作为 按钮图标/文本 颜色
-         * popout = #ff0000 直接指定 按钮图标/文本 颜色
-         */
-        popout: {
-            type: [Boolean, String],
-            default: false
-        },
-        //text 链接样式 按钮
-        text: {
-            type: Boolean,
-            default: false
-        },
         //是否右侧显示图标
         iconRight: {
             type: Boolean,
             default: false
         },
-        //round
-        round: {
+        //按钮默认包含 hover 样式
+        hoverable: {
+            type: Boolean,
+            default: true
+        },
+        //active 选中
+        active: {
             type: Boolean,
             default: false
         },
-        //square
-        square: {
-            type: Boolean,
-            default: false
+        /**
+         * radius 圆角类型
+         * 可选值： normal(默认) | pill | sharp
+         */
+        radius: {
+            type: String,
+            default: 'normal'
         },
-        //plain
-        plain: {
+        /**
+         * effect 填充效果
+         * 可选值：  normal(默认) | fill | plain | popout
+         */
+        effect: {
+            type: String,
+            default: 'normal'
+        },
+        /**
+         * stretch 按钮延伸类型
+         * 可选值： normal(默认) | full-line | square
+         */
+        stretch: {
+            type: String,
+            default: 'normal'
+        },
+        //link 链接形式按钮
+        link: {
             type: Boolean,
             default: false
         },
@@ -130,6 +132,53 @@ export default {
         },
     },
     data() {return {
+            
+        /**
+         * 覆盖 base-style 样式系统参数
+         */
+        styCalculators: {
+            class: {
+                //root 是计算根元素的 class 样式类，必须指定
+                root: 'styCalcRootClass',
+            },
+            style: {
+                //root 是计算根元素的 css 样式，必须指定
+                root: 'styCalcRootStyle',
+                /**
+                 * !! 定义 icon 样式计算方法
+                 */
+                icon: 'styCalcIconStyle'
+            }
+        },
+        styInit: {
+            class: {
+                //根元素
+                root: ['__PRE__-btn'],
+            },
+            style: {
+                //根元素
+                root: {},
+                //icon
+                icon: {},
+            },
+        },
+        styCssPre: 'btn',
+        stySwitches: {
+            //启用 下列样式开关
+            iconRight: true,
+            'hoverable:disabled': true,
+            radius: true,
+            effect: true,
+            stretch: true,
+            link: true,
+            active: true,
+            'mouse.down:disabled': true,
+        },
+        styCsvKey: {
+            size: 'btn',
+            color: 'fc',
+        },
+
         //mouse 状态
         mouse: {
             enter: false,
@@ -138,12 +187,25 @@ export default {
         },
     }},
     computed: {
+        //判断是否 空 icon
+        isEmptyIcon() {
+            let icon = this.icon,
+                is = this.$is;
+            return !(is.string(icon) && icon !== '-empty-' && icon !== '');
+        },
+        //判断是否 空 label
+        isEmptyLabel() {
+            let label = this.label,
+                is = this.$is;
+            return !(is.string(label) && label !== '');
+        },
+
         /**
          * customClass/Style 配套的 计算属性
          * !! 引用的组件内部 应根据需要覆盖
          */
         //计算后的 class override
-        computedClass() {
+        /*computedClass() {
             let is = this.$is,
                 sz = this.sizeClass,
                 tp = this.typeClass,
@@ -190,9 +252,63 @@ export default {
             if (is.string(c) && c!='') return c;
             if (po.startsWith('#') || po.startsWith('rgb')) return po;
             return '';
-        },
+        },*/
     },
     methods: {
+
+        /**
+         * 定义 icon 的样式计算方法，用于计算 icon 组件的 size 参数
+         * @return {Object} css{}
+         */
+        styCalcIconStyle() {
+            let is = this.$is,
+                //按钮尺寸在 $ui.cssvar.size 中的定义 {}
+                szd = this.$ui.cssvar.size.btn,
+                //按钮对应文字的 size 定义 {}
+                fszd = this.$ui.cssvar.size['btn-fs'],
+                //当前输入的 size 参数类型
+                sztp = this.sizePropType,
+                //按钮文字 size
+                fszv = '',
+                //计算得到的样式
+                rtn = {};
+
+            if ('str,key'.split(',').includes(sztp)) {
+                //通过 尺寸字符串 或 尺寸 key 定义的按钮尺寸
+                let sz = this.size,
+                    szk = '';
+                if (sztp === 'key') szk = sz;
+                if (sztp === 'str') szk = this.sizeStrToKey;
+                //直接取得 按钮文字的 size 100px 形式
+                fszv = fszd[szk];
+            } else {
+                //通过直接输入 尺寸字符串 定义的 按钮尺寸
+                let szv = this.sizePropVal,
+                    szarr = this.sizeToArr(szv),
+                    //得到按钮尺寸数字
+                    szn = szarr[0];
+                //按钮文字 size 是 按钮尺寸的 0.5
+                fszv = (szn*0.5)+'px';
+            }
+            
+            //将得到的 按钮文字 size 转为 icon size
+            let fszarr = this.sizeToArr(fszv),
+                //数字
+                iszn = fszarr[0],
+                //是否 props.stretch === square && props.effect === popout
+                pot = this.stretch === 'square' && this.effect === 'popout';
+            if (pot) {
+                iszn = iszn * 1.6;
+            } else {
+                iszn = iszn * 1.4;
+            }
+
+            //将得到的 icon size 写入 {}
+            return {
+                fontSize: iszn+'px',
+            };
+        },
+
         //click 事件
         //防抖 debounce
         whenBtnClick(event) {
@@ -200,7 +316,7 @@ export default {
             if (this.mouse.clicking!==true) {
                 this.mouse.clicking = true;
                 event.targetComponent = this;
-                this.$ev('click', this, event);
+                //this.$ev('click', this, event);
                 this.$wait(500).then(()=>{
                     this.mouse.clicking = false;
                 });
@@ -212,25 +328,25 @@ export default {
             if (this.disabled) return false;
             this.mouse.enter = true;
             event.targetComponent = this;
-            this.$ev('mouse-enter', this, event);
+            //this.$ev('mouse-enter', this, event);
         },
         whenMouseLeave(event) {
             if (this.disabled) return false;
             this.mouse.enter = false;
             event.targetComponent = this;
-            this.$ev('mouse-leave', this, event);
+            //this.$ev('mouse-leave', this, event);
         },
         whenMouseDown(event) {
             if (this.disabled) return false;
             this.mouse.down = true;
             event.targetComponent = this;
-            this.$ev('mouse-down', this, event);
+            //this.$ev('mouse-down', this, event);
         },
         whenMouseUp(event) {
             if (this.disabled) return false;
             this.mouse.down = false;
             event.targetComponent = this;
-            this.$ev('mouse-up', this, event);
+            //this.$ev('mouse-up', this, event);
         },
     }
 }

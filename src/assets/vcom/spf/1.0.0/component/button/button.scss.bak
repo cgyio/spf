@@ -1,0 +1,327 @@
+
+
+    &>svg.__PRE__-icon+label, &>label+svg.__PRE__-icon {
+        margin-left: calc(#{$size-btn-gap} / 2);
+    }
+
+    &:hover, &.btn-active {
+        border-color: $color-bdc-l1;
+        color: $color-fc;
+        background-color: $color-bg-l1;
+        &>svg.__PRE__-icon {
+            color: $color-fc;
+        }
+    }
+    &.btn-active {
+        background-color: $color-bg-d1;
+        border-color: $color-bdc-d1;
+        font-weight: 800;
+    }
+
+    &.btn-menuitem {
+        flex: 1;
+        &>label {
+            //@include flex-x($x: flex-start, $y: center);
+            text-align: left;
+            overflow: hidden;
+            line-height: $size-btn-xs; height: $size-btn-xs;
+        }
+        &>svg.__PRE__-icon+label, &>label+svg.__PRE__-icon {
+            margin-left: $size-btn-gap;
+        }
+    }
+
+    &.btn-round {
+        border-radius: calc(#{$size-btn} / 2);
+    }
+    &.btn-square {
+        border-radius: 0;
+    }
+    &.btn-disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        &>svg.__PRE__-icon {cursor: not-allowed;}
+        &>label {cursor: not-allowed;}
+    }
+    &.btn-plain {
+        border: $color-bdc-l1 solid 1px;
+        color: $color-fc-l1;
+        background-color: $color-bg-l2;
+        &>svg.__PRE__-icon {color: $color-fc-l1;}
+        &.btn-disabled {
+            border-color: $color-bdc-m;
+            color: $color-fc;
+            background-color: $color-bg-l1;
+        }
+        &:hover, &.btn-active {
+            background-color: $color-bg-l3;
+            &.btn-disabled {
+                background-color: $color-bg-l1;
+            }
+        }
+        &.btn-active {
+            border: $color-bdc solid 1px;
+            background-color: $color-bg-l1;
+            color: $color-fc;
+            &>svg.__PRE__-icon {color: $color-fc;}
+        }
+    }
+    &.btn-popout {
+        border: transparent solid 1px;
+        color: $color-fc;
+        background-color: transparent;
+        &>svg.__PRE__-icon {color: $color-fc;}
+        &:hover, &.btn-active {
+            border: $color-bdc solid 1px;
+            background-color: $color-bg;
+            color: $color-fc !important;
+            &.btn-disabled {
+                border-color: transparent !important;
+                background-color: transparent !important;
+            }
+            &>svg.__PRE__-icon {color: $color-fc !important;}
+            &>label {color: $color-fc !important;}
+        }
+        &.btn-active {
+            border: $color-bdc-d1 solid 1px;
+            background-color: $color-bg-d1;
+        }
+    }
+    &.btn-text {
+        border: none;
+        color: $color-fc;
+        text-decoration: none;
+        background-color: transparent;
+        &>svg.__PRE__-icon {
+            color: $color-fc;
+            text-decoration: none;
+        }
+        &:hover, &.btn-active {
+            font-weight: normal;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+            color: $color-primary !important;
+            &.btn-disabled {
+                color: $color-fc !important;
+                text-decoration: none;
+                background-color: transparent;
+                &>svg.__PRE__-icon,&>label {color: $color-fc !important;}
+            }
+            &>svg.__PRE__-icon {color: $color-primary !important;}
+            &>label {color: $color-primary !important;}
+        }
+    }
+
+    /** btn-xs ~ xl size 样式类 **/
+    @each $sz in xs,s,m,l,xl {
+        @if $sz == 'm' {
+            $bszi: map-get($sizeMap, btn);
+            $gapi: map-get($sizeMap, btn-gap);
+            $fszi: map-get($sizeMap, btn-f);
+            $iszi: map-get($sizeMap, btn-icon);
+            $rdui: map-get($sizeMap, 'radius');
+        } @else {
+            $bszi: map-get($sizeMap, btn-#{$sz});
+            $gapi: map-get($sizeMap, btn-gap-#{$sz});
+            $fszi: map-get($sizeMap, btn-f-#{$sz});
+            $iszi: map-get($sizeMap, btn-icon-#{$sz});
+            $rdui: map-get($sizeMap, radius-#{$sz});
+        }
+        @if $sz == 'l' or $sz == 'xl' {
+            $iszi: calc(#{$iszi} * 0.8);
+        }
+        &.btn-#{$sz} {
+            padding: 0 $gapi;
+            height: $bszi; min-width: $bszi;
+            border-radius: $rdui;
+            font-size: $fszi;
+            &>svg.__PRE__-icon {
+                font-size: $iszi;
+                &.btn-icon-left {
+                    margin-left: calc(#{$gapi} * -0.3);
+                }
+                &.btn-icon-right {
+                    margin-right: calc(#{$gapi} * -0.3);
+                }
+            }
+            &>svg.__PRE__-icon+label, &>label+&>svg.__PRE__-icon {
+                margin-left: calc(#{$gapi} * 0.5);
+            }
+
+            &.btn-round {
+                border-radius: calc(#{$bszi} * 0.5);
+            }
+            &.btn-square {
+                border-radius: 0;
+            }
+        }
+    }
+
+    /** btn-primary ... type 样式类 **/
+    @each $cli in $colorListAll {
+        $ci: map-get($colorMap, #{$cli});
+        $fi: map-get($colorMap, #{$cli}-f);
+        $l1: map-get($colorMap, #{$cli}-l1);
+        $l2: map-get($colorMap, #{$cli}-l2);
+        $l3: map-get($colorMap, #{$cli}-l3);
+        $d1: map-get($colorMap, #{$cli}-d1);
+        $bg: map-get($colorMap, #{$cli}-bg);
+
+        &.btn-#{$cli} {
+            border: none;
+            background-color: $ci;
+            color: $fi;
+            &>svg.__PRE__-icon {
+                color: $fi;
+            }
+            &.btn-disabled {
+                background-color: $color-bg-d1;
+                color: $color-fc;
+                &>svg.__PRE__-icon,&>label {
+                    color: $color-fc;
+                }
+            }
+            &:hover {
+                background-color: $l1;
+                &.btn-disabled {
+                    background-color: $color-bg-d1;
+                    color: $color-fc;
+                    &>svg.__PRE__-icon,&>label {
+                        color: $color-fc;
+                    }
+                }
+            }
+            &.btn-active {
+                background-color: $d1;
+                &.btn-disabled {
+                    background-color: $color-bg-d1;
+                    color: $color-fc;
+                    &>svg.__PRE__-icon,&>label {
+                        color: $color-fc;
+                    }
+                }
+                &.btn-shrink {
+                    background-color: $d1;
+                    &.btn-disabled {
+                        background-color: $color-bg-d1;
+                        color: $color-fc;
+                        &>svg.__PRE__-icon,&>label {
+                            color: $color-fc;
+                        }
+                    }
+                }
+            }
+            &.btn-plain {
+                border: $l2 solid 1px;
+                color: $l1;
+                background-color: $bg;
+                &>svg.__PRE__-icon {color: $l1;}
+                &.btn-disabled {
+                    color: $color-fc;
+                    border-color: $color-bdc-m;
+                    background-color: $color-bg-l1;
+                    &>svg.__PRE__-icon,&>label {color: $color-fc;}
+                }
+                &:hover, &.btn-active {
+                    background-color: $color-white;
+                    &.btn-disabled {
+                        color: $color-fc;
+                        border-color: $color-bdc-m;
+                        background-color: $color-bg-l1;
+                        &>svg.__PRE__-icon,&>label {color: $color-fc;}
+                    }
+                }
+                &.btn-active {
+                    border: $l1 solid 1px;
+                    background-color: $l2;
+                    color: $ci;
+                    &>svg.__PRE__-icon {color: $ci;}
+                    &.btn-disabled {
+                        color: $color-fc;
+                        border-color: $color-bdc-m;
+                        background-color: $color-bg-l1;
+                        &>svg.__PRE__-icon,&>label {color: $color-fc;}
+                    }
+                }
+            }
+            &.btn-popout {
+                border: none;
+                color: $ci;
+                background-color: transparent;
+                &>svg.__PRE__-icon {color: $ci;}
+                &.btn-disabled {
+                    color: $color-fc;
+                    background-color: transparent;
+                    &>svg.__PRE__-icon,&>label {color: $color-fc;}
+                }
+                &:hover, &.btn-active {
+                    border: none;
+                    background-color: $l1;
+                    color: $fi !important;
+                    &.btn-disabled {
+                        color: $color-fc !important;
+                        background-color: transparent !important;
+                        &>svg.__PRE__-icon,&>label {color: $color-fc !important;}
+                    }
+                    &>svg.__PRE__-icon {color: $fi !important;}
+                    &>label {color: $fi !important;}
+                }
+                &.btn-active {
+                    background-color: $d1;
+                }
+                &.btn-shrink {
+                    background-color: $ci;
+                }
+            }
+            &.btn-shrink {
+                background-color: $ci;
+            }
+            &.btn-text {
+                color: $ci;
+                background-color: transparent;
+                &>svg.__PRE__-icon,&>label {color: $ci;}
+                &.btn-disabled {
+                    color: $color-fc;
+                    &>svg.__PRE__-icon,&>label {color: $color-fc;}
+                }
+                &:hover, &.btn-active {
+                    font-weight: normal;
+                    color: $ci !important;
+                    &.btn-disabled {
+                        background-color: transparent !important;
+                        color: $color-fc !important;
+                        &>svg.__PRE__-icon,&>label {color: $color-fc !important;}
+                    }
+                    &>svg.__PRE__-icon {color: $ci !important;}
+                    &>label {color: $ci !important;}
+                }
+            }
+        }
+    }
+
+    /** no-label **/
+    &.btn-no-label {
+        padding: 0;
+    }
+
+    
+
+    /*&.btn-inline+&.btn-inline {
+        margin-left: $size-gap-xs;
+    }*/
+    //&.btn-inline:last-child {margin: 0;}
+
+    &.btn-shrink {
+        transform: scale(0.9);
+        background-color: $color-bg;
+        border-color: $color-bdc-m;
+        &.btn-text {
+            border: none;
+            background-color: transparent;
+        }
+    }
+    &.btn-expand {transform: scale(1.1);}
+
+    &.btn-full-line {
+        flex: 1;
+    }

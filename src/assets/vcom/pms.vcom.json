@@ -1,0 +1,23 @@
+{
+    "name": "pms",
+    "var": "PmsVcom",
+    "prefix": "pms",
+
+    "version": {
+        "@": "1.0.0",
+        "latest": "1.0.0"
+    },
+
+    "required": [
+        "layout"
+    ],
+    "loadmode": {
+        
+    },
+
+    "theme": {
+        "enable": false
+    },
+
+    "iconset": []
+}

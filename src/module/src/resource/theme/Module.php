@@ -81,6 +81,12 @@ class Module
             ...
             */
         ],
+
+        //定义主题模块的 额外数据定义
+        "extra" => [
+            //各子模块可以有不同的数据定义
+            //...
+        ],
     ];
     //此模块中，某个 参数 item 的 标准参数格式
     protected static $stdItem = [
@@ -178,6 +184,12 @@ class Module
         //解析 主题设置内容
         $ctx = static::parseStdDef($conf);
 
+        //!! forDev
+        //if ($this->key === "color") {
+        //    var_dump($ctx["light"]["black"]);
+        //    var_dump($ctx["dark"]["black"]);
+        //}
+
         //开始执行 自动 shift 参数 item 值的 操作，如 颜色 加深|减淡 尺寸 增加|缩小
         $ctx = static::autoShift($ctx);
 
@@ -253,6 +265,17 @@ class Module
 
         //返回
         return $rtn;
+    }
+
+    /**
+     * 按传入的 mode 获取此主题模块的 额外数据
+     * !! 子类可以覆盖此方法
+     * @param Array $modes 要获取的 mode 模式
+     * @return Array 获取到的 此主题模块的 额外数据，各模块可能各不相同
+     */
+    public function getExtraByMode(...$modes)
+    {
+        return $this->origin["extra"] ?? [];
     }
 
     /**
@@ -559,25 +582,37 @@ class Module
             $items = array_merge($items, $gs);
         }
         if (!Is::nemarr($items)) return [];
+        //!!
+        //var_dump($items);
 
         // 1 提取通用参数
         $pc = static::parseCommon($conf);
         $conf = $pc["items"] ?? [];
         //通用参数格式化
         $common = Arr::extend(static::$stdItem, $pc["common"] ?? []);
+        //!!
+        //var_dump($common);
 
         // 2 依次解析 $conf["modes"] 中 不同 mode 模式下的 参数 item 设置值，解析结果保存到 $res
         $cmitems = $conf["common"] ?? [];
+        //!!
+        //var_dump($cmitems);
         //定义的 modes 模式列表
         $modes = static::$stdModes;
         //传入参数中定义的 modes 
         $modecs = $conf["modes"] ?? [];
         $res = [];
         foreach ($modes as $mode) {
+            //!!
+            //var_dump($mode);
+
             //读取传入的 conf["modes"] 中定义的 mode 模式参数
             $modec = $modecs[$mode] ?? [];
 
-            if (!Is::nemarr($modc)) {
+            //!!
+            //var_dump($modec);
+
+            if (!Is::nemarr($modec)) {
                 //mode 模式下未定义 item 参数，直接使用 conf["common"]
                 $modc = Arr::copy($cmitems);
                 //mode 模式下的 通用参数
@@ -585,12 +620,16 @@ class Module
             } else {
                 //定义了 mode 模式下的 items 参数
                 //需要先提取可能存在的 通用参数
-                $pcm = static::parseCommon($modc);
+                $pcm = static::parseCommon($modec);
                 //mode 模式下的 items 设置参数 合并 通用 items 参数
                 $modc = Arr::extend($cmitems, $pcm["items"] ?? []);
                 //合并 原有的 通用参数
                 $modcm = Arr::extend($common, $pcm["common"] ?? []);
             }
+
+            //!!
+            //var_dump($modc);
+            //var_dump($modcm);
 
             //处理 mode 模式下的 额外 通用参数
             $modcm = Arr::extend($modcm, [
@@ -601,8 +640,16 @@ class Module
             //依次解析 item
             $modres = [];
             foreach ($items as $item) {
+
                 //仅在 groups 中定义了 item，在 common 和 当前 mode 下都未定义 此 item，跳过
                 if (!isset($modc[$item])) continue;
+
+                
+                //!!
+                //if (/*$this->key==="color" && */$item==="black") {
+                //    var_dump($item);
+                //    var_dump($modc[$item]);
+                //}
 
                 //处理 mode 模式下 item 的 通用参数
                 $itemcm = [];

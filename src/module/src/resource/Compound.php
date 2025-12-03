@@ -978,6 +978,14 @@ class Compound extends Resource
     {
         $qa = $this->resCustomParams($params);
         if (!Is::nemarr($qa)) return "";
+        
+        /**
+         * ignoreGet 放在 url 参数中无意义，因为在读取 $_GET 参数之前，就需要判断 ignoreGet 参数
+         * 通常 ignoreGet 参数只能通过手动传入
+         * 因此需要从 url 参数中去除 ignoreGet 参数
+         */
+        if (isset($qa["ignoreGet"])) unset($qa["ignoreGet"]);
+
         return Conv::a2u($qa);
     }
 

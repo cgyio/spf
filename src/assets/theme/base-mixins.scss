@@ -1,0 +1,377 @@
+/** SPF-Theme 主题系统通用的 样式定义 mixins **/
+/** 在需要应用这些样式的 类内部 include 即可拥有这些通用样式 **/
+/** !! 不要手动修改 !! **/
+
+/** 通用方法 functions **/
+/** 将 100px 带单位字符串转为纯数字 100 **/
+@function size-num($sz) {
+    $num: '';
+    @for $i from 1 through str-length($sz) {
+        $ch: str-slice($sz, $i, $i);
+        @if $ch == '.' or $ch == '-' or ($ch >= '0' and $ch <= '9') {
+            $num: $num + $ch;
+        }
+    }
+    @if $num == '' {
+        $num: 0;
+    } @else {
+        $num: $num * 1;
+    }
+    @return $num;
+}
+/** 提取 100px 带单位字符串中的 px 单位 **/
+@function size-list($sz) {
+    $num: '';
+    $unit: '';
+    @for $i from 1 through str-length($sz) {
+        $ch: str-slice($sz, $i, $i);
+        @if $ch == '.' or $ch == '-' or ($ch >= '0' and $ch <= '9') {
+            $num: $num + $ch;
+        } @else {
+            $unit: $unit + $ch;
+        }
+    }
+    @if $num == '' {
+        $list: '';
+    } @else {
+        @if $unit == '' {
+            $list: $num;
+        } @else {
+            $list: $num + ',' + $unit;
+        }
+    }
+    @return $list;
+}
+/** 从 $colorMap 中读取对应的值 **/
+@function color-get($k: null) {
+    $cv: null;
+    @if $k == transparent {
+        $cv: transparent;
+    } @else if $k != null {
+        $cv: map-get($colorMap, $k);
+    }
+    @return $cv;
+}
+/** 从 $sizeMap 中读取对应的值，$list == true 则返回 100,px 形式的 list **/
+@function size-get($k: null, $list: false) {
+    $sz: null;
+    @if $k != null {
+        $sz: map-get($sizeMap, $k);
+    }
+    @if $sz != null {
+        @if $list == true {
+            @return size-list($sz);
+        }
+    }
+    @return $sz;
+}
+/** 尺寸计算 通用方法 **/
+/** 针对 单行元素 例如：btn/input/row ... 根据传入的 height 尺寸，计算对应的 rd|pd|fs **/
+@function bar-size-map($sz) {
+    
+}
+/** 根据 尺寸值数字 计算 rd|pd|fs 返回 数字 **/
+@function bar-size-rd($szn) {@return $szn/4;}
+@function bar-size-pd($szn) {@return $szn/2;}
+@function bar-size-fs($szn) {@return $szn/2;}
+/** 根据 尺寸值数字 计算 rd|pd|fs 返回 带单位尺寸字符串 100px **/
+@function bar-size-rd-str($szn) {$rd: bar-size-rd($szn); @return #{$rd}px;}
+@function bar-size-pd-str($szn) {$pd: bar-size-pd($szn); @return #{$pd}px;}
+@function bar-size-fs-str($szn) {$fs: bar-size-fs($szn); @return #{$fs}px;}
+/** 根据传入的 szk 尺寸键(m|s|xl...) 或 szn 尺寸数字 返回对应 实际尺寸值 100px 带单位，返回 map **/
+@function bar-size-map($szk: 'm', $szn: null) {
+    @if $szn != null {
+        $szv: #{$szn}px;
+        $szrd: bar-size-rd-str($szn);
+        $szpd: bar-size-pd-str($szn);
+        $szfs: bar-size-fs-str($szn);
+    } @else {
+        //默认使用 btn 尺寸定义
+        $szv: size-get($k: btn-#{$szk});
+        $szrd: size-get($k: btn-rd-#{$szk});
+        $szpd: size-get($k: btn-pd-#{$szk});
+        $szfs: size-get($k: btn-fs-#{$szk});
+    }
+    @return (
+        sz: $szv,
+        rd: $szrd,
+        pd: $szpd,
+        fs: $szfs
+    );
+}
+
+/** 通用 样式属性 setter **/
+@mixin css-set(
+    $prop:      color,              //要设置的 样式 property 可以是 list 如：color,border-color,...
+    $cv:        null,               //要设置的具体样式值，有效的 css 样式属性字符串
+    $cmap:      null,               //如果指定了此 map 则依次根据 prop 查找对应的 样式属性值
+    $child:     null,               //是否同时设置后代 css 选择器字符串，可以是 list 如：svg[class*=icon-],label,...
+    $important: false               //是否添加 !important 后缀
+) {
+    @each $pi in $prop {
+        @if $cmap != null {
+            $cv: map-get($cmap, $pi);
+        }
+        @if $cv != null {
+            @if $important == true {
+                #{$pi}: $cv !important;
+            } @else {
+                #{$pi}: $cv;
+            }
+        }
+    }
+    @if $child != null {
+        @each $ci in $child {
+            &>#{$ci} {
+                @each $pi in $prop {
+                    @if $cmap != null {
+                        $cv: map-get($cmap, $pi);
+                    }
+                    @if $cv != null {
+                        @if $important == true {
+                            #{$pi}: $cv !important;
+                        } @else {
+                            #{$pi}: $cv;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+/** 单行元素 size 效果 .__PRE__-* **/
+/** 通用单行元素 size 设置 **/
+@mixin css-set-bar-size($szk: 'm', $szn: null) {
+    $bsmap: bar-size-map($szk, $szn);
+    $szh: map-get($bsmap, sz);
+    $szpd: map-get($bsmap, pd);
+    $szfs: map-get($bsmap, fs);
+    height: $szh;
+    padding: 0 #{$szpd};
+    font-size: $szfs;
+
+    //内部 icon
+    &>svg[class*=icon-] {
+        font-size: calc(#{$szfs} * 1.4);
+        margin-left: calc(#{$szpd} * -0.3);
+        margin-right: 0;
+    }
+    //如果标记为 icon 右置，例如：btn 可能出现
+    &[class*=icon-right] {
+        &>svg[class*=icon-] {
+            margin-right: calc(#{$szpd} * -0.3);
+            margin-left: calc(#{$szpd} / 2);
+        }
+    }
+
+    //当前元素与相同元素的间距，例如 两个 btn 之间的间距
+    &+& {margin-left: calc(#{$szpd} / 2);}
+    //内部任意相邻子元素的 间距
+    &>*+* {margin-left: calc(#{$szpd} / 2);}
+}
+
+/** 单行元素 radius 效果 .__PRE__-radius-* **/
+/** radius 效果通常包括 normal|pill|sharp **/
+@mixin bar-radius-setter($pre: '__PRE__', $szk: 'm', $szn: null) {
+    $bsmap: bar-size-map($szk, $szn);
+    $szv: map-get($bsmap, sz);
+    $szrd: map-get($bsmap, rd);
+    //-normal
+    border-radius: $szrd;
+    //-pill
+    &.#{$pre}-radius-pill {
+        border-radius: calc(#{$szv} / 2);
+        padding: 0 calc(#{$szv} / 2);
+    }
+    //-sharp
+    &.#{$pre}-radius-sharp {
+        border-radius: 0;
+    }
+}
+
+/** 单行元素 stretch 效果 .__PRE__-stretch-* **/
+/** stretch 效果通常包括 normal|full-line|square **/
+@mixin bar-stretch-setter($pre: '__PRE__', $szk: 'm', $szn: null) {
+    $szmap: bar-size-map($szk, $szn);
+    $szv: map-get($szmap, sz);
+    $szfs: map-get($szmap, fs);
+    //-normal
+
+    //-full-line
+    &.#{$pre}-stretch-full-line {
+        flex: 1;
+    }
+
+    //-square
+    &.#{$pre}-stretch-square {
+        width: $szv;
+        height: $szv;
+        //icon
+        &>svg[class*=icon-] {
+            margin-left: 0;
+            margin-right: 0;
+        }
+        //square && popout 时 放大 icon
+        &.#{$pre}-effect-popout {
+            &>svg[class*=icon-] {
+                font-size: calc(#{$szfs} * 1.6);
+            }
+        }
+    }
+}
+
+/** effect 效果 .__PRE__-effect-* **/
+/** 通用 effect 设置 mixin **/
+@mixin css-set-effect($bgk: 'primary-m', $fck: null, $bdk: unset) {
+    @if $bgk != unset {
+        $bgc: color-get($bgk);
+        @if $bgc != null {
+            background-color: $bgc;
+        }
+    }
+    @if $fck != unset {
+        @if $fck == null {
+            @if $bgk == transparent {
+                $fck: 'fc-m';
+            } @else {
+                $fck: #{$bgk}-fc;
+            }
+        }
+        $fc: color-get($fck);
+        @if $fc != null {
+            color: $fc;
+            &>svg[class*=icon-] {
+                color: $fc;
+            }
+        }
+    }
+    @if $bdk != unset {
+        $bdc: color-get($bdk);
+        @if $bdc != null {
+            border-color: $bdc;
+        }
+    }
+}
+/** effect 效果通常包含 normal|fill|plain|popout **/
+@mixin effect-setter($pre: '__PRE__', $ck: null, $status: null) {
+    //-normal
+    border-width: size-get(bd-m);
+    @if $ck == null {
+        //默认效果
+        @if $status == null {
+            //普通状态
+            @include css-set-effect(bgc-m, fc-m, bdc-m);
+        } @else if $status == 'hover' {
+            //hover 状态
+            @include css-set-effect(bgc-d1, fc-d1, bdc-d1);
+        } @else if $status == 'active' {
+            //hover 状态
+            @include css-set-effect(bgc-d2, fc-d2, bdc-d2);
+        }
+    } @else {
+        //指定了 背景色
+        @if $status == null {
+            //普通状态
+            @include css-set-effect(#{$ck}-l3, null, #{$ck}-l2);
+        } @else if $status == 'hover' {
+            //hover 状态
+            @include css-set-effect(#{$ck}-l2, null, #{$ck}-l1);
+        } @else if $status == 'active' {
+            //hover 状态
+            @include css-set-effect(#{$ck}-l1, null, #{$ck}-m);
+        }
+    }
+
+    //-fill
+    &.#{$pre}-effect-fill {
+        border-width: 0;
+        @if $ck == null {
+            //默认效果
+            @if $status == null {
+                //普通状态
+                @include css-set-effect(bgc-m, fc-m);
+            } @else if $status == 'hover' {
+                //hover 状态
+                @include css-set-effect(bgc-d1, fc-d1);
+            } @else if $status == 'active' {
+                //hover 状态
+                @include css-set-effect(bgc-d2, fc-d2);
+            }
+        } @else {
+            //指定了 背景色
+            @if $status == null {
+                //普通状态
+                @include css-set-effect(#{$ck}-m);
+            } @else if $status == 'hover' {
+                //hover 状态
+                @include css-set-effect(#{$ck}-d1);
+            } @else if $status == 'active' {
+                //hover 状态
+                @include css-set-effect(#{$ck}-d2);
+            }
+        }
+    }
+
+    //-plain
+    &.#{$pre}-effect-plain {
+        border-width: size-get(bd-m);
+        @if $ck == null {
+            //默认效果
+            @if $status == null {
+                //普通状态
+                @include css-set-effect(white-m, fc-m, bdc-m);
+            } @else if $status == 'hover' {
+                //hover 状态
+                @include css-set-effect(white-m, fc-d1, bdc-d1);
+            } @else if $status == 'active' {
+                //hover 状态
+                @include css-set-effect(white-m, fc-d2, bdc-d2);
+            }
+        } @else {
+            //指定了 前景色
+            @if $status == null {
+                //普通状态
+                @include css-set-effect(white-m, #{$ck}-m, #{$ck}-m);
+            } @else if $status == 'hover' {
+                //hover 状态
+                @include css-set-effect(white-m, #{$ck}-d1, #{$ck}-d1);
+            } @else if $status == 'active' {
+                //hover 状态
+                @include css-set-effect(white-m, #{$ck}-d2, #{$ck}-d2);
+            }
+        }
+    }
+
+    //-popout
+    &.#{$pre}-effect-popout {
+        border-width: 0;
+        @if $ck == null {
+            //默认效果
+            @if $status == null {
+                //普通状态
+                @include css-set-effect(transparent, fc-m);
+            } @else if $status == 'hover' {
+                //hover 状态
+                @include css-set-effect(bgc-m, fc-d1);
+            } @else if $status == 'active' {
+                //hover 状态
+                @include css-set-effect(bgc-d1, fc-d2);
+            }
+        } @else {
+            //指定了 前景色
+            @if $status == null {
+                //普通状态
+                @include css-set-effect(transparent, #{$ck}-m);
+            } @else if $status == 'hover' {
+                //hover 状态
+                @include css-set-effect(#{$ck}-m);
+            } @else if $status == 'active' {
+                //hover 状态
+                @include css-set-effect(#{$ck}-d2);
+            }
+        }
+    }
+}

@@ -33,12 +33,18 @@ class Size extends Module
             //作为基本尺寸的 尺寸分组
             "base" => [
                 //基本尺寸 默认值，所有 mode 都应指定这些尺寸
-                "fs", "fw", "mg", "pd", "rd", "btn", "bar", "icon",
+                "fs", "fw", "mg", "pd", "rd", "bar", "icon",
+                //按钮
+                "btn", "btn-fs", "btn-pd", "btn-rd",
+                //阴影
+                "shadow",
             ],
             //作为静态尺寸的 尺寸分组，这些尺寸 都不开启 shift
             "static" => [
                 //边框尺寸 固定值
                 "bd",
+                //backdrop-filter: blur(*px)
+                "blur",
             ],
             //作为当前主题 自定义尺寸的 尺寸分组
             "custom" => [],
@@ -83,6 +89,8 @@ class Size extends Module
             "fw" => [
                 //字重
                 "value" => 400,
+                //字重没有单位
+                "unit" => "",
                 //字重 自动缩放
                 "shift" => [
                     //"on" => true,
@@ -113,12 +121,57 @@ class Size extends Module
             //还可以使用 简易的定义方法 直接指定 原始尺寸值，其他参数都是用 通用|默认 参数
             "mg"    => 16,      //margin
             "pd"    => 12,      //padding
-            "btn"   => 32,      //按钮尺寸
             "bar"   => 36,      //默认 行 尺寸
-            "icon"  => 20,      //默认 icon 尺寸
+            "icon"  => 24,      //默认 icon 尺寸
+
+            //按钮
+            "btn" => [      //20,24,28,32,36,42,48
+                "value" => 32,
+                "shift" => [
+                    "manual" => [
+                        "xl"    => 42,
+                        "xxl"   => 48,
+                    ],
+                ],
+            ],      
+            "btn-fs" => [   //10,10,12,14,16,18,20
+                "value" => 14,
+                "shift" => [
+                    "step" => 2,
+                    "manual" => [
+                        "xxs"   => 10,
+                    ]
+                ],
+            ],      
+            "btn-pd" => [      //8,10,12,14,16,20,24
+                "value" => 14,
+                "shift" => [
+                    "step" => 2,
+                    "manual" => [
+                        "xl"    => 20,
+                        "xxl"   => 24,
+                    ]
+                ],
+            ],
+            "btn-rd" => [       //5,6,7,8,9,10,12
+                "value" => 8,
+                "shift" => [
+                    "step" => 1,
+                    "manual" => [
+                        "xxl"   => 12,
+                    ]
+                ],
+            ],
+            "shadow" => [       //2,4,6,8,10,12,14
+                "value" => 8,
+                "shift" => [
+                    "step" => 2
+                ],
+            ],
             
             //静态尺寸
             "bd"    => 1,       //border-width
+            "blur"  => 8,       //backdrop-filter: blur()
         ],
 
         //定义所有 mode 模式下的 参数
@@ -160,9 +213,50 @@ class Size extends Module
                 "btn"   => 36,
                 "bar"   => 48,
                 "icon"  => 32,
+                "shadow" => [       //2,4,6,8,10,12,14
+                    "value" => 8,
+                    "shift" => [
+                        "step" => 2
+                    ],
+                ],
                 
                 //移动端 边框设为 0.5px 如果 单位改为 rpx 则边框为 1
                 "bd"    => 0.5,       //border-width
+                "blur"  => 8,       //backdrop-filter: blur()
+            ],
+        ],
+
+        //定义 size 模块的 额外数据定义
+        "extra" => [
+            /**
+             * 尺寸 字符串 与 key 映射
+             * !! 如果不是必须的，不要修改
+             */
+            "sizeStrMap" => [
+                "huge" => "xxl",
+                "large" => "xl",
+                "medium" => "l",
+                "normal" => "m",
+                "small" => "s",
+                "mini" => "xs",
+                "tiny" => "xxs",
+            ],
+
+            //不同组件的 额外尺寸序列
+            "extraSizeQueue" => [
+                //icon
+                "icon" => [48,54,64,72,88,96,128],
+                //button
+                "btn" => [54,64,72,88,96,128],
+            ],
+
+            /**
+             * shape 序列
+             * 定义主题系统中的 shape 类型
+             * 对应着组件中的 shape 参数可选值
+             */
+            "shapes" => [
+                "normal", "pill", "sharp",
             ],
         ],
     ];
@@ -253,6 +347,39 @@ class Size extends Module
         $rower->rowAdd(");", "");
         //空行
         $rower->rowEmpty(1);
+
+        // 3    生成 额外的 list | map
+        $extra = $conf["extra"] ?? [];
+        //生成 $sizeStrMap
+        if (isset($extra["sizeStrMap"]) && Is::nemarr($extra["sizeStrMap"])) {
+            $vms = $extra["sizeStrMap"];
+            $rower->rowDef("sizeStrQueue", array_keys($vms));
+            $rower->rowAdd("\$sizeStrMap: (", "");
+            foreach ($vms as $vk => $vv) {
+                $rower->rowDef($vk, $vv, [
+                    "prev" => "",
+                    "rn" => ",",
+                    "quote" => "'",
+                ]);
+            }
+            $rower->rowAdd(");", "");
+            //空行
+            $rower->rowEmpty(1);
+        }
+        //生成 $extraSizeQueue
+        $eszQue = $extra["extraSizeQueue"] ?? [];
+        if (Is::nemarr($eszQue)) {
+            foreach ($eszQue as $vcom => $que) {
+                $rower->rowDef("extra".(Str::camel($vcom, true))."SizeQueue", $que);
+            }
+            //空行
+            $rower->rowEmpty(1);
+        }
+        //生成 shapeList 
+        $sps = $conf["extra"]["shapes"] ?? [];
+        $rower->rowDef("shapeList", $sps);
+        $rower->rowEmpty(1);
+
 
         //SCSS 语句 需要包含 css 变量定义语句
         return $this->createCssContentRows($ctx, $rower);

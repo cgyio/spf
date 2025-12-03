@@ -1,0 +1,70 @@
+
+
+.__PRE__-theme-color-row {
+    @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+    @include spf-flex-x($x: center, $y: center);
+    background: transparent;
+    border: none;
+
+    //内部 item
+    /*&>.__PRE__-theme-color-item+.__PRE__-theme-color-item {
+        margin-left: 1px !important;
+    }
+
+    //后接 兄弟元素
+    &+.__PRE__-theme-color-row {
+        margin-top: 1px;
+    }*/
+
+}
+
+.__PRE__-theme-color-item {
+    @include spf-po-ov($w: unset, $h: unset, $pd: $size-pd-s, $mg: 0);
+    min-width: 128px; min-height: 72px;
+    @include spf-flex-y($x: stretch, $y: center);
+    background-color: $color-bgc-m;
+    border: none;
+    font-size: $size-fs-m;
+    color: $color-fc-m;
+
+    &>.item-title {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include spf-flex-x($x: flex-start, $y: center);
+        font: {
+            size: 1.2em;
+            weight: $size-fw-xl;
+        }
+    }
+    &>.item-body {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include spf-flex-x($x: center, $y: center);
+        flex: 1;
+    }
+    &>.item-desc {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include spf-flex-x($x: center, $y: center);
+        font: {
+            size: 0.8em;
+            family: $font-fml-code;
+        }
+    }
+
+    @each $clr in $colorListBase {
+        @each $que in $colorShiftQueue {
+            $ck: #{$clr}-#{$que};
+            $fck: #{$ck}-fc;
+            &.item-#{$ck} {
+                $bgc: map-get($colorMap, $ck);
+                $fcv: map-get($colorMap, $fck);
+                @if $bgc != null {
+                    background-color: #{$bgc};
+                }
+                @if $fcv != null {
+                    color: #{$fcv};
+                }
+            }
+        }
+    }
+
+
+}
