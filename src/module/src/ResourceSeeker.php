@@ -151,7 +151,7 @@ final class ResourceSeeker
         if (file_exists($path)) {
             return [
                 "type" => "local",
-                "ext" => Mime::getExt($path),
+                "ext" => Resource::getExtFromPath($path),   //Mime::getExt($path),
                 "real" => $path,
             ];
         }
@@ -354,7 +354,7 @@ final class ResourceSeeker
             if (Resource::exists($ouri)!==true) return false;
             return [
                 "type" => "remote",
-                "ext" => Mime::getExt($ouri),    //$fi["ext"],
+                "ext" => Resource::getExtFromPath($ouri),   //Mime::getExt($ouri),    //$fi["ext"],
                 "real" => $ouri
             ];
         }
@@ -371,7 +371,7 @@ final class ResourceSeeker
         //这是 远程资源
         return [
             "type" => "remote",
-            "ext" => Mime::getExt($real),    //$fi["ext"],
+            "ext" => Resource::getExtFromPath($real),   //Mime::getExt($real),    //$fi["ext"],
             "real" => $real
         ];
     }

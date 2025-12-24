@@ -1,0 +1,10 @@
+{
+    "name": "spinner",
+    "iconset": "spinner",
+    "multicolor": false,
+    "iconcss": "spf/assets/icon/base.css",
+
+    "ext": ["js","css","svg"],
+    
+    "root": ""
+}

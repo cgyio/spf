@@ -672,6 +672,23 @@ cgy.def({
     },
 
     /**
+     * 生成长度为 n 的随机字符串，symbol == true 表示包含特殊字符
+     */
+    nonce(n = 8, symbol = false) {
+        let s = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+            b = '_-+@#$%^&*',
+            str = symbol===true ? s+b : s,
+            len = str.length,
+            non = '';
+        for (let i=0;i<n;i++) {
+            let r = Math.floor(Math.random() * len),
+                si = str.substring(r,r+1);
+            non += si;
+        }
+        return non;
+    },
+
+    /**
      * 为 obj 提供 proxy 代理
      * v 1.0.0
      * @param {Object} obj 要代理的目标
@@ -1348,7 +1365,7 @@ cgy.def({
     //each，遍历操作
     each(anything, func) {
         let types = cgy.is.eachTypes;    //可遍历的数据类型
-        if (!types.includes(cgy.is(anything)) || cgy.is.empty(anything) || !cgy.is(func,'function')) return anything;
+        if (!types.includes(cgy.is(anything)) || cgy.is.empty(anything) || !cgy.is(func,'function,asyncfunction')) return anything;
         let type = cgy.is(anything);
         let rsts = type=='map' ? new Map() : (type=='object' ? {} : []);
         let rst = false,
@@ -1369,24 +1386,49 @@ cgy.def({
         } else {
             ent = anything.entries();
         }
-        for (let [key, value] of ent) {
-            rst = func(value, key);
-            if (rst===false) break;
-            if (rst===true) continue;
-            if (type=='map') {
-                rsts.set(key, rst);
-            } else if (type=='set') {
-                rsts.push(rst);
-            } else {
-                rsts[key] = rst;
+
+        //根据传入的 func 回调函数的 同步|异步 类型，决定后续操作
+        if (cgy.is.function(func)) {
+            for (let [key, value] of ent) {
+                rst = func(value, key);
+                if (rst===false) break;
+                if (rst===true) continue;
+                if (type=='map') {
+                    rsts.set(key, rst);
+                } else if (type=='set') {
+                    rsts.push(rst);
+                } else {
+                    rsts[key] = rst;
+                }
             }
+            if (type=='set') {
+                return new Set(rsts);
+            } else if (type=='string') {
+                return rsts.join('');
+            }
+            return rsts;
+        } else {
+            return (async () => {
+                for (let [key, value] of ent) {
+                    rst = await func(value, key);
+                    if (rst===false) break;
+                    if (rst===true) continue;
+                    if (type=='map') {
+                        rsts.set(key, rst);
+                    } else if (type=='set') {
+                        rsts.push(rst);
+                    } else {
+                        rsts[key] = rst;
+                    }
+                }
+                if (type=='set') {
+                    return new Set(rsts);
+                } else if (type=='string') {
+                    return rsts.join('');
+                }
+                return rsts;
+            })();
         }
-        if (type=='set') {
-            return new Set(rsts);
-        } else if (type=='string') {
-            return rsts.join('');
-        }
-        return rsts;
     },
 
     //以 'foo/bar/jaz' or 'foo.bar.jaz' 的形式读取(或设置) obj 的属性值
@@ -1406,29 +1448,6 @@ cgy.def({
             return obj;
         }
     },
-
-    //xpath，获取 对象obj 在 对象base 中的调用路径
-    //如：obj = base.foo.bar.jaz --> cgy.xpath(base, obj) == 'foo.bar.jaz'
-    /*xpath(base, obj) {
-        if (cgy.is.object(base)) {
-            let p = [];
-            for (let [key, val] of Object.entries(base)) {
-                //console.log(key);
-                if (cgy.eq(obj, val)) {
-                    p.push(key);
-                    break;
-                } else if (cgy.is.object(val)) {
-                    let sp = cgy.xpath(val, obj);
-                    if (!cgy.is.null(sp)) {
-                        p.push(key, sp);
-                        break;
-                    }
-                }
-            }
-            return p.length<=0 ? null : p.join('.');
-        }
-        return null;
-    },*/
     
     //lodash.get() 方法实现
     //以 a.b.c[0].d 方式读取 object 的值，来自 lodash
@@ -1484,7 +1503,7 @@ cgy.def({
 
     //将 obj 中 格式是 json 的值，转为 obj/array
     //通常用于转换 数据记录
-    fixJsonInObj(obj = {}) {
+    __fixJsonInObj(obj = {}) {
         if (!cgy.is.plainObject(obj)) return obj;
         let o = {};
         for (let i in obj) {

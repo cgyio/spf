@@ -53,7 +53,8 @@ export default {
      */
     ensureVcn(key) {
         if (!Vue.cgy.is.string(key) || key === '') return null;
-        if (!Vue.cgy.is.defined(Vue.options.components[key])) return null;
+        //if (!Vue.cgy.is.defined(Vue.options.components[key])) return null;
+        if (Vue.cgy.is.empty(Vue.component(key))) return null;
         return key;
     },
 
@@ -71,6 +72,17 @@ export default {
         let pre = Vue.vcom[cn].prefix || null;
         if (!Vue.cgy.is.string(pre) || pre === '') return Vue.ensureVcn(key);
         return Vue.ensureVcn(key.replace(`${cn}-`, `${pre}-`)); 
+    },
+
+    /**
+     * 判断传入的 组件名 是否有效
+     * @param {String} key
+     * @return {Boolean}
+     */
+    isVcn(key) {
+        let is = Vue.cgy.is,
+            vcn = Vue.vcn(key);
+        return is.string(vcn) && vcn!=='';
     },
 
 
@@ -257,6 +269,31 @@ export default {
     },
 
     /**
+     * 在 Vue.$root 根组件 created 后执行所有服务组件的 afterRootCreated 方法
+     * @param {Vue} Vue.$root 根组件
+     * @return {Boolean}
+     */
+    async initServiceAfterRootCreated(root) {
+        let is = Vue.cgy.is,
+            srvs = Vue.service.support;
+
+        //依次执行
+        await Vue.cgy.each(srvs, async (srvn, i)=>{
+            let srv = Vue.service[srvn];
+            if (!is.vue(srv)) return true;
+            let iti = await srv.afterRootCreated(root);
+            if (iti !== true) {
+                //失败
+                root.$log.error(`服务组件 ${srvn}.afterRootCreated() 方法执行失败`);
+                //终止后续
+                return false;
+            }
+        });
+
+        return true;
+    },
+
+    /**
      * 扩展 vue 根组件实例创建方法 app = new Vue(...)
      * 将生成的根组件实例挂载到 Vue.$root
      * @param Object $opt 根组件参数
@@ -272,6 +309,8 @@ export default {
                 let app = new Vue(opt);
                 if (app instanceof Vue) {
                     Vue.$root = app;
+                    //在 任意组件实例内部访问 $root
+                    Vue.prototype.$root = app;
                     window.app = app;
                     window.vcomRoot = app;
                     
@@ -551,6 +590,11 @@ export default {
         }
     },
 
+
+
+    /**
+     * 动态加载组件
+     */
     /**
      * dynamic component 动态加载组件
      * 异步加载
@@ -560,19 +604,27 @@ export default {
      * 在任意组件内：
      *      this.$invoke('comp-name', { propsData ... }).then(...)
      *      父组件为 当前组件
-     * @param String compName 组件的注册名称，必须是全局注册的组件
-     * @param Object propsData 组件实例化参数
-     * @return Vue Component instance 组件实例
+     * @param {String} compName 组件的注册名称，必须是全局注册的组件
+     * @param {Object} propsData 组件实例化参数
+     * @return {Vue|null} 组件实例
      */
     async $invokeComp(compName, propsData = {}) {
         let is = cgy.is,
             pcomp = is.empty(this.$el) ? Vue.$root : this;   //动态加载的组件实例的父组件为当前组件
-            //pcomp = this==Vue ? Vue.$root : this;   //动态加载的组件实例的父组件为当前组件
+
+        /**
+         * 处理 compName 自动补齐组件名称前缀
+         * !! 基础组件库组件必须以 base- 开头，业务组件库必须以 [组件库名]- 开头
+         * !! 例如：base-button  pms-table
+         */
+        compName = Vue.vcn(compName);
+
+        if (!is.string(compName) || compName==='') return null;
         let comp = Vue.component(compName);
-        if (is.undefined(comp)) return false;
+        if (is.undefined(comp)) return null;
         if (comp.toString().includes('import')) {   //异步组件是懒加载的，此时 组件 compName 还未加载
             comp = await comp();
-            if (is.undefined(comp.default)) return false;
+            if (is.undefined(comp.default)) return null;
             comp = comp.default;
         }
         //console.log(comp);
@@ -587,53 +639,92 @@ export default {
             pel = pcomp.$el;
         }
         pel.appendChild(ins.$el);
-        //先清理 Vue.dynamicComponentsInstance
+
+        //动态创建的组件实例 push to Vue.dynamicComponentsInstance[] 数组，然后返回
+        return Vue.$invokePushToDci(ins);
+    },
+    /**
+     * 向 Vue.dynamicComponentsInstance[] 数组动态增加组件实例
+     * @param {Vue} ins 通过 $invokeComp 动态创建的组件实例
+     * @return {Vue} 附加了 _destroyDynamicComponentInstance 方法后的组件实例
+     * 此实例已被添加到 Vue.dynamicComponentsInstance[] 数组
+     */
+    $invokePushToDci(ins) {
+        let is = Vue.cgy.is;
+        if (!is.vue(ins) || is.function(ins._destroyDynamicComponentInstance)) {
+            return ins;
+        }
+        //Vue.dynamiccomponentsInstance[] 数组建立
+        if (!is.array(Vue.dynamiccomponentsInstance)) {
+            Vue.dynamiccomponentsInstance = [];
+        }
+        /**
+         * 先清理 Vue.dynamicComponentsInstance[] 数组末尾的 undefined 元素
+         * [ins, undefined, ins, undefined] --> [ins, undefined, ins]
+         */
         let dci = Vue.dynamicComponentsInstance,
             idx = -1;
-        for (let i=dci.length-1;i>=0;i--) {
-            if (cgy.is.undefined(dci[i])) {
-                idx = i;
-                continue;
-            } else {
-                break;
+        if (dci.length>0) {
+            for (let i=dci.length-1;i>=0;i--) {
+                if (is.undefined(dci[i])) {
+                    idx = i;
+                    continue;
+                } else {
+                    break;
+                }
             }
-        }
-        if (idx>=0) {
-            dci.splice(idx);
+            if (idx>=0) dci.splice(idx);
         }
         //将此动态组件实例挂到 Vue.dynamicComponentsInstance 数组，增加相应属性方法
         let dciln = dci.length;
         ins._dcid = dciln;
-        ins._destroyDynamicComponentInstance = function() {
-            ins.$destroy();
-            dci[dciln] = undefined;
-        }
+        ins._destroyDynamicComponentInstance = (function() {
+            return Vue.$destroyInvoke(this);
+        }).bind(ins);
         dci.push(ins);
         //返回 ins
         return ins;
     },
     /**
      * 销毁 动态加载的 组件实例
+     * @param {Vue|Integer} ins 组件实例 或 组件实例在 Vue.dynamicComponentsInstance[] 中的 idx
+     * @return {Boolean}
      */
-    $destroyInvoke(compIns=null) {
+    $destroyInvoke(ins=null) {
         let is = cgy.is,
-            dci = Vue.dynamicComponentsInstance,
+            dci = Vue.dynamicComponentsInstance || [],
             dcid = -1,
             comp = null;
-        //console.log(dci, compIns);
-        if (compIns instanceof Vue && is.defined(compIns._dcid)) {
-            dcid = compIns._dcid;
-            comp = compIns;
-        } else if (is.number(compIns) && is.defined(dci[compIns]) && dci[compIns] instanceof Vue) {
-            dcid = compIns;
+        //console.log(dci, ins);
+        if (is.vue(ins) && is.defined(ins._dcid)) {
+            dcid = ins._dcid;
+            comp = ins;
+        } else if (is.number(ins) && is.defined(dci[ins]) && is.vue(dci[ins])) {
+            dcid = ins;
             comp = dci[dcid];
         }
         //console.log(comp, dcid, comp.$destroy);
-        if (comp instanceof Vue && is.function(comp.$destroy)) {
-            if (is.elm(comp.$el)) comp.$el.remove();
-            comp.$destroy();
-            Vue.dynamicComponentsInstance[dcid] = undefined;
+        if (is.vue(comp) && dcid>=0) {
+            //通用 销毁方法
+            let dciRemove = () => {
+                if (is.elm(comp.$el)) comp.$el.remove();
+                Vue.dynamicComponentsInstance[dcid] = undefined;
+                return true;
+            };
+            //尝试执行组件自定义的 $destroy 方法
+            if (is(ins.$destroy, 'function,asyncfunction')) {
+                if (is.function(ins.$destroy)) {
+                    ins.$destroy();
+                    return dciRemove();
+                } else {
+                    return ins.$destroy().then(() => dciRemove());
+                }
+            } else {
+                return dciRemove();
+            }
         }
+
+        return false;
     },
 
 

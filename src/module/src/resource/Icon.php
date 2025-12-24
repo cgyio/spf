@@ -20,6 +20,14 @@
  *   4  可通过 //host/[path-to-icon]/foo-bar.icon?icon=success 直接访问库中的某个图标，输出为 svg 文件
  *   5  可通过 //host/[path-to-icon]/foo-bar.icon?create=yes 强制刷新图标缓存，可在修改 阿里图标库 js 地址后刷新
  * 
+ * !! 新增在本地文件夹中保存多个 *.svg 文件，也可以作为图标库使用，将自动收集并生成 glyphs.json 和 [iconset].js 文件
+ *   0  在 icon 路径下创建 [spf|root|app/appname]/assets/icon/[iconset]/1.0.0 文件夹
+ *   1  将要使用的 *.svg 文件放置到此文件夹下
+ *   2  在 icon 路径下创建 [spf|root|app/appname]/assets/icon/[iconset].icon.json 文件，指定 name|iconset|root 等参数
+ *      !! 其中 root 必须指向图标存放路径 此处为：[spf|root|app/appname]/assets/icon/[iconset]
+ *      !! 如果 [iconset].icon.json 文件与图标文件夹在同一路径下，则 root 可以省略留空
+ *      !! 推荐将 *.icon.json 和图标文件夹放在同一路径下
+ * 
  * Spf 框架视图 图标库 icon 文件的 解析|输出 方式：
  *   0  首次访问时，将远程获取 阿里图标库 js 文件，解析并得到库中所有图标的 name 以及 svg 代码
  *   1  首次访问将创建缓存文件 glyphs.json 和 [iconset].js ，再次访问时，将直接使用已缓存的 图标列表 glyphs
@@ -185,7 +193,7 @@ class Icon extends Compound
      * @param Array $params 方法额外参数
      * @return Bool 返回 false 则终止 当前阶段 后续的其他中间件执行
      */
-    //GetIconContent 从 阿里图标库远程  或  缓存文件  中获取图标库内容数据
+    //GetIconContent 从 阿里图标库远程|本地文件夹  或  缓存文件  中获取图标库内容数据
     public function stageGetIconContent($params=[])
     {
         //启用缓存
@@ -203,11 +211,26 @@ class Icon extends Compound
             }
         }
 
+        //desc
+        $desc = $this->desc;
+        //root
+        $root = $desc["root"] ?? "";
+
         //从 阿里图标库 获取全部定义的 glyphs 以及 js 文件内容，将保存到实例，并 创建|更新 缓存
-        $get = $this->getAliIconContent();
-        if ($get !== true) {
-            //远程获取 阿里图标库数据 失败
-            throw new SrcException("远程获取图标库 ".$this->desc["iconset"]." 未得到正确的结果，或者未能正确写入缓存文件", "resource/getcontent");
+        if (static::isAliIconUrl($root) === true) {
+            $get = $this->getAliIconContent();
+            if ($get !== true) {
+                //远程获取 阿里图标库数据 失败
+                throw new SrcException("远程获取图标库 ".$this->desc["iconset"]." 未得到正确的结果，或者未能正确写入缓存文件", "resource/getcontent");
+            }
+            return true;
+        }
+
+        //!! 新增：读取本地文件夹中的 *.svg 文件，创建 glyphs.json|[iconset].js 并缓存
+        $local = $this->getLocalIconContent();
+        if ($local !== true) {
+            //读取本地 svg 资源失败
+            throw new SrcException("获取本地图标库 ".$this->desc["iconset"]." 未得到正确的结果，或者未能正确写入缓存文件", "resource/getcontent");
         }
 
         return true;
@@ -306,8 +329,8 @@ class Icon extends Compound
                 "export" => "css"
             ]);
         } else {
-            //未找到文件，返回简易 spf-icon 样式
-            $this->content = ".spf-icon {width: 1em; height: 1em; vertical-align: -0.15em; fill: currentColor; overflow: hidden;}";
+            //未找到文件，返回简易 icon 样式
+            $this->content = ".icon {width: 1em; height: 1em; vertical-align: -0.15em; fill: currentColor; overflow: hidden;}";
         }
         
         return $this;
@@ -360,11 +383,12 @@ class Icon extends Compound
         $desc = $this->desc;
         $root = $desc["root"] ?? null;
 
+        //!! 新增 不检查 root ，因为可以使用本地文件夹中保存的 svg 图标文件
         //指定的 root 必须是有效的 阿里图标库 symbol 引用的 js 文件地址
-        if (!Is::nemstr($root) || Mime::getExt($root)!=="js" || Resource::exists($root)!==true) {
+        /*if (static::isAliIconUrl($root) !== true) {
             //指定的 js 地址无效
             throw new SrcException("当前图标库 ".$this->resBaseName()." 指定的阿里图标库 JS 文件路径无效", "resource/getcontent");
-        }
+        }*/
 
         return $this;
     }
@@ -504,11 +528,115 @@ class Icon extends Compound
         return true;
     }
 
+    /**
+     * !! 新增 
+     * 读取已保存到本地的 iconfont.js|json   或   获取本地文件夹中的所有 *.svg 文件，
+     * 创建 glyphs.json 以及 js 文件
+     * 获取到后 创建|更新 缓存文件
+     * @return Bool 返回 获取成功 或 失败 状态
+     */
+    public function getLocalIconContent()
+    {
+        //desc
+        $desc = $this->desc;
+        //iconset
+        $iset = $desc["iconset"] ?? "";
+        if (!Is::nemstr($iset)) return false;
+        //pather
+        $pather = $this->PathProcessor;
+        //root
+        $root = $desc["root"] ?? "";
+        if (Is::nemstr($root)) {
+            $root = Path::find($root, Path::FIND_DIR);
+            if (!is_dir($root)) return false;
+        } else {
+            $root = $pather->inner("", true);
+            if (!is_dir($root)) return false;
+        }
+
+        //解析结果
+        $glyphs = null;
+        $js = null;
+
+        //!! 首先检查是否存在 iconfont.js|json
+        $jsf = $pather->inner("iconfont.js", true);
+        $jsonf = $pather->inner("iconfont.json", true);
+        if (file_exists($jsf) && file_exists($jsonf)) {
+            //调用解析方法
+            $pctx = static::parseAliIconfont($iset, $jsf);
+            if (Is::nemarr($pctx)) {
+                $glyphs = $pctx["glyphs"] ?? null;
+                $js = $pctx["jscode"] ?? null;
+            }
+        }
+
+        //!! 如果未得到正确结果，则尝试读取路径下的 所有 *.svg 文件
+        if (!Is::nemarr($glyphs) || !Is::nemstr($js)) {
+            //递归获取 文件夹|子文件夹 下所有 svg 文件，生成 1 维数组
+            $svgs = Path::flat($root, "", "-", "svg");
+            if (!Is::nemarr($svgs)) return false;
+    
+            //生成 glyphs|symbols 并缓存
+            $glyphs = [];
+            $symbols = "";
+            foreach ($svgs as $k => $svgf) {
+                $id = $iset ."-". $k;
+                $svg = file_get_contents($svgf);
+                //为 svg 代码指定 id
+                $svg = Svg::glyphSetId($svg, $id);
+                //去除 svg 代码中可能存在的 width|height|xmlns 参数
+                $svg = Svg::glyphRemoveProperty($svg, "width", "height", "xmlns");
+                $glyphs[$k] = [
+                    "name" => $k,
+                    "class" => $id,
+                    "svg" => $svg
+                ];
+                //svg 转为 symbol
+                $symbols .= Svg::glyphToSymbol($svg);
+            }
+    
+            //雪碧图 js 模板文件
+            $jstmp = file_get_contents(Path::find("spf/module/src/resource/util/icon.temp.js"));
+            //js
+            $js = str_replace("__ICON_SN__", $iset."_".Str::nonce(8, false), $jstmp);
+            $js = str_replace("__ICON_SYMBOLS__", $symbols, $js);
+        }
+
+        //!! 判断解析结果是否正确
+        if (!Is::nemarr($glyphs) || !Is::nemstr($js)) {
+            //解析结果错误
+            throw new SrcException("解析本地图标库 $iset 未得到正确的结果", "resource/getcontent");
+        }
+
+        //缓存到当前实例
+        $this->glyphs = $glyphs;
+        $this->jscode = $js;
+
+        //创建|更新 缓存
+        if ($this->cacheEnabled() === true) {
+            //缓存 icon-content.json
+            return $this->cacheSaveIconContent();
+        }
+
+        //返回结果
+        return true;
+    }
+
 
 
     /**
      * 静态工具
      */
+
+    /**
+     * 判断给定的 root 是否有效的阿里图标库 js 地址
+     * @param String $root 
+     * @return Bool 
+     */
+    public static function isAliIconUrl($root)
+    {
+        return Is::nemstr($root) && Mime::getExt($root) === "js" && Resource::exists($root) === true;
+    }
 
     /**
      * 外部直接读取图标库 json 文件，并返回传入的 key 值
@@ -528,8 +656,9 @@ class Icon extends Compound
 
     /**
      * 远程读取 阿里图标库 Symbol js 文件，并解析得到 glyphs 数组
+     * !! 也可以传入保存到本地的 iconfont.js 文件路径 !! 注意：iconfont.js|json 文件必须同时存在于同一路径下
      * @param String $iset 此图标库的 本地名称
-     * @param String $url js 文件的 远程地址
+     * @param String $url js 文件的 远程地址 也可以传入已保存到本地的 iconfont.js 文件路径
      * @return Array 解析得到的 glyphs 数组 以及 使用 本地名称处理后的 js 字符内容
      *  [
      *      "glyphs" => [ ... ],
@@ -540,10 +669,6 @@ class Icon extends Compound
     {
         if (!Is::nemstr($iset) || !Is::nemstr($url)) return null;
 
-        //判断远程文件是否存在
-        $exi = static::exists($url);
-        if ($exi !== true) return null;
-
         //js 文件地址 转为 json 文件地址，可以直接通过 阿里图标库 js 地址得到对应的 json 文件地址
         if (substr($url, -3) === ".js") {
             $jsonurl = $url."on";
@@ -551,9 +676,25 @@ class Icon extends Compound
             $jsonurl = $url.".json";
         }
 
-        //读取文件内容
-        $js = Curl::get($url, "ssl");
-        $json = Curl::get($jsonurl, "ssl");
+        if (!Str::begin($url, "https://") && file_exists($url) && file_exists($jsonurl)) {
+            //!! 如果是本地的 iconfont.js 文件
+
+            //读取已保存到本地的 iconfont.js|json
+            $js = file_get_contents($url);
+            $json = file_get_contents($jsonurl);
+
+        } else if (static::exists($url) === true) {
+            //!! 如果传入远程文件，且文件存在
+
+            //读取远程文件内容
+            $js = Curl::get($url, "ssl");
+            $json = Curl::get($jsonurl, "ssl");
+
+        } else {
+            //!! 传入的文件路径不合法
+            return null;
+        }
+        
         $json = Conv::j2a($json);
 
         //修改js文件中的 css_prefix_text

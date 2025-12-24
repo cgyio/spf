@@ -55,8 +55,20 @@ export default {
         //Vue() {return Vue;},
         //在组件模板中引用自身
         $this() {return this;},
+        //在 Vue 调试工具中访问已实例化的服务组件 Vue.service.***
+        $service() {
+            let srvs = Vue.service,
+                sl = srvs.support || [],
+                rtn = {};
+            this.$each(sl, (srvn, i) => {
+                if (this.$is.vue(srvs[srvn])) {
+                    rtn[srvn] = srvs[srvn];
+                }
+            });
+            return rtn;
+        },
         //访问 动态组件
-        $invokes() {return Vue.dynamicComponentsInstance;},
+        $invokes() {return Vue.service.dc.ins;},
 
         /**
          * 定义这些计算变量为了可以在 vue 开发工具中看到这些功能组件的单例实例

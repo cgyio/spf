@@ -1134,14 +1134,19 @@ class Compound extends Resource
     /**
      * 处理子资源实例化参数
      * @param Array $params
+     * @param Bool $useCreate 是否与当前复合资源的 create 参数联动，默认 true
      * @return Array 处理后的 子资源实例化参数
      */
-    public function fixSubResParams($params=[])
+    public function fixSubResParams($params=[], $useCreate=true)
     {
         if (!Is::nemarr($params)) $params = [];
-        //如果复合资源的 create === true 则所有子资源都设为 create === true
-        $create = $this->params["create"] ?? false;
-        if (!is_bool($create)) $create = false;
+
+        $create = false;
+        if ($useCreate) {
+            //如果复合资源的 create === true 则所有子资源都设为 create === true
+            $create = $this->params["create"] ?? false;
+            if (!is_bool($create)) $create = false;
+        }
         
         //indexed 类型参数使用覆盖方式 合并
         return Arr::extend([

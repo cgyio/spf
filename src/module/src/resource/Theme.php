@@ -132,7 +132,10 @@ class Theme extends Compound
         "styles" => [
             //基础的主题样式 scss 文件真实路径，不指定则使用 [theme-path]/base.scss 或 spf/assets/theme/base.scss
             "base" => [
+                //base.scss 定义主题 scss 中通用的 function|mixin...
                 "spf/assets/theme/base.scss",
+                //atom.scss 定义主题的通用 原子样式
+                "spf/assets/theme/atom.scss",
             ],
             //依赖的外部样式文件，指定 url，使用 import 方式引入 通常用于引入第三方样式库
             "import" => [
@@ -146,7 +149,7 @@ class Theme extends Compound
             //要额外合并的 其他本地样式文件 scss|css
             "use" => [
                 //必须指定本地真实存在的 scss|css 文件 真实路径
-                "mixins" => "spf/assets/theme/base-mixins.scss",
+                //"mixins" => "spf/assets/theme/base-mixins.scss",
                 //...
             ],
 
@@ -189,7 +192,7 @@ class Theme extends Compound
                             //输出前 替换 主题样式类名前缀
                             "ThemePrefix",
                         ]
-                    ]
+                    ],
                 ],
                 "scss" => [
                     "default" => [
@@ -198,7 +201,22 @@ class Theme extends Compound
                             //输出前 替换 主题样式类名前缀
                             "ThemePrefix",
                         ]
-                    ]
+                    ],
+                    /**
+                     * 从 SPF-Vcom 组件库中请求关联 SPF-Theme 资源时，读取此 scss 
+                     * !! 此 scss 资源跳过了主题 scss 本身的编译过程，加快了后续的编译速度
+                     * 将输出下列内容：
+                     *      已编译的 default.css 缓存内容
+                     *      各子模块的 scss 变量定义语句
+                     *      base.scss 内容行，包含所有预定义的 @function @mixin ... 
+                     *      params["combine"] 中包含的要合并的其他资源
+                     */
+                    "vcom" => [
+                        "fix" => [
+                            //输出前 替换 主题样式类名前缀
+                            "ThemePrefix",
+                        ]
+                    ],
                 ],
                 "js" => [
                     "default" => []
@@ -411,30 +429,32 @@ class Theme extends Compound
         /**
          * 依次输出 各主题子模块 内容行
          */
+        $mrows = $this->createThemeModuleDefineScssRows();
+        if (Is::nemarr($mrows)) $rows = array_merge($rows, $mrows);
         //子模块实例
-        $modules = $this->modules;
+        //$modules = $this->modules;
         //已处理过的 子模块输出数据
-        $ctx = $this->themeCtx;
+        //$ctx = $this->themeCtx;
         //依次执行子模块输出
-        foreach ($ctx as $modk => $mctx) {
+        //foreach ($ctx as $modk => $mctx) {
             //注释
-            $rows = array_merge($rows, [
-                "/**",
-                " * 主题模块 $modk 生成语句",
-                " * 不要手动修改",
-                " */",
-                "",
-            ]);
-            $mrows = $modules[$modk]->createContentRows($mctx, "scss");
-            if (Is::nemarr($mrows) && Is::indexed($mrows)) {
-                $rows = array_merge($rows, $mrows);
-            } else {
-                $rows = array_merge($rows, [
-                    "/** !! 主题模块 $modk 生成语句错误 !! "."**/"
-                ]);
-            }
-            $rows[] = "";
-        }
+        //    $rows = array_merge($rows, [
+        //        "/**",
+        //        " * 主题模块 $modk 生成语句",
+        //        " * 不要手动修改",
+        //        " */",
+        //        "",
+        //    ]);
+        //    $mrows = $modules[$modk]->createContentRows($mctx, "scss");
+        //    if (Is::nemarr($mrows) && Is::indexed($mrows)) {
+        //        $rows = array_merge($rows, $mrows);
+        //    } else {
+        //        $rows = array_merge($rows, [
+        //            "/** !! 主题模块 $modk 生成语句错误 !! "."**/"
+        //        ]);
+        //    }
+        //    $rows[] = "";
+        //}
 
         //临时 scss 内容 content
         $scsscnt = implode("\n", $rows);
@@ -446,7 +466,9 @@ class Theme extends Compound
         //merge 参数
         $merge = [];
         //主题基础样式
-        $base = $sty["base"] ?? [];
+        $bases = $this->createBaseResourceList();
+        if (Is::nemarr($bases)) $merge = array_merge($merge, $bases);
+        /*$base = $sty["base"] ?? [];
         if (!Is::nemarr($base)) $base = ["spf/assets/theme/base.scss"];
         foreach ($base as $bfp) {
             $basef = Path::find($bfp, Path::FIND_FILE);
@@ -462,7 +484,7 @@ class Theme extends Compound
             ]);
             //合并基础样式
             if ($baseo instanceof Codex) $merge[] = $baseo;
-        }
+        }*/
         /*$base = $sty["base"] ?? null;
         if (!Is::nemstr($base)) $base = "spf/assets/theme/base.scss";
         $basef = Path::find($base, Path::FIND_FILE);
@@ -479,7 +501,9 @@ class Theme extends Compound
         if ($base instanceof Codex) $merge[] = $base;*/
 
         //use 合并额外的 本地样式资源
-        $uses = $sty["use"] ?? [];
+        $uses = $this->createUseResourceList();
+        if (Is::nemarr($uses)) $merge = array_merge($merge, $uses);
+        /*$uses = $sty["use"] ?? [];
         $ups = $this->params["use"] ?? null;
         if (Is::nemstr($ups)) {
             if ($ups !== "all" && $ups !== "none") {
@@ -517,12 +541,14 @@ class Theme extends Compound
                 if (!$ures instanceof Codex) continue;
                 $merge[] = $ures;
             }
-        }
+        }*/
 
         /**
          * 手动合并 params["combine"] 传入的 scss|css 资源实例|路径
          */
-        $mgs = $this->params["combine"] ?? [];
+        $mgs = $this->createCombineResourceList();
+        if (Is::nemarr($mgs)) $merge = array_merge($merge, $mgs);
+        /*$mgs = $this->params["combine"] ?? [];
         if (Is::nemstr($mgs)) $mgs = explode(",", $mgs);    //Arr::mk($mgs);
         if (Is::nemarr($mgs) && Is::indexed($mgs)) {
             foreach ($mgs as $mgi) {
@@ -530,21 +556,23 @@ class Theme extends Compound
                 if ($mgi instanceof Codex) {
                     $merge[] = $mgi;
                     continue;
-                }
+                }*/
                 
                 /**
                  * 传入了资源路径
                  * !! 可以是 本地文件|remote 远程资源
                  */
-                if (Is::nemstr($mgi)) {
+        /*        if (Is::nemstr($mgi)) {
                     //如果是远程资源
                     if (Url::isShortUrl($mgi) === true || Url::isUrl($mgi) === true) {
                         //将传入的 url 补全
                         if (Url::isShortUrl($mgi) === true) $mgi = Url::fixShortUrl($mgi);
                         //附加 App 应用信息 得到最终资源路径
                         $mgi = App::url($mgi);
+                        //var_dump($mgi);
                         //创建临时资源实例
                         $mgext = Resource::getExtFromPath($mgi);
+                        //var_dump($mgext);
                         $mgres = Resource::create($mgi, $this->fixSubResParams([
                             "belongTo" => null,
                             "ignoreGet" => true,
@@ -553,11 +581,13 @@ class Theme extends Compound
                             //原样输出
                             "export" => $mgext,
                         ]));
+                        //var_dump($mgres);
                         if (!$mgres instanceof Codex) continue;
                         //获取资源的 content
                         $mgcnt = $mgres->export([
                             "return" => true,
                         ]);
+                        //var_dump($mgcnt);
                         //释放
                         unset($mgres);
                         //使用资源 content 创建临时资源
@@ -598,7 +628,7 @@ class Theme extends Compound
                     $merge[] = $mgres;
                 }
             }
-        }
+        }*/
 
         //创建临时资源
         $scss = Resource::manual(
@@ -621,6 +651,90 @@ class Theme extends Compound
         //临时资源保存到 subResource
         $this->subResource = $scss;
         return $this;
+    }
+    //生成 vcom 配套的主题 scss
+    protected function createDynamicScssVcomSubResource() 
+    {
+        //首先读取 default.css 缓存内容
+        $dftCssCnt = "";
+        //创建缓存文件名 形式为：dynamic-light-browser-**-vcom.scss
+        $cfn = $this->cacheFileName();
+        //替换文件名 ***-vcom.scss  -->  ***-default.css
+        $cfn = str_replace("-vcom.scss", "-default.css", $cfn);
+        //读取可能存在的 default.css 缓存内容
+        $cf = $this->cachePath($cfn, true);
+        if (file_exists($cf)) {
+            //缓存存在
+            $dftCssCnt = file_get_contents($cf);
+        } else {
+            //缓存不存在，则创建 default.css 资源
+            $this->createDynamicCssDefaultSubResource();
+            $dftCss = $this->subResource;
+            $dftCssCnt = $dftCss->export([
+                "return" => true,
+                "export" => "css"
+            ]);
+            //创建缓存
+
+        }
+        //去除 css 代码中可能存在的 @charset
+        $dftCssCnt = Scss::stripCharset($dftCssCnt);
+        //压缩
+        $dftCssCnt = Codex::minifyCnt($dftCssCnt, "css");
+
+        //各子模块的 scss 变量定义语句
+        $scssDefs = $this->createThemeModuleDefineScssRows();
+        if (Is::nemarr($scssDefs)) {
+            //合并
+            $scssDefs = implode("\n", $scssDefs);
+        } else {
+            $scssDefs = "";
+        }
+
+        //合并 base.scss
+        $baseCnt = "";
+        $bases = $this->desc["styles"]["base"] ?? [];
+        //仅合并 base.scss
+        $bf = null;
+        foreach ($bases as $bfp) {
+            if (substr($bfp, -9) === "base.scss") {
+                $bfpf = Path::find($bfp, Path::FIND_FILE);
+                if (file_exists($bfpf)) {
+                    $bf = $bfpf;
+                }
+                break;
+            }
+        }
+        if (file_exists($bf)) {
+            //读取 base.scss 内容
+            $baseCnt = file_get_contents($bf);
+        }
+
+        //合并 scss 内容
+        $cnt = $dftCssCnt ."\n\n\n". $scssDefs ."\n\n\n". $baseCnt;
+
+        //处理 params["combine"] 额外资源，通常是 vcom 组件库的相关 scss
+        $merge = $this->createCombineResourceList();
+
+        //使用此 scss 内容，创建临时资源
+        $scss = Resource::manual(
+            $cnt,
+            "SPF_Theme_".$this->resName()."_temp.scss",
+            [
+                "ext" => "scss",
+                "export" => "scss",
+                "belongTo" => $this,
+                "ignoreGet" => true,
+                //import 保持原样
+                "import" => "keep",
+                //merge 待合并资源
+                "merge" => $merge,
+            ]
+        );
+        //更新 subResource
+        $this->subResource = $scss;
+        return $this;
+
     }
     //生成默认的 css 文件
     protected function createDynamicCssDefaultSubResource()
@@ -676,6 +790,223 @@ class Theme extends Compound
         //保存为 subResource
         $this->subResource = $js;
         return $this;
+    }
+
+
+
+    /**
+     * 工具方法 生成主题子模块 scss 变量定义语句
+     * @return Array scss 内容行
+     */
+    public function createThemeModuleDefineScssRows()
+    {
+        $rows = [];
+
+        //子模块实例
+        $modules = $this->modules;
+        //已处理过的 子模块输出数据
+        $ctx = $this->themeCtx;
+        //已处理过的 子模块 mode 数组
+        $mod = $this->themeMode;
+        //依次执行子模块输出
+        foreach ($ctx as $modk => $mctx) {
+            //当前主题模块的 mode 数组
+            $mods = $mod[$modk];
+            //['foo', 'bar'] --> (foo,bar) scss list
+            $mods = "(".implode(",", $mods).")";
+
+            //注释
+            $rows = array_merge($rows, [
+                "/**",
+                " * 主题模块 $modk 生成语句",
+                " * 不要手动修改",
+                " */",
+                "",
+            ]);
+            $mrows = $modules[$modk]->createContentRows($mctx, "scss");
+            if (Is::nemarr($mrows) && Is::indexed($mrows)) {
+                $rows[] = "\$".$modk."-mode: ".$mods.";";
+                $rows = array_merge($rows, $mrows);
+            } else {
+                $rows = array_merge($rows, [
+                    "/** !! 主题模块 $modk 生成语句错误 !! "."**/"
+                ]);
+            }
+            $rows[] = "";
+        }
+
+        return $rows;
+    }
+
+    /**
+     * 工具方法 读取 desc["style"]["base"] 数组，创建 merge[] 待合并资源数组
+     * @return Array 待合并资源实例组成的数组
+     */
+    public function createBaseResourceList()
+    {
+        $merge = [];
+
+        $sty = $this->desc["styles"] ?? [];
+        $base = $sty["base"] ?? [];
+        if (!Is::nemarr($base)) $base = ["spf/assets/theme/base.scss"];
+        foreach ($base as $bfp) {
+            $basef = Path::find($bfp, Path::FIND_FILE);
+            //if (!file_exists($basef)) $basef = Path::find("spf/assets/theme/base.scss", Path::FIND_FILE);
+            if (!file_exists($basef)) continue;
+            //创建基础样式的资源实例
+            $baseo = Resource::create($basef, [
+                "belongTo" => null,
+                "ignoreGet" => true,
+                //base 样式不处理 import
+                "import" => false,
+                "export" => "scss",
+            ]);
+            //合并基础样式
+            if ($baseo instanceof Codex) $merge[] = $baseo;
+        }
+        return $merge;
+    }
+
+    /**
+     * 工具方法 读取 desc["style"]["use"] 数组，创建 merge[] 待合并资源数组
+     * @return Array 待合并资源实例组成的数组
+     */
+    public function createUseResourceList()
+    {
+        $merge = [];
+        $sty = $this->desc["styles"] ?? [];//use 合并额外的 本地样式资源
+        $uses = $sty["use"] ?? [];
+        $ups = $this->params["use"] ?? null;
+        if (Is::nemstr($ups)) {
+            if ($ups !== "all" && $ups !== "none") {
+                $ups = explode(",", $ups);  //Arr::mk($ups);
+            }
+        }
+        if ($ups === "all") {
+            $us = array_values($uses);
+        } else if ($ups === "none") {
+            $us = [];
+        } else if (Is::nemarr($ups) && Is::indexed($ups)) {
+            $us = [];
+            foreach ($ups as $upi) {
+                if (isset($uses[$upi]) && Is::nemstr($uses[$upi])) {
+                    $us[] = $uses[$upi];
+                }
+            }
+        } else {
+            $us = [];
+        }
+        if (Is::nemarr($us)) {
+            foreach ($us as $ufp) {
+                $uf = Path::find($ufp, Path::FIND_FILE);
+                if (!file_exists($uf)) continue;
+                //合并本地额外的 scss|css 资源
+                $uext = Resource::getExtFromPath($uf);
+                $ures = Resource::create($uf, [
+                    "belongTo" => null,
+                    "ignoreGet" => true,
+                    //额外样式不处理 import
+                    "import" => false,
+                    //原样输出
+                    "export" => $uext,
+                ]);
+                if (!$ures instanceof Codex) continue;
+                $merge[] = $ures;
+            }
+        }
+        return $merge;
+    }
+
+    /**
+     * 工具方法 读取 params["combine"] 数组，创建 merge[] 待合并资源数组
+     * @return Array 待合并资源实例组成的数组
+     */
+    public function createCombineResourceList()
+    {
+        $merge = [];
+
+        $mgs = $this->params["combine"] ?? [];
+        if (Is::nemstr($mgs)) $mgs = explode(",", $mgs);    //Arr::mk($mgs);
+        if (Is::nemarr($mgs) && Is::indexed($mgs)) {
+            foreach ($mgs as $mgi) {
+                //直接传入了 资源实例
+                if ($mgi instanceof Codex) {
+                    $merge[] = $mgi;
+                    continue;
+                }
+                
+                /**
+                 * 传入了资源路径
+                 * !! 可以是 本地文件|remote 远程资源
+                 */
+                if (Is::nemstr($mgi)) {
+                    //如果是远程资源
+                    if (Url::isShortUrl($mgi) === true || Url::isUrl($mgi) === true) {
+                        //将传入的 url 补全
+                        if (Url::isShortUrl($mgi) === true) $mgi = Url::fixShortUrl($mgi);
+                        //附加 App 应用信息 得到最终资源路径
+                        $mgi = App::url($mgi);
+                        //var_dump($mgi);
+                        //创建临时资源实例
+                        $mgext = Resource::getExtFromPath($mgi);
+                        //var_dump($mgext);
+                        $mgres = Resource::create($mgi, $this->fixSubResParams([
+                            "belongTo" => null,
+                            "ignoreGet" => true,
+                            //额外样式不处理 import
+                            "import" => false,
+                            //原样输出
+                            "export" => $mgext,
+                        ]));
+                        //var_dump($mgres);
+                        if (!$mgres instanceof Codex) continue;
+                        //获取资源的 content
+                        $mgcnt = $mgres->export([
+                            "return" => true,
+                        ]);
+                        //var_dump($mgcnt);
+                        //释放
+                        unset($mgres);
+                        //使用资源 content 创建临时资源
+                        $mgres = Resource::manual(
+                            $mgcnt,
+                            "temp.".$mgext,
+                            [
+                                "ext" => $mgext,
+                                "belongTo" => null,
+                                "ignoreGet" => true,
+                                //额外样式不处理 import
+                                "import" => false,
+                                //原样输出
+                                "export" => $mgext,
+                            ]
+                        );
+                        if (!$mgres instanceof Codex) continue;
+                        //附加到 merge 数组
+                        $merge[] = $mgres;
+                        continue;
+                    }
+                    
+                    //传入了本地文件资源路径
+                    $mgf = Path::find($mgi, Path::FIND_FILE);
+                    if (!Is::nemstr($mgf)) continue;
+                    //创建临时资源实例
+                    $mgext = Resource::getExtFromPath($mgf);
+                    $mgres = Resource::create($mgf, [
+                        "belongTo" => null,
+                        "ignoreGet" => true,
+                        //额外样式不处理 import
+                        "import" => false,
+                        //原样输出
+                        "export" => $mgext,
+                    ]);
+                    if (!$mgres instanceof Codex) continue;
+                    //附加到 merge 数组
+                    $merge[] = $mgres;
+                }
+            }
+        }
+        return $merge;
     }
 
 

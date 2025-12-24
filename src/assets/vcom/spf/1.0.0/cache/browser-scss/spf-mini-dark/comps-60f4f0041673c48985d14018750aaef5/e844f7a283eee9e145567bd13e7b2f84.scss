@@ -1,0 +1,2845 @@
+@import 'https://ms.systech.work/src/cdn/normalize/default.css";@import "https://ms.systech.work/src/cdn/animate/default.css";:root{--color-red-m:#fa5151;--color-red-d3:#fdc0c0;--color-red-d2:#fc9b9b;--color-red-d1:#fb7575;--color-red-l1:#bb3c3c;--color-red-l2:#7a2727;--color-red-l3:#3c1313;--color-orange-m:#ff8600;--color-orange-d3:#ffd3a3;--color-orange-d2:#ffba6d;--color-orange-d1:#ff9f35;--color-orange-l1:#bf6400;--color-orange-l2:#7c4100;--color-orange-l3:#3d2000;--color-yellow-m:#fa9d3b;--color-yellow-d3:#fddbb8;--color-yellow-d2:#fcc78f;--color-yellow-d1:#fbb164;--color-yellow-l1:#bb752c;--color-yellow-l2:#7a4c1c;--color-yellow-l3:#3c250e;--color-green-m:#07c160;--color-green-d3:#a5e8c5;--color-green-d2:#71dba4;--color-green-d1:#3bce81;--color-green-l1:#059048;--color-green-l2:#035e2f;--color-green-l3:#012e17;--color-cyan-m:#01c4b3;--color-cyan-d3:#a3e9e3;--color-cyan-d2:#6eddd3;--color-cyan-d1:#36d0c2;--color-cyan-l1:#009386;--color-cyan-l2:#006057;--color-cyan-l3:#002f2a;--color-blue-m:#1485ee;--color-blue-d3:#aad3f8;--color-blue-d2:#79b9f5;--color-blue-d1:#459ef1;--color-blue-l1:#0f63b2;--color-blue-l2:#094174;--color-blue-l3:#041f39;--color-purple-m:#ea6e9c;--color-purple-d3:#f7cadb;--color-purple-d2:#f3acc6;--color-purple-d1:#ee8cb0;--color-purple-l1:#af5275;--color-purple-l2:#72354c;--color-purple-l3:#381a25;--color-gray-m:#888888;--color-gray-d3:#d4d4d4;--color-gray-d2:#bbbbbb;--color-gray-d1:#a0a0a0;--color-gray-l1:#666666;--color-gray-l2:#424242;--color-gray-l3:#202020;--color-danger-m:#fa5151;--color-danger-d3:#fdc0c0;--color-danger-d2:#fc9b9b;--color-danger-d1:#fb7575;--color-danger-l1:#bb3c3c;--color-danger-l2:#7a2727;--color-danger-l3:#3c1313;--color-warn-m:#fa9d3b;--color-warn-d3:#fddbb8;--color-warn-d2:#fcc78f;--color-warn-d1:#fbb164;--color-warn-l1:#bb752c;--color-warn-l2:#7a4c1c;--color-warn-l3:#3c250e;--color-success-m:#07c160;--color-success-d3:#a5e8c5;--color-success-d2:#71dba4;--color-success-d1:#3bce81;--color-success-l1:#059048;--color-success-l2:#035e2f;--color-success-l3:#012e17;--color-primary-m:#1485ee;--color-primary-d3:#aad3f8;--color-primary-d2:#79b9f5;--color-primary-d1:#459ef1;--color-primary-l1:#0f63b2;--color-primary-l2:#094174;--color-primary-l3:#041f39;--color-info-m:#888888;--color-info-d3:#d4d4d4;--color-info-d2:#bbbbbb;--color-info-d1:#a0a0a0;--color-info-l1:#666666;--color-info-l2:#424242;--color-info-l3:#202020;--color-bz-m:#ff8600;--color-bz-d3:#ffd3a3;--color-bz-d2:#ffba6d;--color-bz-d1:#ff9f35;--color-bz-l1:#bf6400;--color-bz-l2:#7c4100;--color-bz-l3:#3d2000;--color-fc-m:#aaaaaa;--color-fc-d3:#e0e0e0;--color-fc-d2:#cecece;--color-fc-d1:#bbbbbb;--color-fc-l1:#7f7f7f;--color-fc-l2:#535353;--color-fc-l3:#282828;--color-bgc-m:#202020;--color-bgc-d3:#707070;--color-bgc-d2:#555555;--color-bgc-d1:#3a3a3a;--color-bgc-l1:#151515;--color-bgc-l2:#0a0a0a;--color-bgc-l3:#000000;--color-bdc-m:#333333;--color-bdc-d3:#7c7c7c;--color-bdc-d2:#636363;--color-bdc-d1:#4b4b4b;--color-bdc-l1:#262626;--color-bdc-l2:#181818;--color-bdc-l3:#0c0c0c;--color-white-m:#000000;--color-black-m:#ffffff;--color-shadow-m:#000000}:root{--size-fs-m:14px;--size-fs-l:16px;--size-fs-s:12px;--size-fs-xl:18px;--size-fs-xs:10px;--size-fs-xxl:20px;--size-fs-xxs:9px;--size-fs-xxxl:24px;--size-fs-xxxs:8px;--size-fw-m:400;--size-fw-l:500;--size-fw-s:300;--size-fw-xl:700;--size-fw-xs:200;--size-fw-xxl:900;--size-fw-xxs:100;--size-mg-m:20px;--size-mg-l:24px;--size-mg-s:16px;--size-mg-xl:20px;--size-mg-xs:12px;--size-mg-xxl:24px;--size-mg-xxs:8px;--size-pd-m:16px;--size-pd-l:20px;--size-pd-s:12px;--size-pd-xl:24px;--size-pd-xs:8px;--size-pd-xxl:32px;--size-pd-xxs:4px;--size-rd-m:12px;--size-rd-l:16px;--size-rd-s:8px;--size-rd-xl:20px;--size-rd-xs:6px;--size-rd-xxl:24px;--size-rd-xxs:4px;--size-icon-m:24px;--size-icon-l:28px;--size-icon-s:20px;--size-icon-xl:32px;--size-icon-xs:16px;--size-icon-xxl:36px;--size-icon-xxs:14px;--size-btn-m:32px;--size-btn-l:36px;--size-btn-s:28px;--size-btn-xl:42px;--size-btn-xs:24px;--size-btn-xxl:48px;--size-btn-xxs:20px;--size-btn-fs-m:14px;--size-btn-fs-l:14px;--size-btn-fs-s:12px;--size-btn-fs-xl:18px;--size-btn-fs-xs:12px;--size-btn-fs-xxl:18px;--size-btn-fs-xxs:10px;--size-btn-pd-m:12px;--size-btn-pd-l:16px;--size-btn-pd-s:8px;--size-btn-pd-xl:20px;--size-btn-pd-xs:6px;--size-btn-pd-xxl:24px;--size-btn-pd-xxs:4px;--size-btn-rd-m:8px;--size-btn-rd-l:9px;--size-btn-rd-s:7px;--size-btn-rd-xl:10px;--size-btn-rd-xs:6px;--size-btn-rd-xxl:12px;--size-btn-rd-xxs:5px;--size-bar-m:40px;--size-bar-l:48px;--size-bar-s:36px;--size-bar-xl:54px;--size-bar-xs:32px;--size-bar-xxl:64px;--size-bar-xxs:28px;--size-bar-pd-m:16px;--size-bar-pd-l:20px;--size-bar-pd-s:12px;--size-bar-pd-xl:24px;--size-bar-pd-xs:8px;--size-bar-pd-xxl:32px;--size-bar-pd-xxs:6px;--size-bar-rd-m:9px;--size-bar-rd-l:10px;--size-bar-rd-s:8px;--size-bar-rd-xl:12px;--size-bar-rd-xs:7px;--size-bar-rd-xxl:14px;--size-bar-rd-xxs:6px;--size-block-m:68px;--size-block-l:80px;--size-block-s:56px;--size-block-xl:96px;--size-block-xs:44px;--size-block-xxl:118px;--size-block-xxs:36px;--size-shadow-m:8px;--size-shadow-l:12px;--size-shadow-s:4px;--size-shadow-xl:16px;--size-shadow-xs:2px;--size-bd-m:1px;--size-blur-m:16px;--size-navbar-m:48px;--size-menubar-max-m:256px;--size-menubar-min-m:36px;--size-taskbar-m:36px;--size-taskitem-m:192px}:root{--font-fml-default:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';--font-fml-code:'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace;--font-fml-fangsong:'Times New Roman', '仿宋';--font-fml-yahei:'微软雅黑', 'Microsoft Yahei';--font-fml-songti:'Times New Roman', '宋体';--ani-dura:0.3s}body,view,.page{margin:0;padding:0;font-size:14px;font-weight:400;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft Yahei",Helvetica,Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji";color:#aaa;background-color:#202020}.fc-white,.fc-white-m{color:#000000!important}.fc-black,.fc-black-m{color:#ffffff!important}.fc-red-l3,.fc-danger-l3{color:#3c1313!important}.fc-red-l2,.fc-danger-l2{color:#7a2727!important}.fc-red-l1,.fc-danger-l1{color:#bb3c3c!important}.fc-red,.fc-red-m,.fc-danger,.fc-danger-m{color:#fa5151!important}.fc-red.fc-hoverable:hover,.fc-red-m.fc-hoverable:hover,.fc-danger.fc-hoverable:hover,.fc-danger-m.fc-hoverable:hover{color:#bb3c3c!important}.fc-red.fc-hoverable:visited,.fc-red-m.fc-hoverable:visited,.fc-danger.fc-hoverable:visited,.fc-danger-m.fc-hoverable:visited{color:#fb7575!important}.fc-red-d1,.fc-danger-d1{color:#fb7575!important}.fc-red-d2,.fc-danger-d2{color:#fc9b9b!important}.fc-red-d3,.fc-danger-d3{color:#fdc0c0!important}.fc-orange-l3{color:#3d2000!important}.fc-orange-l2{color:#7c4100!important}.fc-orange-l1{color:#bf6400!important}.fc-orange,.fc-orange-m{color:#ff8600!important}.fc-orange.fc-hoverable:hover,.fc-orange-m.fc-hoverable:hover{color:#bf6400!important}.fc-orange.fc-hoverable:visited,.fc-orange-m.fc-hoverable:visited{color:#ff9f35!important}.fc-orange-d1{color:#ff9f35!important}.fc-orange-d2{color:#ffba6d!important}.fc-orange-d3{color:#ffd3a3!important}.fc-yellow-l3,.fc-warn-l3{color:#3c250e!important}.fc-yellow-l2,.fc-warn-l2{color:#7a4c1c!important}.fc-yellow-l1,.fc-warn-l1{color:#bb752c!important}.fc-yellow,.fc-yellow-m,.fc-warn,.fc-warn-m{color:#fa9d3b!important}.fc-yellow.fc-hoverable:hover,.fc-yellow-m.fc-hoverable:hover,.fc-warn.fc-hoverable:hover,.fc-warn-m.fc-hoverable:hover{color:#bb752c!important}.fc-yellow.fc-hoverable:visited,.fc-yellow-m.fc-hoverable:visited,.fc-warn.fc-hoverable:visited,.fc-warn-m.fc-hoverable:visited{color:#fbb164!important}.fc-yellow-d1,.fc-warn-d1{color:#fbb164!important}.fc-yellow-d2,.fc-warn-d2{color:#fcc78f!important}.fc-yellow-d3,.fc-warn-d3{color:#fddbb8!important}.fc-green-l3,.fc-success-l3{color:#012e17!important}.fc-green-l2,.fc-success-l2{color:#035e2f!important}.fc-green-l1,.fc-success-l1{color:#059048!important}.fc-green,.fc-green-m,.fc-success,.fc-success-m{color:#07c160!important}.fc-green.fc-hoverable:hover,.fc-green-m.fc-hoverable:hover,.fc-success.fc-hoverable:hover,.fc-success-m.fc-hoverable:hover{color:#059048!important}.fc-green.fc-hoverable:visited,.fc-green-m.fc-hoverable:visited,.fc-success.fc-hoverable:visited,.fc-success-m.fc-hoverable:visited{color:#3bce81!important}.fc-green-d1,.fc-success-d1{color:#3bce81!important}.fc-green-d2,.fc-success-d2{color:#71dba4!important}.fc-green-d3,.fc-success-d3{color:#a5e8c5!important}.fc-cyan-l3{color:#002f2a!important}.fc-cyan-l2{color:#006057!important}.fc-cyan-l1{color:#009386!important}.fc-cyan,.fc-cyan-m{color:#01c4b3!important}.fc-cyan.fc-hoverable:hover,.fc-cyan-m.fc-hoverable:hover{color:#009386!important}.fc-cyan.fc-hoverable:visited,.fc-cyan-m.fc-hoverable:visited{color:#36d0c2!important}.fc-cyan-d1{color:#36d0c2!important}.fc-cyan-d2{color:#6eddd3!important}.fc-cyan-d3{color:#a3e9e3!important}.fc-blue-l3,.fc-primary-l3{color:#041f39!important}.fc-blue-l2,.fc-primary-l2{color:#094174!important}.fc-blue-l1,.fc-primary-l1{color:#0f63b2!important}.fc-blue,.fc-blue-m,.fc-primary,.fc-primary-m{color:#1485ee!important}.fc-blue.fc-hoverable:hover,.fc-blue-m.fc-hoverable:hover,.fc-primary.fc-hoverable:hover,.fc-primary-m.fc-hoverable:hover{color:#0f63b2!important}.fc-blue.fc-hoverable:visited,.fc-blue-m.fc-hoverable:visited,.fc-primary.fc-hoverable:visited,.fc-primary-m.fc-hoverable:visited{color:#459ef1!important}.fc-blue-d1,.fc-primary-d1{color:#459ef1!important}.fc-blue-d2,.fc-primary-d2{color:#79b9f5!important}.fc-blue-d3,.fc-primary-d3{color:#aad3f8!important}.fc-purple-l3{color:#381a25!important}.fc-purple-l2{color:#72354c!important}.fc-purple-l1{color:#af5275!important}.fc-purple,.fc-purple-m{color:#ea6e9c!important}.fc-purple.fc-hoverable:hover,.fc-purple-m.fc-hoverable:hover{color:#af5275!important}.fc-purple.fc-hoverable:visited,.fc-purple-m.fc-hoverable:visited{color:#ee8cb0!important}.fc-purple-d1{color:#ee8cb0!important}.fc-purple-d2{color:#f3acc6!important}.fc-purple-d3{color:#f7cadb!important}.fc-gray-l3,.fc-info-l3{color:#202020!important}.fc-gray-l2,.fc-info-l2{color:#424242!important}.fc-gray-l1,.fc-info-l1{color:#666666!important}.fc-gray,.fc-gray-m,.fc-info,.fc-info-m{color:#888888!important}.fc-gray.fc-hoverable:hover,.fc-gray-m.fc-hoverable:hover,.fc-info.fc-hoverable:hover,.fc-info-m.fc-hoverable:hover{color:#666666!important}.fc-gray.fc-hoverable:visited,.fc-gray-m.fc-hoverable:visited,.fc-info.fc-hoverable:visited,.fc-info-m.fc-hoverable:visited{color:#a0a0a0!important}.fc-gray-d1,.fc-info-d1{color:#a0a0a0!important}.fc-gray-d2,.fc-info-d2{color:#bbbbbb!important}.fc-gray-d3,.fc-info-d3{color:#d4d4d4!important}.fc-bz-l3{color:#3d2000!important}.fc-bz-l2{color:#7c4100!important}.fc-bz-l1{color:#bf6400!important}.fc-bz,.fc-bz-m{color:#ff8600!important}.fc-bz.fc-hoverable:hover,.fc-bz-m.fc-hoverable:hover{color:#bf6400!important}.fc-bz.fc-hoverable:visited,.fc-bz-m.fc-hoverable:visited{color:#ff9f35!important}.fc-bz-d1{color:#ff9f35!important}.fc-bz-d2{color:#ffba6d!important}.fc-bz-d3{color:#ffd3a3!important}.fc-l3{color:#282828!important}.fc-l2{color:#535353!important}.fc-l1{color:#7f7f7f!important}.fc,.fc-m{color:#aaaaaa!important}.fc.fc-hoverable:hover,.fc-m.fc-hoverable:hover{color:#7f7f7f!important}.fc.fc-hoverable:visited,.fc-m.fc-hoverable:visited{color:#bbbbbb!important}.fc-d1{color:#bbbbbb!important}.fc-d2{color:#cecece!important}.fc-d3{color:#e0e0e0!important}.fs-xxxs{font-size:8px!important}.fs-xxs,.fs-tiny{font-size:9px!important}.fs-xs,.fs-mini{font-size:10px!important}.fs-s,.fs-small{font-size:12px!important}.fs-m,.fs-normal{font-size:14px!important}.fs-l,.fs-medium{font-size:16px!important}.fs-xl,.fs-large{font-size:18px!important}.fs-xxl,.fs-huge{font-size:20px!important}.fs-xxxl{font-size:24px!important}.fs-28px{font-size:28px!important}.fs-32px{font-size:32px!important}.fs-48px{font-size:48px!important}.fs-54px{font-size:54px!important}.fs-64px{font-size:64px!important}.fs-72px{font-size:72px!important}.fw-xxs,.fw-tiny{font-weight:100!important}.fw-xs,.fw-mini{font-weight:200!important}.fw-s,.fw-small{font-weight:300!important}.fw-m,.fw-normal{font-weight:400!important}.fw-l,.fw-medium{font-weight:500!important}.fw-xl,.fw-large{font-weight:700!important}.fw-xxl,.fw-huge{font-weight:900!important}.fw-100{font-weight:100!important}.fw-200{font-weight:200!important}.fw-300{font-weight:300!important}.fw-400{font-weight:400!important}.fw-500{font-weight:500!important}.fw-600{font-weight:600!important}.fw-700{font-weight:700!important}.fw-800{font-weight:800!important}.fw-900{font-weight:900!important}.fw-normal{font-weight:400!important}.fw-bold{font-weight:700!important}.fw-thin{font-weight:200!important}.fml-default{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji'!important}.fml-code{font-family:'Cascadia Code','Consolas','Courier New','Pingfang SC','Microsoft Yahei',monospace!important}.fml-fangsong{font-family:'Times New Roman','仿宋'!important}.fml-yahei{font-family:'微软雅黑','Microsoft Yahei'!important}.fml-songti{font-family:'Times New Roman','宋体'!important}.f-a{text-decoration:underline;text-underline-offset:.3em;transition:color 0.3s,text-underline-offset 0.1s}.f-a:hover{text-underline-offset:.2em}.f-a{color:#1485ee}.f-a:hover{color:#0f63b2}.f-a:visited,.f-a[class*=active]{color:#459ef1}.f-highlight{box-sizing:border-box;padding:.2em 0.3em!important;margin:0 0.3em!important;border-radius:0.2em!important;border-width:0!important;background-color:#3c250e!important;color:rgb(255 255 255 / .8)!important}.f-highlight.hl-border{border-width:1px!important;border-color:#7a4c1c!important}.f-highlight.hl-primary{background-color:#041f39!important;color:rgb(255 255 255 / .8)!important}.f-highlight.hl-primary.hl-border{border-color:#094174!important}.f-highlight.hl-danger{background-color:#3c1313!important;color:rgb(255 255 255 / .8)!important}.f-highlight.hl-danger.hl-border{border-color:#7a2727!important}.f-highlight.hl-warn{background-color:#3c250e!important;color:rgb(255 255 255 / .8)!important}.f-highlight.hl-warn.hl-border{border-color:#7a4c1c!important}.f-highlight.hl-success{background-color:#012e17!important;color:rgb(255 255 255 / .8)!important}.f-highlight.hl-success.hl-border{border-color:#035e2f!important}.f-highlight.hl-info{background-color:#202020!important;color:rgb(255 255 255 / .8)!important}.f-highlight.hl-info.hl-border{border-color:#424242!important}.f-code{padding:.2em 0.3em!important;margin:0 0.3em!important;border-radius:0.2em!important;border-width:0!important;background-color:#202020!important;color:#aad3f8!important;font-family:"Cascadia Code","Consolas","Courier New","Pingfang SC","Microsoft Yahei';
+
+
+
+
+
+/**
+ * 主题模块 color 生成语句
+ * 不要手动修改
+ */
+
+$color-mode: (dark);
+$colorListBase: red,orange,yellow,green,cyan,blue,purple,gray,danger,warn,success,primary,info,bz;
+$colorListSpecific: fc,bgc,bdc;
+$colorListStatic:   white,black,shadow;
+$colorListAll:  red,orange,yellow,green,cyan,blue,purple,gray,danger,warn,success,primary,info,bz,fc,bgc,bdc,white,black,shadow;
+$colorShiftQueue:   l3,l2,l1,m,d1,d2,d3;
+
+$colorListAlias:    danger,warn,success,primary,info;
+$colorAliasMap: (
+danger: 'red',
+warn:   'yellow',
+success:    'green',
+primary:    'blue',
+info:   'gray',
+);
+
+$typeList:  primary,danger,warn,success,info;
+$effectList:    normal,fill,plain,popout;
+
+$color-red-m:   #fa5151;
+$color-red-d3:  #fdc0c0;
+$color-red-d2:  #fc9b9b;
+$color-red-d1:  #fb7575;
+$color-red-l1:  #bb3c3c;
+$color-red-l2:  #7a2727;
+$color-red-l3:  #3c1313;
+$color-orange-m:    #ff8600;
+$color-orange-d3:   #ffd3a3;
+$color-orange-d2:   #ffba6d;
+$color-orange-d1:   #ff9f35;
+$color-orange-l1:   #bf6400;
+$color-orange-l2:   #7c4100;
+$color-orange-l3:   #3d2000;
+$color-yellow-m:    #fa9d3b;
+$color-yellow-d3:   #fddbb8;
+$color-yellow-d2:   #fcc78f;
+$color-yellow-d1:   #fbb164;
+$color-yellow-l1:   #bb752c;
+$color-yellow-l2:   #7a4c1c;
+$color-yellow-l3:   #3c250e;
+$color-green-m: #07c160;
+$color-green-d3:    #a5e8c5;
+$color-green-d2:    #71dba4;
+$color-green-d1:    #3bce81;
+$color-green-l1:    #059048;
+$color-green-l2:    #035e2f;
+$color-green-l3:    #012e17;
+$color-cyan-m:  #01c4b3;
+$color-cyan-d3: #a3e9e3;
+$color-cyan-d2: #6eddd3;
+$color-cyan-d1: #36d0c2;
+$color-cyan-l1: #009386;
+$color-cyan-l2: #006057;
+$color-cyan-l3: #002f2a;
+$color-blue-m:  #1485ee;
+$color-blue-d3: #aad3f8;
+$color-blue-d2: #79b9f5;
+$color-blue-d1: #459ef1;
+$color-blue-l1: #0f63b2;
+$color-blue-l2: #094174;
+$color-blue-l3: #041f39;
+$color-purple-m:    #ea6e9c;
+$color-purple-d3:   #f7cadb;
+$color-purple-d2:   #f3acc6;
+$color-purple-d1:   #ee8cb0;
+$color-purple-l1:   #af5275;
+$color-purple-l2:   #72354c;
+$color-purple-l3:   #381a25;
+$color-gray-m:  #888888;
+$color-gray-d3: #d4d4d4;
+$color-gray-d2: #bbbbbb;
+$color-gray-d1: #a0a0a0;
+$color-gray-l1: #666666;
+$color-gray-l2: #424242;
+$color-gray-l3: #202020;
+$color-danger-m:    #fa5151;
+$color-danger-d3:   #fdc0c0;
+$color-danger-d2:   #fc9b9b;
+$color-danger-d1:   #fb7575;
+$color-danger-l1:   #bb3c3c;
+$color-danger-l2:   #7a2727;
+$color-danger-l3:   #3c1313;
+$color-warn-m:  #fa9d3b;
+$color-warn-d3: #fddbb8;
+$color-warn-d2: #fcc78f;
+$color-warn-d1: #fbb164;
+$color-warn-l1: #bb752c;
+$color-warn-l2: #7a4c1c;
+$color-warn-l3: #3c250e;
+$color-success-m:   #07c160;
+$color-success-d3:  #a5e8c5;
+$color-success-d2:  #71dba4;
+$color-success-d1:  #3bce81;
+$color-success-l1:  #059048;
+$color-success-l2:  #035e2f;
+$color-success-l3:  #012e17;
+$color-primary-m:   #1485ee;
+$color-primary-d3:  #aad3f8;
+$color-primary-d2:  #79b9f5;
+$color-primary-d1:  #459ef1;
+$color-primary-l1:  #0f63b2;
+$color-primary-l2:  #094174;
+$color-primary-l3:  #041f39;
+$color-info-m:  #888888;
+$color-info-d3: #d4d4d4;
+$color-info-d2: #bbbbbb;
+$color-info-d1: #a0a0a0;
+$color-info-l1: #666666;
+$color-info-l2: #424242;
+$color-info-l3: #202020;
+$color-bz-m:    #ff8600;
+$color-bz-d3:   #ffd3a3;
+$color-bz-d2:   #ffba6d;
+$color-bz-d1:   #ff9f35;
+$color-bz-l1:   #bf6400;
+$color-bz-l2:   #7c4100;
+$color-bz-l3:   #3d2000;
+$color-fc-m:    #aaaaaa;
+$color-fc-d3:   #e0e0e0;
+$color-fc-d2:   #cecece;
+$color-fc-d1:   #bbbbbb;
+$color-fc-l1:   #7f7f7f;
+$color-fc-l2:   #535353;
+$color-fc-l3:   #282828;
+$color-bgc-m:   #202020;
+$color-bgc-d3:  #707070;
+$color-bgc-d2:  #555555;
+$color-bgc-d1:  #3a3a3a;
+$color-bgc-l1:  #151515;
+$color-bgc-l2:  #0a0a0a;
+$color-bgc-l3:  #000000;
+$color-bdc-m:   #333333;
+$color-bdc-d3:  #7c7c7c;
+$color-bdc-d2:  #636363;
+$color-bdc-d1:  #4b4b4b;
+$color-bdc-l1:  #262626;
+$color-bdc-l2:  #181818;
+$color-bdc-l3:  #0c0c0c;
+$color-white-m: #000000;
+$color-black-m: #ffffff;
+$color-shadow-m:    #000000;
+
+$colorMap: (
+red-m:  #fa5151,
+red-d3: #fdc0c0,
+red-d2: #fc9b9b,
+red-d1: #fb7575,
+red-l1: #bb3c3c,
+red-l2: #7a2727,
+red-l3: #3c1313,
+orange-m:   #ff8600,
+orange-d3:  #ffd3a3,
+orange-d2:  #ffba6d,
+orange-d1:  #ff9f35,
+orange-l1:  #bf6400,
+orange-l2:  #7c4100,
+orange-l3:  #3d2000,
+yellow-m:   #fa9d3b,
+yellow-d3:  #fddbb8,
+yellow-d2:  #fcc78f,
+yellow-d1:  #fbb164,
+yellow-l1:  #bb752c,
+yellow-l2:  #7a4c1c,
+yellow-l3:  #3c250e,
+green-m:    #07c160,
+green-d3:   #a5e8c5,
+green-d2:   #71dba4,
+green-d1:   #3bce81,
+green-l1:   #059048,
+green-l2:   #035e2f,
+green-l3:   #012e17,
+cyan-m: #01c4b3,
+cyan-d3:    #a3e9e3,
+cyan-d2:    #6eddd3,
+cyan-d1:    #36d0c2,
+cyan-l1:    #009386,
+cyan-l2:    #006057,
+cyan-l3:    #002f2a,
+blue-m: #1485ee,
+blue-d3:    #aad3f8,
+blue-d2:    #79b9f5,
+blue-d1:    #459ef1,
+blue-l1:    #0f63b2,
+blue-l2:    #094174,
+blue-l3:    #041f39,
+purple-m:   #ea6e9c,
+purple-d3:  #f7cadb,
+purple-d2:  #f3acc6,
+purple-d1:  #ee8cb0,
+purple-l1:  #af5275,
+purple-l2:  #72354c,
+purple-l3:  #381a25,
+gray-m: #888888,
+gray-d3:    #d4d4d4,
+gray-d2:    #bbbbbb,
+gray-d1:    #a0a0a0,
+gray-l1:    #666666,
+gray-l2:    #424242,
+gray-l3:    #202020,
+danger-m:   #fa5151,
+danger-d3:  #fdc0c0,
+danger-d2:  #fc9b9b,
+danger-d1:  #fb7575,
+danger-l1:  #bb3c3c,
+danger-l2:  #7a2727,
+danger-l3:  #3c1313,
+warn-m: #fa9d3b,
+warn-d3:    #fddbb8,
+warn-d2:    #fcc78f,
+warn-d1:    #fbb164,
+warn-l1:    #bb752c,
+warn-l2:    #7a4c1c,
+warn-l3:    #3c250e,
+success-m:  #07c160,
+success-d3: #a5e8c5,
+success-d2: #71dba4,
+success-d1: #3bce81,
+success-l1: #059048,
+success-l2: #035e2f,
+success-l3: #012e17,
+primary-m:  #1485ee,
+primary-d3: #aad3f8,
+primary-d2: #79b9f5,
+primary-d1: #459ef1,
+primary-l1: #0f63b2,
+primary-l2: #094174,
+primary-l3: #041f39,
+info-m: #888888,
+info-d3:    #d4d4d4,
+info-d2:    #bbbbbb,
+info-d1:    #a0a0a0,
+info-l1:    #666666,
+info-l2:    #424242,
+info-l3:    #202020,
+bz-m:   #ff8600,
+bz-d3:  #ffd3a3,
+bz-d2:  #ffba6d,
+bz-d1:  #ff9f35,
+bz-l1:  #bf6400,
+bz-l2:  #7c4100,
+bz-l3:  #3d2000,
+fc-m:   #aaaaaa,
+fc-d3:  #e0e0e0,
+fc-d2:  #cecece,
+fc-d1:  #bbbbbb,
+fc-l1:  #7f7f7f,
+fc-l2:  #535353,
+fc-l3:  #282828,
+bgc-m:  #202020,
+bgc-d3: #707070,
+bgc-d2: #555555,
+bgc-d1: #3a3a3a,
+bgc-l1: #151515,
+bgc-l2: #0a0a0a,
+bgc-l3: #000000,
+bdc-m:  #333333,
+bdc-d3: #7c7c7c,
+bdc-d2: #636363,
+bdc-d1: #4b4b4b,
+bdc-l1: #262626,
+bdc-l2: #181818,
+bdc-l3: #0c0c0c,
+white-m:    #000000,
+black-m:    #ffffff,
+shadow-m:   #000000,
+);
+
+:root {
+--color-red-m:  #fa5151;
+--color-red-d3: #fdc0c0;
+--color-red-d2: #fc9b9b;
+--color-red-d1: #fb7575;
+--color-red-l1: #bb3c3c;
+--color-red-l2: #7a2727;
+--color-red-l3: #3c1313;
+--color-orange-m:   #ff8600;
+--color-orange-d3:  #ffd3a3;
+--color-orange-d2:  #ffba6d;
+--color-orange-d1:  #ff9f35;
+--color-orange-l1:  #bf6400;
+--color-orange-l2:  #7c4100;
+--color-orange-l3:  #3d2000;
+--color-yellow-m:   #fa9d3b;
+--color-yellow-d3:  #fddbb8;
+--color-yellow-d2:  #fcc78f;
+--color-yellow-d1:  #fbb164;
+--color-yellow-l1:  #bb752c;
+--color-yellow-l2:  #7a4c1c;
+--color-yellow-l3:  #3c250e;
+--color-green-m:    #07c160;
+--color-green-d3:   #a5e8c5;
+--color-green-d2:   #71dba4;
+--color-green-d1:   #3bce81;
+--color-green-l1:   #059048;
+--color-green-l2:   #035e2f;
+--color-green-l3:   #012e17;
+--color-cyan-m: #01c4b3;
+--color-cyan-d3:    #a3e9e3;
+--color-cyan-d2:    #6eddd3;
+--color-cyan-d1:    #36d0c2;
+--color-cyan-l1:    #009386;
+--color-cyan-l2:    #006057;
+--color-cyan-l3:    #002f2a;
+--color-blue-m: #1485ee;
+--color-blue-d3:    #aad3f8;
+--color-blue-d2:    #79b9f5;
+--color-blue-d1:    #459ef1;
+--color-blue-l1:    #0f63b2;
+--color-blue-l2:    #094174;
+--color-blue-l3:    #041f39;
+--color-purple-m:   #ea6e9c;
+--color-purple-d3:  #f7cadb;
+--color-purple-d2:  #f3acc6;
+--color-purple-d1:  #ee8cb0;
+--color-purple-l1:  #af5275;
+--color-purple-l2:  #72354c;
+--color-purple-l3:  #381a25;
+--color-gray-m: #888888;
+--color-gray-d3:    #d4d4d4;
+--color-gray-d2:    #bbbbbb;
+--color-gray-d1:    #a0a0a0;
+--color-gray-l1:    #666666;
+--color-gray-l2:    #424242;
+--color-gray-l3:    #202020;
+--color-danger-m:   #fa5151;
+--color-danger-d3:  #fdc0c0;
+--color-danger-d2:  #fc9b9b;
+--color-danger-d1:  #fb7575;
+--color-danger-l1:  #bb3c3c;
+--color-danger-l2:  #7a2727;
+--color-danger-l3:  #3c1313;
+--color-warn-m: #fa9d3b;
+--color-warn-d3:    #fddbb8;
+--color-warn-d2:    #fcc78f;
+--color-warn-d1:    #fbb164;
+--color-warn-l1:    #bb752c;
+--color-warn-l2:    #7a4c1c;
+--color-warn-l3:    #3c250e;
+--color-success-m:  #07c160;
+--color-success-d3: #a5e8c5;
+--color-success-d2: #71dba4;
+--color-success-d1: #3bce81;
+--color-success-l1: #059048;
+--color-success-l2: #035e2f;
+--color-success-l3: #012e17;
+--color-primary-m:  #1485ee;
+--color-primary-d3: #aad3f8;
+--color-primary-d2: #79b9f5;
+--color-primary-d1: #459ef1;
+--color-primary-l1: #0f63b2;
+--color-primary-l2: #094174;
+--color-primary-l3: #041f39;
+--color-info-m: #888888;
+--color-info-d3:    #d4d4d4;
+--color-info-d2:    #bbbbbb;
+--color-info-d1:    #a0a0a0;
+--color-info-l1:    #666666;
+--color-info-l2:    #424242;
+--color-info-l3:    #202020;
+--color-bz-m:   #ff8600;
+--color-bz-d3:  #ffd3a3;
+--color-bz-d2:  #ffba6d;
+--color-bz-d1:  #ff9f35;
+--color-bz-l1:  #bf6400;
+--color-bz-l2:  #7c4100;
+--color-bz-l3:  #3d2000;
+--color-fc-m:   #aaaaaa;
+--color-fc-d3:  #e0e0e0;
+--color-fc-d2:  #cecece;
+--color-fc-d1:  #bbbbbb;
+--color-fc-l1:  #7f7f7f;
+--color-fc-l2:  #535353;
+--color-fc-l3:  #282828;
+--color-bgc-m:  #202020;
+--color-bgc-d3: #707070;
+--color-bgc-d2: #555555;
+--color-bgc-d1: #3a3a3a;
+--color-bgc-l1: #151515;
+--color-bgc-l2: #0a0a0a;
+--color-bgc-l3: #000000;
+--color-bdc-m:  #333333;
+--color-bdc-d3: #7c7c7c;
+--color-bdc-d2: #636363;
+--color-bdc-d1: #4b4b4b;
+--color-bdc-l1: #262626;
+--color-bdc-l2: #181818;
+--color-bdc-l3: #0c0c0c;
+--color-white-m:    #000000;
+--color-black-m:    #ffffff;
+--color-shadow-m:   #000000;
+}
+
+
+/**
+ * 主题模块 size 生成语句
+ * 不要手动修改
+ */
+
+$size-mode: (browser);
+$sizeShiftQueue:    xxxs,xxs,xs,s,m,l,xl,xxl,xxxl;
+
+$size-fs-m: 14px;
+$size-fs-l: 16px;
+$size-fs-s: 12px;
+$size-fs-xl:    18px;
+$size-fs-xs:    10px;
+$size-fs-xxl:   20px;
+$size-fs-xxs:   9px;
+$size-fs-xxxl:  24px;
+$size-fs-xxxs:  8px;
+$size-fw-m: 400;
+$size-fw-l: 500;
+$size-fw-s: 300;
+$size-fw-xl:    700;
+$size-fw-xs:    200;
+$size-fw-xxl:   900;
+$size-fw-xxs:   100;
+$size-mg-m: 20px;
+$size-mg-l: 24px;
+$size-mg-s: 16px;
+$size-mg-xl:    20px;
+$size-mg-xs:    12px;
+$size-mg-xxl:   24px;
+$size-mg-xxs:   8px;
+$size-pd-m: 16px;
+$size-pd-l: 20px;
+$size-pd-s: 12px;
+$size-pd-xl:    24px;
+$size-pd-xs:    8px;
+$size-pd-xxl:   32px;
+$size-pd-xxs:   4px;
+$size-rd-m: 12px;
+$size-rd-l: 16px;
+$size-rd-s: 8px;
+$size-rd-xl:    20px;
+$size-rd-xs:    6px;
+$size-rd-xxl:   24px;
+$size-rd-xxs:   4px;
+$size-icon-m:   24px;
+$size-icon-l:   28px;
+$size-icon-s:   20px;
+$size-icon-xl:  32px;
+$size-icon-xs:  16px;
+$size-icon-xxl: 36px;
+$size-icon-xxs: 14px;
+$size-btn-m:    32px;
+$size-btn-l:    36px;
+$size-btn-s:    28px;
+$size-btn-xl:   42px;
+$size-btn-xs:   24px;
+$size-btn-xxl:  48px;
+$size-btn-xxs:  20px;
+$size-btn-fs-m: 14px;
+$size-btn-fs-l: 14px;
+$size-btn-fs-s: 12px;
+$size-btn-fs-xl:    18px;
+$size-btn-fs-xs:    12px;
+$size-btn-fs-xxl:   18px;
+$size-btn-fs-xxs:   10px;
+$size-btn-pd-m: 12px;
+$size-btn-pd-l: 16px;
+$size-btn-pd-s: 8px;
+$size-btn-pd-xl:    20px;
+$size-btn-pd-xs:    6px;
+$size-btn-pd-xxl:   24px;
+$size-btn-pd-xxs:   4px;
+$size-btn-rd-m: 8px;
+$size-btn-rd-l: 9px;
+$size-btn-rd-s: 7px;
+$size-btn-rd-xl:    10px;
+$size-btn-rd-xs:    6px;
+$size-btn-rd-xxl:   12px;
+$size-btn-rd-xxs:   5px;
+$size-bar-m:    40px;
+$size-bar-l:    48px;
+$size-bar-s:    36px;
+$size-bar-xl:   54px;
+$size-bar-xs:   32px;
+$size-bar-xxl:  64px;
+$size-bar-xxs:  28px;
+$size-bar-pd-m: 16px;
+$size-bar-pd-l: 20px;
+$size-bar-pd-s: 12px;
+$size-bar-pd-xl:    24px;
+$size-bar-pd-xs:    8px;
+$size-bar-pd-xxl:   32px;
+$size-bar-pd-xxs:   6px;
+$size-bar-rd-m: 9px;
+$size-bar-rd-l: 10px;
+$size-bar-rd-s: 8px;
+$size-bar-rd-xl:    12px;
+$size-bar-rd-xs:    7px;
+$size-bar-rd-xxl:   14px;
+$size-bar-rd-xxs:   6px;
+$size-block-m:  68px;
+$size-block-l:  80px;
+$size-block-s:  56px;
+$size-block-xl: 96px;
+$size-block-xs: 44px;
+$size-block-xxl:    118px;
+$size-block-xxs:    36px;
+$size-shadow-m: 8px;
+$size-shadow-l: 12px;
+$size-shadow-s: 4px;
+$size-shadow-xl:    16px;
+$size-shadow-xs:    2px;
+$size-bd-m: 1px;
+$size-blur-m:   16px;
+$size-navbar-m: 48px;
+$size-menubar-max-m:    256px;
+$size-menubar-min-m:    36px;
+$size-taskbar-m:    36px;
+$size-taskitem-m:   192px;
+
+$sizeMap: (
+fs-m:   14px,
+fs-l:   16px,
+fs-s:   12px,
+fs-xl:  18px,
+fs-xs:  10px,
+fs-xxl: 20px,
+fs-xxs: 9px,
+fs-xxxl:    24px,
+fs-xxxs:    8px,
+fw-m:   400,
+fw-l:   500,
+fw-s:   300,
+fw-xl:  700,
+fw-xs:  200,
+fw-xxl: 900,
+fw-xxs: 100,
+mg-m:   20px,
+mg-l:   24px,
+mg-s:   16px,
+mg-xl:  20px,
+mg-xs:  12px,
+mg-xxl: 24px,
+mg-xxs: 8px,
+pd-m:   16px,
+pd-l:   20px,
+pd-s:   12px,
+pd-xl:  24px,
+pd-xs:  8px,
+pd-xxl: 32px,
+pd-xxs: 4px,
+rd-m:   12px,
+rd-l:   16px,
+rd-s:   8px,
+rd-xl:  20px,
+rd-xs:  6px,
+rd-xxl: 24px,
+rd-xxs: 4px,
+icon-m: 24px,
+icon-l: 28px,
+icon-s: 20px,
+icon-xl:    32px,
+icon-xs:    16px,
+icon-xxl:   36px,
+icon-xxs:   14px,
+btn-m:  32px,
+btn-l:  36px,
+btn-s:  28px,
+btn-xl: 42px,
+btn-xs: 24px,
+btn-xxl:    48px,
+btn-xxs:    20px,
+btn-fs-m:   14px,
+btn-fs-l:   14px,
+btn-fs-s:   12px,
+btn-fs-xl:  18px,
+btn-fs-xs:  12px,
+btn-fs-xxl: 18px,
+btn-fs-xxs: 10px,
+btn-pd-m:   12px,
+btn-pd-l:   16px,
+btn-pd-s:   8px,
+btn-pd-xl:  20px,
+btn-pd-xs:  6px,
+btn-pd-xxl: 24px,
+btn-pd-xxs: 4px,
+btn-rd-m:   8px,
+btn-rd-l:   9px,
+btn-rd-s:   7px,
+btn-rd-xl:  10px,
+btn-rd-xs:  6px,
+btn-rd-xxl: 12px,
+btn-rd-xxs: 5px,
+bar-m:  40px,
+bar-l:  48px,
+bar-s:  36px,
+bar-xl: 54px,
+bar-xs: 32px,
+bar-xxl:    64px,
+bar-xxs:    28px,
+bar-pd-m:   16px,
+bar-pd-l:   20px,
+bar-pd-s:   12px,
+bar-pd-xl:  24px,
+bar-pd-xs:  8px,
+bar-pd-xxl: 32px,
+bar-pd-xxs: 6px,
+bar-rd-m:   9px,
+bar-rd-l:   10px,
+bar-rd-s:   8px,
+bar-rd-xl:  12px,
+bar-rd-xs:  7px,
+bar-rd-xxl: 14px,
+bar-rd-xxs: 6px,
+block-m:    68px,
+block-l:    80px,
+block-s:    56px,
+block-xl:   96px,
+block-xs:   44px,
+block-xxl:  118px,
+block-xxs:  36px,
+shadow-m:   8px,
+shadow-l:   12px,
+shadow-s:   4px,
+shadow-xl:  16px,
+shadow-xs:  2px,
+bd-m:   1px,
+blur-m: 16px,
+navbar-m:   48px,
+menubar-max-m:  256px,
+menubar-min-m:  36px,
+taskbar-m:  36px,
+taskitem-m: 192px,
+);
+
+$sizeStrQueue:  huge,large,medium,normal,small,mini,tiny;
+$sizeStrMap: (
+huge:   'xxl',
+large:  'xl',
+medium: 'l',
+normal: 'm',
+small:  's',
+mini:   'xs',
+tiny:   'xxs',
+);
+$sizeKeyMap: (
+xxl:    'huge',
+xl: 'large',
+l:  'medium',
+m:  'normal',
+s:  'small',
+xs: 'mini',
+xxs:    'tiny',
+);
+
+$extraFsSizeQueue:  28,32,48,54,64,72;
+$extraIconSizeQueue:    48,54,64,72,88,96,128;
+$extraBarSizeQueue: 64,72,88,96;
+$extraBtnSizeQueue: 54,64,72,88,96,128;
+
+$shapeList: normal,pill,circle,sharp;
+$stretchList:   square,normal,grow,row;
+$tightnessList: loose,normal,tight;
+
+:root {
+--size-fs-m:    14px;
+--size-fs-l:    16px;
+--size-fs-s:    12px;
+--size-fs-xl:   18px;
+--size-fs-xs:   10px;
+--size-fs-xxl:  20px;
+--size-fs-xxs:  9px;
+--size-fs-xxxl: 24px;
+--size-fs-xxxs: 8px;
+--size-fw-m:    400;
+--size-fw-l:    500;
+--size-fw-s:    300;
+--size-fw-xl:   700;
+--size-fw-xs:   200;
+--size-fw-xxl:  900;
+--size-fw-xxs:  100;
+--size-mg-m:    20px;
+--size-mg-l:    24px;
+--size-mg-s:    16px;
+--size-mg-xl:   20px;
+--size-mg-xs:   12px;
+--size-mg-xxl:  24px;
+--size-mg-xxs:  8px;
+--size-pd-m:    16px;
+--size-pd-l:    20px;
+--size-pd-s:    12px;
+--size-pd-xl:   24px;
+--size-pd-xs:   8px;
+--size-pd-xxl:  32px;
+--size-pd-xxs:  4px;
+--size-rd-m:    12px;
+--size-rd-l:    16px;
+--size-rd-s:    8px;
+--size-rd-xl:   20px;
+--size-rd-xs:   6px;
+--size-rd-xxl:  24px;
+--size-rd-xxs:  4px;
+--size-icon-m:  24px;
+--size-icon-l:  28px;
+--size-icon-s:  20px;
+--size-icon-xl: 32px;
+--size-icon-xs: 16px;
+--size-icon-xxl:    36px;
+--size-icon-xxs:    14px;
+--size-btn-m:   32px;
+--size-btn-l:   36px;
+--size-btn-s:   28px;
+--size-btn-xl:  42px;
+--size-btn-xs:  24px;
+--size-btn-xxl: 48px;
+--size-btn-xxs: 20px;
+--size-btn-fs-m:    14px;
+--size-btn-fs-l:    14px;
+--size-btn-fs-s:    12px;
+--size-btn-fs-xl:   18px;
+--size-btn-fs-xs:   12px;
+--size-btn-fs-xxl:  18px;
+--size-btn-fs-xxs:  10px;
+--size-btn-pd-m:    12px;
+--size-btn-pd-l:    16px;
+--size-btn-pd-s:    8px;
+--size-btn-pd-xl:   20px;
+--size-btn-pd-xs:   6px;
+--size-btn-pd-xxl:  24px;
+--size-btn-pd-xxs:  4px;
+--size-btn-rd-m:    8px;
+--size-btn-rd-l:    9px;
+--size-btn-rd-s:    7px;
+--size-btn-rd-xl:   10px;
+--size-btn-rd-xs:   6px;
+--size-btn-rd-xxl:  12px;
+--size-btn-rd-xxs:  5px;
+--size-bar-m:   40px;
+--size-bar-l:   48px;
+--size-bar-s:   36px;
+--size-bar-xl:  54px;
+--size-bar-xs:  32px;
+--size-bar-xxl: 64px;
+--size-bar-xxs: 28px;
+--size-bar-pd-m:    16px;
+--size-bar-pd-l:    20px;
+--size-bar-pd-s:    12px;
+--size-bar-pd-xl:   24px;
+--size-bar-pd-xs:   8px;
+--size-bar-pd-xxl:  32px;
+--size-bar-pd-xxs:  6px;
+--size-bar-rd-m:    9px;
+--size-bar-rd-l:    10px;
+--size-bar-rd-s:    8px;
+--size-bar-rd-xl:   12px;
+--size-bar-rd-xs:   7px;
+--size-bar-rd-xxl:  14px;
+--size-bar-rd-xxs:  6px;
+--size-block-m: 68px;
+--size-block-l: 80px;
+--size-block-s: 56px;
+--size-block-xl:    96px;
+--size-block-xs:    44px;
+--size-block-xxl:   118px;
+--size-block-xxs:   36px;
+--size-shadow-m:    8px;
+--size-shadow-l:    12px;
+--size-shadow-s:    4px;
+--size-shadow-xl:   16px;
+--size-shadow-xs:   2px;
+--size-bd-m:    1px;
+--size-blur-m:  16px;
+--size-navbar-m:    48px;
+--size-menubar-max-m:   256px;
+--size-menubar-min-m:   36px;
+--size-taskbar-m:   36px;
+--size-taskitem-m:  192px;
+}
+
+
+/**
+ * 主题模块 vars 生成语句
+ * 不要手动修改
+ */
+
+$vars-mode: (default);
+$font-fml-default:  -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+$font-fml-code: 'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace;
+$font-fml-fangsong: 'Times New Roman', '仿宋';
+$font-fml-yahei:    '微软雅黑', 'Microsoft Yahei';
+$font-fml-songti:   'Times New Roman', '宋体';
+$ani-dura:  0.3s;
+
+$varsMap: (
+font-fml-default:   "-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji'",
+font-fml-code:  "'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace",
+font-fml-fangsong:  "'Times New Roman', '仿宋'",
+font-fml-yahei: "'微软雅黑', 'Microsoft Yahei'",
+font-fml-songti:    "'Times New Roman', '宋体'",
+ani-dura:   0.3s,
+);
+
+
+:root {
+--font-fml-default: -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+--font-fml-code:    'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace;
+--font-fml-fangsong:    'Times New Roman', '仿宋';
+--font-fml-yahei:   '微软雅黑', 'Microsoft Yahei';
+--font-fml-songti:  'Times New Roman', '宋体';
+--ani-dura: 0.3s;
+}
+
+
+
+
+/**
+ * SPF-Theme 主题系统配套 scss
+ * !! 此 scss 只定义通用的 主题系统 function|mixin ... 
+ * !! 不要在此文件中定义任何具体的 样式类代码，具体样式写到 atom.scss 中
+ * !! 此文件不处理任何 import 语句
+ * 
+ * SPF-Theme 主题系统变量：
+ *      $colorListAll                       全部颜色名称 list：red,orange,yellow,...,fc,bgc,bdc,...,primary,...
+ *      $colorListBase|Alias|Static...      不同类型的 颜色名称 list
+ *      $colorShiftQueue                    d3,d2,d1,m,l1,l2,l3
+ *      $colorMap                           包含所有颜色定义的 map
+ *      $colorAliasMap                      别面颜色 map (alias: 'color-key', ...)
+ *      $typeList                           primary,danger,warn,success,info
+ *      $effectList                         normal,fill,plain,popout
+ *      $sizeMap                            包含所有尺寸定义的 map
+ *      $sizeShiftQueue                     xxs,xs,s,m,l,xl,xxl
+ *      $sizeStrQueue                       huge,large,medium,normal,small,mini,tiny
+ *      $sizeStrMap                         尺寸字符串 与 m|xl 映射 map  huge --> xxl
+ *      $sizeKeyMap                         m|xl 与 尺寸字符串 映射 map  xxl --> huge
+ *      $extra[Icon|Btn]SizeQueue           icon|btn 额外的尺寸序列 48,54,64,...,128
+ *      $shapeList                          normal,pill,circle,sharp
+ *      $stretchList                        square,normal,grow,row
+ *      $tightnessList                      loose,normal,tight
+ *      $varsMap                            保存所有其他 css 变量的 map
+ */
+
+/**
+ * !! 检查是否存在 dart-scss-patch 文件内容
+ */
+$is-patched: variable-exists(dartScssTypeList);
+
+
+/** SPF-Theme 主题变量 **/
+//status 状态可选列表
+$spfStatusList: normal,hover,active;
+
+/** SPF-Theme 主题变量计算函数 **/
+//根据 effect 类型，status 状态以及 bgk|fk|bdk 初始值，计算 bgk|fk|bdk 在各状态下的值  <返回：map|null>
+@function spf-effect-calc($effect: normal, $status: normal, $bgk: unset, $fk: unset, $bdk: unset) {
+    @if not is-string($effect, $status) or not has($effectList, $effect) or not has($spfStatusList, $status) {
+        @return null;
+    }
+
+    //status == normal 默认初始状态，直接返回
+    @if $status == normal {
+        @return (
+            bgk: $bgk,
+            fk: $fk,
+            bdk: $bdk
+        );
+    }
+
+    //status == hover 状态，所有颜色减淡一级
+    @if $status == hover {
+        $h-bgk: unset;
+        $h-fk:  unset;
+        $h-bdk: if($bdk == unset, unset, color-key-shift($bdk, l1));
+        @if $effect == popout {
+            //popout effect 情况下 
+            @if $fk == unset {
+                $h-bgk: primary-m;  //fc-m;
+            } @else {
+                $h-bgk: $fk;
+            }
+        } @else {
+            //正常的背景翻转，前景跟随
+            $h-bgk: if($bgk == unset, unset, color-key-shift($bgk, l1));
+            $h-fk: if($fk == unset, unset, color-key-shift($fk, l1));
+        }
+        @return (
+            bgk: if(is-nemstr($h-bgk), $h-bgk, unset),
+            fk: if(is-nemstr($h-fk), $h-fk, unset),
+            bdk: if(is-nemstr($h-bdk), $h-bdk, unset),
+        );
+    }
+
+    //status == active 选中状态，所有颜色加深一级
+    @if $status == active {
+        $a-bgk: unset;
+        $a-fk:  unset;
+        $a-bdk: if($bdk == unset, unset, color-key-shift($bdk, d1));
+        @if $effect == popout {
+            //popout effect 情况下
+            @if $fk == unset {
+                $a-bgk: primary-d1; //fc-d1;
+            } @else {
+                $a-bgk: color-key-shift($fk, d1);
+            }
+        } @else {
+            //正常的背景翻转，前景跟随
+            $a-bgk: if($bgk == unset, unset, color-key-shift($bgk, d1));
+            $a-fk: if($fk == unset, unset, color-key-shift($fk, d1));
+        }
+        @return (
+            bgk: if(is-nemstr($a-bgk), $a-bgk, unset),
+            fk: if(is-nemstr($a-fk), $a-fk, unset),
+            bdk: if(is-nemstr($a-bdk), $a-bdk, unset),
+        );
+    }
+
+    @return null;
+}
+//根据传入的 size 尺寸键名，计算对应的 padding|radius|font-size 尺寸值  <返回：map(number)|null>
+@function spf-size-key-calc($skey: bar-m) {
+    //读取基础尺寸值
+    $sz: size-get($skey);
+    @if not is-number($sz) {@return null;}
+    $rtn: (
+        sz: $sz,
+        pd: null,
+        rd: null,
+        fs: null
+    );
+
+    //解析尺寸键名，按规则调用对应的 $sizeMap 值
+    //btn-xxl  -->  (btn-xxl, btn, xxl, l, 3, size)
+    $skl: key-parse($skey, true);
+    //尺寸类型 btn|bar..
+    $ztp: nth($skl, 2);
+    //传入尺寸的偏移形式 以及 偏移量
+    $sfx: nth($skl, 3);     // xxl|xs|m
+    $stp: nth($skl, 4);     // s|m|l
+    $lvl: nth($skl, 5);     // 0|1|2|3|4
+
+    //首先尝试读取 btn-[pd|rd|fs]-[m|xs|xxl]
+    $pd: size-get(#{$ztp}-pd-#{$sfx});
+    $rd: size-get(#{$ztp}-rd-#{$sfx});
+    $fs: size-get(#{$ztp}-fs-#{$sfx});
+    //未获取到则尝试使用 默认的 [pd|rd]-[m|xs|xxl]
+    @if not is-number($pd) {$pd: size-get(pd-#{$sfx});}
+    @if not is-number($rd) {$rd: size-get(rd-#{$sfx});}
+    //字号计算使用单独逻辑
+    @if not is-number($fs) {
+        //根据 传入尺寸偏移量 不同，额外计算 fs 字体尺寸的 尺寸偏移量
+        //0|1|2|3|4 --> 0|0|1|1|2
+        $nlvl: sub(ceil(div(add($lvl, 1), 2)), 1);
+        $nlvl: n-clamp(0, $nlvl, 5);
+        //0|1|2|3|4 --> 0|0|1|1|2 --> ''|''|l1|s1|l2
+        $nsfx: if($nlvl == 0, '', #{$stp}#{$nlvl});
+        //实际 fs 尺寸对应的 键名
+        $fsk: if($nsfx == '', fs-m, key-shift(fs-m, $nsfx, true));
+        $fs: size-get($fsk);
+    }
+    //!! 有任何一个不成功，输出 null
+    @if is-number($pd, $rd, $fs) {
+        $rtn: map.set($rtn, pd, $pd);
+        $rtn: map.set($rtn, rd, $rd);
+        $rtn: map.set($rtn, fs, $fs);
+        @return $rtn;
+    }
+    @return null;
+}
+//根据单行元素的 height 计算 padding|radius|font-size  <返回：map|null>
+@function spf-bar-size-calc($size: btn-m) {
+    $sz: size-get($size);
+    @if not is-number($sz) {@return null;}
+
+    //如果直接传入 number 尺寸值，直接返回自动计算结果
+    @if is-number($size) {
+        @return (
+            sz: $sz,
+            pd: round(div($sz, 2)),
+            rd: round(div($sz, 5)),
+            fs: round(div($sz, 2))
+        );
+    }
+
+    //如果传入了尺寸键名，则根据尺寸键名，解析最终尺寸值
+    @return spf-size-key-calc($size);
+}
+
+
+/** 通用样式注入 mixins **/
+
+/** 基础样式注入 position|width|padding|overflow ... **/
+@mixin spf-po($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $t: unset, $r: unset, $b: unset, $l: unset, $ov: unset) {
+    position: $po;
+    @if $w != unset { width: size-get($w); }
+    @if $h != unset { height: size-get($h); }
+    @if $mg != unset { margin: size-get($mg); }
+    @if $pd != unset { padding: size-get($pd); }
+    @if $l != unset { left: size-get($l); }
+    @if $r != unset { right: size-get($r); }
+    @if $t != unset { top: size-get($t); }
+    @if $b != unset { bottom: size-get($b); }
+    @if $ov != unset { overflow: $ov; }
+    box-sizing: border-box;
+}
+@mixin spf-po-ov($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $t: unset, $r: unset, $b: unset, $l: unset, $ov: hidden) {
+    @include spf-po($po, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
+}
+@mixin spf-po-abs($w: 100%, $h: unset, $mg: 0, $pd: 0, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
+    @include spf-po(absolute, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
+}
+@mixin spf-po-fix($w: 100%, $h: unset, $mg: 0, $pd: 0, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
+    @include spf-po(fixed, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
+}
+/** 基础样式注入 根据输入的 trbl 设置不同 position 位置的 padding/margin/border-width size **/
+/** $p 可选值：$trblQueue **/
+@mixin spf-size-po(
+    $size:      unset,              //要设置的尺寸 
+    $p:         '',                 //要设置尺寸值的 position 位置，可选值：$trblQueue，默认不指定，表示所有位置
+    $prop:      padding,            //要设置尺寸值的 css 属性，默认 padding，可选 padding/margin/border-width
+    $important: false               //是否增加 important
+) {
+    @if $p != '' {
+        $pa: trbl($p);
+        $pov: set-trbl($pa, $size);
+        @if is-nemlist($pov) {
+            @if $important == true {
+                #{$prop}: #{$pov} !important;
+            } @else {
+                #{$prop}: #{$pov};
+            }
+        }
+    } @else {
+        @if $important == true {
+            #{$prop}: $size !important;
+        } @else {
+            #{$prop}: $size;
+        }
+    }
+}
+/** 基础样式注入 根据输入的 corner 设置不同位置的 radius size **/
+/** $r 可选值：$cornerQueue **/
+@mixin spf-size-rd(
+    $size:      unset,              //要设置的尺寸 
+    $r:         '',                 //要设置尺寸值的 corner 位置，可选值：$cornerQueue，默认不指定，表示所有位置
+    $important: false               //是否增加 important
+) {
+    @if $r != '' {
+        $ra: corner($r);
+        $rav: set-corner($ra, $size);
+        @if is-nemlist($rav) {
+            @if $important == true {
+                border-radius: #{$rav} !important;
+            } @else {
+                border-radius: #{$rav};
+            }
+        }
+    } @else {
+        @if $important == true {
+            border-radius: $size !important;
+        } @else {
+            border-radius: $size;
+        }
+    }
+}
+/** 基础样式注入 flex 布局 **/
+@mixin spf-flex($dir: row, $x: flex-start, $y: center, $gap: unset, $inner: true) {
+    display: flex; flex-direction: $dir;
+    @if $dir == row {
+        align-items: $y; justify-content: $x;
+    } @else {
+        align-items: $x; justify-content: $y;
+    }
+
+    //自动生成内部子样式类
+    @if $inner == true {
+        @for $i from 1 through 8 {
+            &>.flex-#{$i} {
+                $wh: if($dir == column, height, width);
+                #{$wh}: unset;
+                flex: $i;
+            }
+        }
+    
+        &.flex-no-shrink {
+            &>*, &>view {
+                flex-shrink: 0;
+            }
+        }
+    
+        &.flex-with-gap {
+            $gap-side: if($dir == column, top, left);
+            @if $gap != unset {
+                $gap: size-get($gap);
+                @if is-number($gap) {
+                    &>*, &>view {
+                        &:not(:first-child) {
+                            margin-#{$gap-side}: $gap;
+                        }
+                    }
+                }
+            }
+            @each $qi in $sizeShiftQueue {
+                $gapi: size-get(mg-#{$qi});
+                @if is-number($gapi) {
+                    &.flex-gap-#{$qi} {
+                        &>*, &>view {
+                            &:not(:first-child) {
+                                margin-#{$gap-side}: $gapi;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    
+        &.flex-center {justify-content: center; align-items: center;}
+        &.flex-start {justify-content: flex-start; align-items: flex-start;}
+        &.flex-end {justify-content: flex-end; align-items: flex-end;}
+        &.flex-stretch {justify-content: stretch; align-items: stretch;}
+    
+        &[class*=flex-x-] {
+            $prop: if($dir == column, align-items, justify-content);
+            &[class*=x-center] {#{$prop}: center;}
+            &[class*=x-start] {#{$prop}: flex-start;}
+            &[class*=x-end] {#{$prop}: flex-end;}
+            &[class*=x-stretch] {#{$prop}: stretch;}
+        }
+        &[class*=flex-y-] {
+            $prop: if($dir == row, align-items, justify-content);
+            &[class*=y-center] {#{$prop}: center;}
+            &[class*=y-start] {#{$prop}: flex-start;}
+            &[class*=y-end] {#{$prop}: flex-end;}
+            &[class*=y-stretch] {#{$prop}: stretch;}
+        }
+    }
+}
+@mixin spf-flex-x($x: flex-start, $y: center, $gap: unset) {
+    @include spf-flex(row, $x, $y, $gap, true);
+}
+@mixin spf-flex-y($x: flex-start, $y: flex-start, $gap: unset) {
+    @include spf-flex(column, $x, $y, $gap, true);
+}
+@mixin spf-flex-x-noinner($x: flex-start, $y: center, $gap: unset) {
+    @include spf-flex(row, $x, $y, $gap, false);
+}
+@mixin spf-flex-y-noinner($x: flex-start, $y: flex-start, $gap: unset) {
+    @include spf-flex(column, $x, $y, $gap, false);
+}
+/** 基础样式注入 链接样式 **/
+@mixin spf-a($base: primary, $important: false) {
+    text-decoration: underline;
+    text-underline-offset: 0.3em;
+    transition: color $ani-dura,
+                text-underline-offset .1s;
+
+    &:hover {
+        text-underline-offset: 0.2em;
+    }
+
+    $bk: #{$base}-m;
+    $bc: color-get($bk);
+    $hc: color-get(color-key-shift($bk, l1));
+    $ac: color-get(color-key-shift($bk, d1));
+    @if is-color($bc, $hc, $ac) {
+        @if $important == true {
+            color: $bc !important;
+            &:hover {
+                color: $hc !important;
+            }
+            &:visited, &[class*=active] {
+                color: $ac !important;
+            }
+        } @else {
+            color: $bc;
+            &:hover {
+                color: $hc;
+            }
+            &:visited, &[class*=active] {
+                color: $ac;
+            }
+        }
+    }
+}
+/** 基础样式注入 text-ellipsis 样式 **/
+@mixin spf-text-ellipsis() {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+/** 基础样式注入 模拟移动端滚动条效果 **/
+@mixin spf-scroll(
+    $size:      6px,            //滚动条宽度
+    $fc:        bdc-d1,         //滚动条背景色，传入可通过 color-get 方法获取色值的 颜色键名|transparent
+    $fc-hover:  bdc-d2,         //滚动条悬停背景色，传入可通过 color-get 方法获取色值的 颜色键名|transparent
+    $bgc:       transparent,    //滚动轨道背景色，传入可通过 color-get 方法获取色值的 颜色键名|transparent
+    $ov:        hidden auto,    //垂直|水平 滚动条显示
+    $round:     false,          //滚动条是否圆角
+    $behavior:  smooth
+) {
+    $fcv: color-get($fc);
+    $fchv: color-get($fc-hover);
+    $bgcv: color-get($bgc);
+
+    overflow: $ov;
+    scroll-behavior: $behavior;
+    /* 滚动条占位宽度 = 0，内容区域 100 % */
+    scrollbar-gutter: stable;
+
+    &::-webkit-scrollbar {
+        width: $size; 
+        height: $size;
+    }
+    &::-webkit-scrollbar-track {background-color: $bgcv;}
+    &::-webkit-scrollbar-thumb  {
+        background-color: $fcv;
+        cursor: ns-resize;
+        transition: all .3s;
+
+        @if $round == true {
+            border-radius: $size / 2;
+        }
+
+        &:hover {background-color: $fchv;}
+    }
+    &::-webkit-scrollbar:horizontal {
+        cursor: ew-resize;
+    }
+
+    /* iOS 惯性回弹必备 */
+    //-webkit-overflow-scrolling: touch;
+    /* 可选：隐藏系统默认箭头按钮 */
+    //scrollbar-width: none;   /* Firefox 直接变窄，不占位 */
+}
+/** 复合样式注入 注入 effect 样式的实际 background-color|border-color|color 样式值 **/
+@mixin spf-set-effect(
+    $bgk:       unset,              //背景色 实际样式值  string 类型颜色键名 | unset
+    $fk:        unset,              //前景色 实际样式值  string 类型颜色键名 | unset
+    $bdk:       unset,              //边框色 实际样式值  string 类型颜色键名 | unset
+) {
+    $bgc: null;
+    $fc: null;
+    $bdc: null;
+    //background-color
+    @if $bgk != unset {
+        $tc: color-get($bgk);
+        @if is-color($tc) {$bgc: $tc;}
+    }
+    //color
+    @if $fk == unset {
+        $tc: null;
+        @if is-color($bgc) and $bgc != transparent {
+            $tc: fore-color($bgc, 0.8);
+        } @else {
+            $tc: color-get(fc-m);
+        }
+        @if is-color($tc) {$fc: $tc;}
+    } @else {
+        $tc: color-get($fk);
+        @if is-color($tc) {$fc: $tc;}
+    }
+    //border-color
+    @if $bdk != unset {
+        $tc: color-get($bdk);
+        @if is-color($tc) {$bdc: $tc;}
+    }
+    //设置样式
+    @if is-color($bgc) {background-color: $bgc;}
+    @if is-color($fc) {
+        color: $fc;
+        //后代样式
+        &>svg[class*=icon] {
+            color: $fc;
+        }
+    }
+    @if is-color($bdc) {
+        border: {
+            style: solid;
+            width: $size-bd-m;
+            color: $bdc;
+        }
+    } @else {
+        border: {
+            style: solid;
+            width: 0;
+            color: transparent;
+        }
+    }
+}
+/** 复合样式注入 注入 单行元素的 size 相关样式 **/
+@mixin spf-set-bar-size($pre: bar-, $sz, $pd, $rd, $fs) {
+    //pd 值作为间距
+    $pd-20x: round(mul($pd, 2));
+    $pd-05x: round(div($pd, 2));
+
+    //注入默认样式
+    height: $sz;
+    padding: 0 $pd;
+    font-size: $fs;
+    //默认 shape
+    border-radius: $rd;
+    //默认 stretch
+    min-width: $sz;
+
+    //默认后代元素
+    &>*:not(:first-child) {
+        //内部元素间距
+        margin-left: $pd-05x;
+    }
+    //内部图标
+    //&>svg[class*=icon] {
+        //font-size: round(mul($fs, 1.2));
+        //&:first-child {
+        //    margin-left: mul($pd-05x, -1);
+        //}
+        //&:last-child {
+        //    margin-right: mul($pd-05x, -1);
+        //}
+    //}
+
+    //同级元素间距
+    &+*[class*=#{$pre}] {
+        margin-left: $pd-05x;
+    }
+}
+@mixin spf-set-bar-size-static($pre: bar-) {
+    width: unset;
+    //默认后代元素
+    &>*:first-child {
+        margin-left: 0;
+        margin-right: 0;
+    }
+    &>*:not(:first-child) {
+        margin-right: 0;
+    }
+
+    //同级元素间距
+    &+*[class*=#{$pre}] {
+        margin-right: 0;
+    }
+}
+/** 复合样式注入 注入 单行元素的 shape 相关样式 **/
+@mixin spf-set-bar-shape($pre: bar-, $sz, $pd, $rd, $fs) {
+    //尺寸计算
+    $sz-05x: round(div($sz, 2));
+
+    //构建当前 size 下的 border-radius 样式值
+    $rds: (
+        normal: $rd,
+        pill:   $sz-05x,
+        circle: $sz-05x,
+        sharp:  0,
+    );
+    //循环 shapeList
+    @each $spi in $shapeList {
+        $rdi: map.get($rds, $spi);
+        @if is-number($rdi) {
+            //定义 shape-* 类  覆盖 stretch-*
+            &.#{$pre}shape-#{$spi} {
+                border-radius: $rdi;
+                @if $spi == circle {
+                    &.#{$pre}stretch-normal, &.#{$pre}stretch-grow, &.#{$pre}stretch-row {
+                        width: $sz;
+                    }
+                }
+            }
+        }
+    }
+}
+@mixin spf-set-bar-shape-static($pre: bar-) {
+    &.#{$pre}shape-circle {
+        //覆盖 stretch-*
+        &.#{$pre}stretch-normal, &.#{$pre}stretch-grow, &.#{$pre}stretch-row {
+            padding: 0;
+            //水平|垂直 居中
+            align-items: center;
+            justify-content: center;
+            //内部
+            &>* {margin: 0;}
+        }
+        //覆盖 tightness-*
+        &.#{$pre}tightness-normal, &.#{$pre}tightness-loose, &.#{$pre}tightness-tight {
+            padding: 0;
+            //内部
+            &>* {margin: 0;}
+        }
+    }
+}
+/** 复合样式注入 注入 单行元素的 stretch 相关样式 **/
+@mixin spf-set-bar-stretch($pre: bar-, $sz, $pd, $rd, $fs) {
+    //stretch == normal
+    &.#{$pre}stretch-normal {
+        min-width: $sz;
+    }
+    //stretch == square
+    &.#{$pre}stretch-square {
+        width: $sz;
+    }
+}
+@mixin spf-set-bar-stretch-static($pre: bar-) {
+    //stretch == normal
+    &.#{$pre}stretch-normal {
+        width: unset;
+    }
+    //stretch == square
+    &.#{$pre}stretch-square {
+        padding: 0;
+        //水平|垂直 居中
+        align-items: center;
+        justify-content: center;
+        //内部
+        &>* {margin: 0;}
+    }
+    //stretch == grow 自动占满剩余空间
+    &.#{$pre}stretch-grow {
+        width: unset;
+        flex: 1;
+    }
+    //stretch == row 整行
+    &.#{$pre}stretch-row {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+/** 复合样式注入 注入 单行元素的 tightness 相关样式 **/
+@mixin spf-set-bar-tightness($pre: bar-, $sz, $pd, $rd, $fs) {
+    $pd-20x: round(mul($pd, 2));
+    $pd-05x: round(div($pd, 2));
+
+    //构建 tightness 与 padding值的 map 映射
+    $pds: (
+        loose: $pd-20x,
+        normal: $pd,
+        tight: $pd-05x,
+    );
+    //tightness 循环
+    @each $ti in $tightnessList {
+        $pdv: map.get($pds, $ti);
+        $pdv-05x: round(div($pdv, 2));
+        @if is-number($pdv) {
+            &.#{$pre}tightness-#{$ti} {
+                padding: 0 $pdv;
+                //内部元素间距
+                &>*:not(:first-child) {
+                    margin-left: $pdv-05x;
+                }
+                //外部同级元素间距
+                &+*[class*=#{$pre}] {
+                    &:not([class*=stretch-row]) {
+                        margin-left: $pdv-05x;
+                    }
+                }
+            }
+        }
+    }
+}
+@mixin spf-set-bar-tightness-static($pre: bar-) {
+
+}
+
+
+
+/** 批量注入样式 **/
+
+/** 根据 $list 颜色名称数组，为 当前类 或 后代类 指定颜色样式
+    例如：
+    .foo {
+        @include spf-color-shift(
+            $pre:       bg-,
+            $target:    child,
+            $prop:      background-color,
+            $ckey:      bg,
+            $opa:       true
+        );
+    }
+    编译后：
+    .foo * { background-color: color-bg; }  //如果存在 color-{ckey}
+    .foo .bg-l1 { background-color: color-bg-l1; }
+    .foo .bg-l2 { background-color: color-bg-l2; }
+    .foo .bg-l1-a1 { background-color: color-bg-l1-a1; }  //透明度循环
+    .foo .bg-l1-a2 { background-color: color-bg-l1-a2; }
+    .foo .bg-red { background-color: color-red; }
+    .foo .bg-red-hover { background-color: color-red; }
+    .foo .bg-red-hover:hover { background-color: color-red-l1; }
+    .foo .bg-red-l1 { background-color: color-red-l1; }
+    .foo .bg-red-l2 { background-color: color-red-l2; }
+    .foo .bg-red-l1-a1 { background-color: color-red-l1-a1; }  //透明度循环
+    .foo .bg-red-l1-a2 { background-color: color-red-l1-a2; }
+    .foo .bg-blue { background-color: color-blue; }
+    .foo .bg-blue-l1 { background-color: color-blue-l1; }
+    .foo .bg-blue-l2 { background-color: color-blue-l2; }
+    .foo .bg-blue-l1-a1 { background-color: color-blue-l1-a1; }  //透明度循环
+    .foo .bg-blue-l1-a2 { background-color: color-blue-l1-a2; }
+**/
+@mixin spf-color-shift(
+    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       fc-,                //新增颜色样式的类前缀，如：fc- 则 生成类：.foo.fc-red-m | .foo .fc-red-m
+    $prop:      color,              //要设置颜色的 css 属性，可选 color/border-color/background-color/... 默认 color
+                                    //!! 也可以传入自定义的 mixin 必须接受 3 个参数：
+                                    //!! pre 类名前缀，color 当前的颜色值，ckey 当前的颜色键名
+                                    //!! 自定义的 mixin 名称必须以 spf-color-shift-mix- 开头 只需要传入结尾部分字符串
+                                    //!! 例如：spf-color-shift-mix-foo-bar 只需传入 foo-bar
+    $ckey:      fc,                 //$prop 属性的默认颜色名，如：background-color 的默认颜色名为 bgc ($color-bgc-*)
+    $opa:       false,              //是否启用透明度，true 表示同时循环透明度
+    $filter:    null,               //是否在 colorMap 中筛选部分颜色值 作为循环数据源  颜色键名(前缀) list
+    $que:       null,               //可以手动指定 colorShiftQueue 只循环部分颜色
+) {
+    $cque:      $colorShiftQueue;   //储存所有颜色 shift 变化 lvl 的 list，如：l2,l1,d1,d2 默认 $colorShiftQueue
+    @if is-nemlist($que) {
+        $cque: inter($cque, $que);
+    }
+    $list:      $colorListBase;     //颜色名称 list 数组，默认 $colorListBase 基础通用色
+    //从 base 颜色中去除 alias 别名颜色后 作为颜色循环的数据源
+    $list: remove($list, $colorListAlias...);
+    //如果指定的 $ckey 键名不在 $list 中，则插入
+    @if is-nemstr($ckey) and not has($list, $ckey) {
+        $list: push($list, $ckey);
+    }
+    //筛选 $colorMap 加快 map.get 速度
+    @if not is-nemlist($filter) {
+        $filter: mk($list...);
+    } @else {
+        $filter: unique(push($filter, $list...));
+        $list: mk($filter...);
+    }
+    $cmap: if(not is-nemlist($filter), $colorMap, map-filter-keys($colorMap, $filter...));
+
+    //样式类前缀
+    //$clspre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
+    $clspre: cls-pre($target, $pre);
+    //可能存在的 传入 mixin 名称
+    $mixn: 'spf-color-shift-mix-' + $prop;
+
+    @each $c in $list {
+        //获取当前颜色 key 可能存在的别名  blue --> primary
+        $alia: map-get-key($colorAliasMap, quote(to-string($c)));
+        @each $cq in $cque {
+            //针对 $pre 与 颜色名称相同的 情况
+            //例如 $pre = fc- 颜色列表中又包含了 fc-m 颜色，则会生成 .fc-fc-m 颜色类
+            //此处解决这个问题
+            $ck: '';
+            $ci: null;
+            //$clsn: '';
+            $clsns: ();
+            @if $ckey == $c {
+                $ck: #{$cq};
+                $ci: color-get(#{$c}-#{$cq}, null, $cmap);
+                //m 级别颜色生成 2 个类名 .pre, .pre-m
+                @if $cq == m {
+                    $clsns: push($clsns, str-sub($clspre, 1, -2));
+                }
+            } @else {
+                $ck: #{$c}-#{$cq};
+                $ci: color-get($ck, null, $cmap);
+                //m 级别颜色生成 2 个类名 .pre-red, .pre-red-m
+                @if $cq == m {
+                    $clsns: push($clsns, #{$clspre}#{$c});
+                }
+            }
+            $clsns: push($clsns, #{$clspre}#{$ck});
+            //如果存在 alia 别名，则增加别名类名 .pre-red, .pre-red-m  -->  .pre-red, .pre-red-m, .pre-danger, .pre-danger-m
+            @if is-nemstr($alia) {
+                @if $cq == m {
+                    $clsns: push($clsns, #{$clspre}#{$alia});
+                }
+                $clsns: push($clsns, #{$clspre}#{$alia}-#{$cq});
+            }
+            @if is-color($ci) {
+                #{$clsns} {
+                    @if meta.mixin-exists($mixn) {
+                        //传入了 mixin 则应用此 mixin 并传入 参数
+                        @include meta.apply(meta.get-mixin($mixn), $pre, $ci, #{$c}-#{$cq});
+                    } @else {
+                        #{$prop}: #{$ci} !important;
+
+                        // 针对 color-m 级别的颜色 
+                        @if $cq == 'm' {
+                            //自动通过 pre-hoverable 增加悬停翻转颜色样式
+                            // hover 默认使用 color-l1 级颜色
+                            $ci-hov: color-get(#{$c}-l1, null, $cmap);
+                            // visited 默认使用 color-d1 级颜色
+                            $ci-act: color-get(#{$c}-d1, null, $cmap);
+                            @if is-color($ci-hov, $ci-act) {
+                                &.#{$pre}hoverable {
+                                    &:hover {
+                                        #{$prop}: #{$ci-hov} !important; 
+                                    }
+                                    &:visited {
+                                        #{$prop}: #{$ci-act} !important; 
+                                    }
+                                }
+                            }
+
+                            //颜色透明度循环，自带透明度的颜色不执行透明度循环
+                            @if $opa == true and not has-alpha($ci) {
+                                //从 0.1~0.9 循环生成透明度颜色值
+                                @for $i from 1 through 9 {
+                                    $alpha: mul($i, 0.1);
+                                    //$alhex: to-hex(round(mul($alpha, 255)));
+                                    //$alhex: if(str-len($alhex) == 1, '0' + $alhex, $alhex);
+                                    //新颜色
+                                    $nci: set-alpha($ci, $alpha);
+
+                                    &.#{$pre}a#{$i} {
+                                        #{$prop}: #{$nci} !important;
+                                    }
+                                }
+                            }
+                        }
+                        
+                    }
+                }
+            }
+        }
+    }
+}
+/** size-shift **/
+/** 根据 $list 可选尺寸数组(如：xs,s,m,l,xl)，为 当前类 或 后代类 指定尺寸样式 **/
+@mixin spf-size-shift(
+    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       pd-,                //样式类前缀，如：pd- 则生成类：.foo.pd-xxl | .foo .pd-xs
+    $prop:      padding,            //要设置尺寸的 css 属性，可选 padding/margin/font-size/border-width/border-radius... 默认 padding
+                                    //!! 也可以传入自定义的 mixin 必须接受 3 个参数：
+                                    //!! pre 类名前缀，size 尺寸值，skey 尺寸键名(btn-xxl)
+                                    //!! 自定义的 mixin 名称必须以 spf-size-shift-mix- 开头 只需要传入结尾部分字符串
+                                    //!! 例如：spf-size-shift-mix-foo-bar 只需传入 foo-bar
+    $skey:      pd,                 //在尺寸 map 中的键名前缀，如 fs|pd|mg|rd|btn...
+    $manual:    null,               //手动通过数值指定尺寸 list 如：24,32,48,54
+    $trbl:      true,               //是否自动循环输出 trbl position 参数
+    //$filter:    null,               //!! 自动根据 $skey 筛选 不需要手动提供
+    $que:       null,               //可以手动指定 sizeShiftQueue 只循环部分尺寸
+) {
+    //需要执行 位置循环的 $prop list
+    $props: padding,margin,border-width,border-radius;
+    //$sizeShiftQueue
+    $sque: mk($sizeShiftQueue...);
+    @if is-nemlist($que) {$sque: inter($sque, $que);}
+    //根据 $skey 筛选 $sizeMap
+    $smap: map-filter-keys($sizeMap, $skey);
+    //类名前缀
+    //$clspre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
+    $clspre: cls-pre($target, $pre);
+    //可能存在的 传入 mixin 名称
+    $mixn: 'spf-size-shift-mix-' + $prop;
+
+    @each $sz in $sque {
+        //类名 .pre-xxl
+        $clsns: mk(#{$clspre}#{$sz});
+        //在 $sizeKeyMap 中  xxl: huge
+        $ski: map.get($sizeKeyMap, $sz);
+        //增加语义类名 .pre-xxl  -->  .pre-xxl, .pre-huge
+        @if is-nemstr($ski) {
+            $clsns: push($clsns, #{$clspre}#{$ski});
+        }
+        $si: size-get(#{$skey}-#{$sz}, null, $smap);
+        @if is-number($si) {
+            #{$clsns} {
+                @if meta.mixin-exists($mixn) {
+                    //如果传入 mixin 则应用此 mixin 并传入参数
+                    @include meta.apply(meta.get-mixin($mixn), $pre, $si, #{$skey}-#{$sz});
+                } @else {
+                    #{$prop}: $si !important;
+                    
+                    // 对于某些 prop 还需要执行 位置循环
+                    @if $trbl == true and has($props, $prop, true) {
+                        @if $prop == border-radius {
+                            // 针对 radius 执行特殊循环
+                            @each $ri in $cornerQueue {
+                                // .pre-rd-trbl
+                                $rdclsn: if($pre == rd-, #{$pre}po-#{$ri}, #{$pre}rd-#{$ri});
+                                &.#{$rdclsn} {
+                                    //#{$prop}: 0 !important;
+                                    @include spf-size-rd($si, $ri, true);
+                                }
+                            }
+                        } @else {
+                            // 正常的 trbl 循环
+                            @each $pi in $trblQueue {
+                                // .pre-po-trbl
+                                &.#{$pre}po-#{$pi} {
+                                    //#{$prop}: 0 !important;
+                                    @include spf-size-po($si, $pi, $prop, true);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //通过手动传入尺寸值，来设置尺寸样式
+
+    //主题系统生成的 sizeMap 一定包含 -m 原始尺寸
+    $msz: size-get(#{$skey}-m, null, $smap);
+    //获取当前尺寸值序列的单位 如：px 主题系统生成的 sizeMap 相同键名一定拥有相同单位
+    $mu: if(is-number($msz), unit($msz), '');
+
+    @if is-nemlist($manual) {
+        @each $sz in $manual {
+            @if is-number($sz) {
+                $sz: set-unit($sz, $mu);
+                // .pre-10px
+                #{$clspre}#{$sz} {
+                    @if meta.mixin-exists($mixn) {
+                        //如果传入 mixin 则应用此 mixin 并传入参数
+                        @include meta.apply(meta.get-mixin($mixn), $pre, $sz, manual);
+                    } @else {
+                        #{$prop}: $sz !important;
+    
+                        // 对于某些 prop 还需要执行 位置循环
+                        @if $trbl == true and has($props, $prop, true) {
+                            @if $prop == border-radius {
+                                // 针对 radius 执行特殊循环
+                                @each $ri in $cornerQueue {
+                                    // .pre-rd-trbl
+                                    $rdclsn: if($pre == rd-, #{$pre}po-#{$ri}, #{$pre}rd-#{$ri});
+                                    &.#{$rdclsn} {
+                                        @include spf-size-rd($sz, $ri, true);
+                                    }
+                                }
+                            } @else {
+                                // 正常的 trbl 循环
+                                @each $pi in $trblQueue {
+                                    // .pre-po-trbl
+                                    &.#{$pre}po-#{$pi} {
+                                        @include spf-size-po($sz, $pi, $prop, true);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+/** 批量引用 color-shift 生成的样式类，减少代码量 **/
+@mixin spf-color-extend(
+    $target:    self,               //要将颜色样式引用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       icon-,              //样式类前缀，如：icon- 则生成类：.foo.icon-red | .foo .icon-red-l
+    $extend:    fc-,                //要引用的 颜色样式类前缀 fc- 表示将引用 .fc-red|.fc-red-l2...
+    $ckey:      fc,                 //默认颜色键名，如：background-color 的默认颜色名为 bgc ($color-bgc-*)
+    $filter:    null,               //是否在 colorMap 中筛选部分颜色值 作为循环数据源  颜色键名(前缀) list
+    $que:       null,               //可以手动指定要引用的 颜色 shiftQueue 例如：(l3,m,d3)
+) {
+    $cque:      $colorShiftQueue;   //储存所有颜色 shift 变化 lvl 的 list，如：l2,l1,d1,d2 默认 $colorShiftQueue
+    @if is-nemlist($que) {
+        $cque: inter($cque, $que);
+    }
+    $list:      $colorListBase;     //颜色名称 list 数组，默认 $colorListBase 基础通用色
+    //从 base 颜色中去除 alias 别名颜色后 作为颜色循环的数据源
+    $list: remove($list, $colorListAlias...);
+    //如果指定的 $ckey 键名不在 $list 中，则插入
+    @if is-nemstr($ckey) and not has($list, $ckey) {
+        $list: push($list, $ckey);
+    }
+    //筛选 $colorMap 加快 map.get 速度
+    @if is-nemlist($filter) {
+        $list: unique(push($list, $filter...));
+    }
+    //样式类前缀
+    $clspre: cls-pre($target, $pre);
+
+    @each $c in $list {
+        //获取当前颜色 key 可能存在的别名  blue --> primary
+        $alia: map-get-key($colorAliasMap, quote(to-string($c)));
+        @each $cq in $cque {
+            $ck: '';
+            //$clsn: '';
+            $clsns: ();
+            @if $ckey == $c {
+                $ck: #{$cq};
+                //m 级别颜色生成 2 个类名 .pre, .pre-m
+                @if $cq == m {
+                    $clsns: push($clsns, str-sub($clspre, 1, -2));
+                }
+            } @else {
+                $ck: #{$c}-#{$cq};
+                //m 级别颜色生成 2 个类名 .pre-red, .pre-red-m
+                @if $cq == m {
+                    $clsns: push($clsns, #{$clspre}#{$c});
+                }
+            }
+            $clsns: push($clsns, #{$clspre}#{$ck});
+            //如果存在 alia 别名，则增加别名类名 .pre-red, .pre-red-m  -->  .pre-red, .pre-red-m, .pre-danger, .pre-danger-m
+            @if is-nemstr($alia) {
+                @if $cq == m {
+                    $clsns: push($clsns, #{$clspre}#{$alia});
+                }
+                $clsns: push($clsns, #{$clspre}#{$alia}-#{$cq});
+            }
+            //执行 extend 
+            #{$clsns} {
+                //!! optional 必须
+                @extend .#{$extend}#{$ck} !optional;
+            }
+        }
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的 effect 样式 **/
+@mixin spf-effect-shift(
+    $target:    self,               //此 effect 样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       bar-,               //样式类前缀，如：bar- 则生成类：.bar-red.bar-effect-normal|fill|plain|popout
+    $mixin:     null,               //!! 可以传入自定义的 mixin 必须接受 5 个参数： 
+                                    //!! pre 类名前缀，effect 类型，bgk 背景色键，fk 前景色键，bdk 边框色键
+                                    //!! 自定义的 mixin 名称必须以 spf-effect-shift-mix- 开头 只需要传入结尾部分字符串
+                                    //!! 例如：spf-effect-shift-mix-foo-bar 只需传入 foo-bar
+                                    //!! 默认 spf-effect-shift-mix-default
+) {
+    $list:      $colorListBase;     //颜色名称 list 数组，默认 $colorListBase 基础通用色
+    //从 base 颜色中去除 alias 别名颜色后 作为颜色循环的数据源
+    $list: remove($list, $colorListAlias...);
+    //将 no-color 添加到颜色 list 头部(无法查询到颜色)，作为默认 effect 基础色
+    $list: unshift($list, 'no-color');
+
+    //当前类|后代类 的 类名前缀
+    $clspre: cls-pre($target, $pre);
+
+    //mixin 名称
+    $mixn: if(is-nemstr($mixin), $mixin, 'default');
+    $mixn: spf-effect-shift-mix-#{$mixn};
+    //mixin 必须存在
+    @if meta.mixin-exists($mixn) {
+        //获取 mixin
+        $mix: meta.get-mixin($mixn);
+
+        //颜色循环
+        @each $base in $list {
+            //颜色值
+            $ci: null;
+            //颜色别名
+            $alias: null;
+            @if $base != 'no-color' {
+                $ci: color-get(#{$base}-m);
+                $alias: map-get-key($colorAliasMap, quote(to-string($base)));
+            }
+
+            //根据 base 基础颜色 以及 effect 类型，确定 bgk|fk|bdk 的初始状态值
+            $normal-ks: null;
+            $fill-ks:   null;
+            $plain-ks:  null;
+            $popout-ks: null;
+            @if is-null($ci) {
+                //未指定 base 基础颜色键名  使用默认颜色
+                $normal-ks: (   bgk: bgc-m,     fk: fc-m,   bdk: bdc-m  );
+                $fill-ks:   (   bgk: gray-m,    fk: unset,  bdk: unset  );
+                $plain-ks:  (   bgk: white-m,   fk: fc-m,   bdk: bdc-m  );
+                $popout-ks: (   bgk: transparent,   fk: unset,   bdk: unset  );
+            } @else {
+                $bk: #{$base}-m;
+                $normal-ks: (   bgk: #{$base}-l2,   fk: unset,  bdk: #{$base}-l1    );
+                $fill-ks:   (   bgk: $bk,           fk: unset,  bdk: unset  );
+                $plain-ks:  (   bgk: white-m,       fk: $bk,    bdk: $bk    );
+                $popout-ks: (   bgk: transparent,   fk: $bk,    bdk: unset  );
+            }
+            //构建 不同 effect 类型下的 颜色键名 map
+            $ks: (
+                normal: $normal-ks,
+                fill:   $fill-ks,
+                plain:  $plain-ks,
+                popout: $popout-ks,
+            );
+
+            //类名序列
+            $clsns: ();
+            @if is-null($ci) {
+                //$base == null 默认 effect 效果
+                @if not & {
+                    $clsns: push($clsns, str-sub($clspre, 1, -2));
+                } @else {
+                    $clsns: push($clsns, cls-pre($target, ''));
+                }
+            } @else {
+                //指定了 $base 基本色
+                $clsns: push($clsns, #{$clspre}#{$base}-m);
+                @if is-nemstr($alias) {
+                    //基本色存在 别名
+                    $clsns: push($clsns, #{$clspre}#{$alias}-m);
+                }
+            }
+
+            #{$clsns} {
+                //effect 循环
+                @each $efi in $effectList {
+                    $ksmap: map.get($ks, $efi);
+                    @if is-nemmap($ksmap) {
+                        $bgk:   map.get($ksmap, bgk);
+                        $fk:    map.get($ksmap, fk);
+                        $bdk:   map.get($ksmap, bdk);
+
+                        &.#{$pre}effect-#{$efi} {
+                            //应用 mixin
+                            @include meta.apply($mix, $pre, $efi, $bgk, $fk, $bdk);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的字体样式 **/
+@mixin spf-fo-shift($target: self, $manual: $extraFsSizeQueue) {
+    //$prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    $prop-pre: cls-pre($target, '.');
+    //颜色循环 .fc-red-m .fc-primary-d3  额外增加 黑白色
+    @include spf-color-shift($target, 'fc-', color, fc, false, (white, black));
+    //尺寸循环 .fs-m .fs-xl .fs-32px 
+    @include spf-size-shift($target, 'fs-', font-size, fs, $manual, false);
+    //字重循环 .fw-xl .fw-m
+    @include spf-size-shift($target, 'fw-', font-weight, fw, (100,200,300,400,500,600,700,800,900), false);
+    //字重快捷类 .fw-normal|bold|thin
+    #{$prop-pre}fw-normal { font-weight: $size-fw-m !important; }
+    #{$prop-pre}fw-bold { font-weight: $size-fw-xl !important; }
+    #{$prop-pre}fw-thin { font-weight: $size-fw-xs !important; }
+    //字体族 .fml-default|code...
+    $fmls: map-filter-keys($varsMap, font-fml);
+    $fmlks: map.keys($fmls);
+    @each $k in $fmlks {
+        //font-fml-foobar --> fml-foobar
+        $ki: str-sub($k, 6);
+        $kv: map.get($fmls, $k);
+        #{$prop-pre}#{$ki} {font-family: unquote($kv) !important;}
+    }
+
+    //其他通用字体样式
+    //链接字体样式 .f-a
+    #{$prop-pre}f-a {
+        @include spf-a(primary);
+    }
+    //高亮字体 .f-highlight
+    #{$prop-pre}f-highlight {
+        box-sizing: border-box;
+        padding: .2em .3em !important;
+        margin: 0 .3em !important;
+        border: {
+            radius: .2em !important;
+            width: 0 !important;
+        }
+        background-color: $color-warn-l3 !important;
+        color: fore-color($color-warn-l3, 0.8) !important;
+        &.hl-border {
+            border: {
+                width: 1px !important;
+                color: $color-warn-l2 !important;
+            }
+        }
+        @each $hc in $typeList {
+            $hcv: color-get(#{$hc}-l3);
+            $hfcv: fore-color(color-get(#{$hc}-l3), 0.8);
+            $hbcv: color-get(#{$hc}-l2);
+            @if $hcv != null {
+                &.hl-#{$hc} {
+                    background-color: $hcv !important;
+                    color: $hfcv !important;
+                    &.hl-border {
+                        border-color: $hbcv !important;
+                    }
+                }
+            }
+        }
+    }
+    //codex 代码字体
+    #{$prop-pre}f-code {
+        padding: .2em .3em !important;
+        margin: 0 .3em !important;
+        border: {
+            radius: .2em !important;
+            width: 0 !important;
+        }
+        background-color: $color-gray-l3 !important;
+        color: $color-primary-d3 !important;
+        font-family: $font-fml-code;
+    }
+    //.f-ellipsis
+    #{$prop-pre}f-ellipsis {
+        @include spf-text-ellipsis;
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的边框样式 可手动指定 border-width|radius 尺寸 list **/
+@mixin spf-bd-shift($target: self, $width: null, $radius: null) {
+    //$prop-pre: if($target == self, unquote("&"), unquote("& "));
+    $prop-pre: cls-pre($target);
+    //颜色循环 .bdc-red-d2 .bdc-m 额外增加 黑白色
+    @include spf-color-shift($target, 'bdc-', border-color, bdc, false, (white, black));
+    #{$prop-pre}[class*=bdc-] {
+        border: {
+            style: solid;
+            width: $size-bd-m;
+        }
+    }
+    //尺寸循环|位置循环 .bd-m .bd-m.bd-rl .bd-m.bd-xy
+    @include spf-size-shift($target, 'bd-', border-width, bd, $width);
+    #{$prop-pre}[class*=bd-] {
+        border: {
+            style: solid;
+            color: $color-bdc-m;
+        }
+    }
+    //圆角循环 .rd-m|xl..
+    @include spf-size-shift($target, 'rd-', border-radius, rd, $radius);
+}
+/** 为 当前类 或 后代类 指定 通用的 padding 样式 **/
+@mixin spf-pd-shift($target: self, $manual: null) {
+    //尺寸循环|位置循环 .pd-m .pd-s.pd-rl .pd-xl.pd-xy
+    @include spf-size-shift($target, 'pd-', padding, pd, $manual);
+}
+/** 为 当前类 或 后代类 指定 通用的 margin 样式 **/
+@mixin spf-mg-shift($target: self, $manual: null) {
+    //尺寸循环|位置循环 .mg-m .mg-s.mg-rl .mg-xl.mg-xy
+    @include spf-size-shift($target, 'mg-', margin, mg, $manual);
+}
+/** 为 当前类 或 后代类 指定 通用的 background 样式 **/
+@mixin spf-bg-shift($target: self, $blur: null) {
+    //$prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    $prop-pre: cls-pre($target, '.');
+    //颜色循环|透明度循环 .bgc-red-d2 .bgc-m .bgc-primary-l1.bgc-a6
+    @include spf-color-shift($target, 'bgc-', background-color, bgc, true, (white, black));
+    //backdrop-filter: blur()
+    @if $blur == null {$blur: size-get(blur-m);}
+    //.bg-blur
+    #{$prop-pre}bg-blur {
+        backdrop-filter: blur($blur) saturate(3);
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的 opacity 样式 **/
+@mixin spf-opa-shift($target: self) {
+    //$prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    $prop-pre: cls-pre($target, '.');
+    @for $opi from 1 through 10 {
+        $opik: $opi * 10;
+        $opiv: $opi / 10;
+        //.opa-10|20|100...
+        #{$prop-pre}opa-#{$opik} {
+            opacity: $opiv !important;
+        }
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的 shadow 样式 **/
+@mixin spf-shadow-shift($target: self, $pre: shadow-, $prop: box-shadow, $color: null) {
+    //$prop-pre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
+    $prop-pre: cls-pre($target, $pre);
+    //阴影颜色固定 可手动通过 color 参数指定
+    $oc: if(is-color($color), $color, $color-shadow-m);
+    //阴影浓度由 alpha 决定，范围 0.15~0.6 间隔 0.15
+    $step: 0.15;
+
+    //循环生成 阴影尺寸|浓度
+    @each $qi in $sizeShiftQueue {
+        //xl --> 16px
+        $sz: size-get(shadow-#{$qi});
+        @if is-number($sz) {
+            $x: div($sz, 2);
+            $y: $sz;
+            $blur: add($sz, set-unit(8, unit($sz)));
+
+            //浓度循环
+            @for $i from 1 through 4 {
+                $alpha: mul($i, $step);
+                $nc: set-alpha($oc, $alpha);
+                //样式子类 .pre-[xxl~m~xxs]-[a1~a4]
+                $clsns: mk(#{$prop-pre}#{$qi}-a#{$i});
+
+                //默认阴影样式 size = m  alpha = 0.3
+                @if $qi == m and $i == 2 {
+                    //默认样式类 .pre
+                    $clsns: push($clsns, str-sub($prop-pre, 1, -2));
+                }
+
+                #{$clsns} {
+                    #{$prop}: #{$x} #{$y} #{$blur} #{$nc};
+                }
+            }
+        }
+    }
+}
+
+
+
+/** 在 *-shift mixin 中应用的 *-shift-mix-* mixins **/
+
+/** 批量设置 单行组件 size **/
+@mixin spf-size-shift-mix-bar-size($pre: bar-, $size: 0, $skey: manual) {
+    //计算单行元素 size 尺寸值
+    $szmap: null;
+    @if $skey == manual {
+        //手动指定的 尺寸值
+        $szmap: spf-bar-size-calc($size);
+    } @else {
+        //从 sizeMap 读取的尺寸值
+        $szmap: spf-bar-size-calc($skey);
+    }
+    //必须得到正确的尺寸值
+    @if is-nemmap($szmap) {
+        //读取计算得到的实际尺寸值
+        $sz: map.get($szmap, sz);
+        $pd: map.get($szmap, pd);
+        $rd: map.get($szmap, rd);
+        $fs: map.get($szmap, fs);
+        @if is-number($sz, $pd, $rd, $fs) {
+            //注入实际尺寸样式
+            @include spf-set-bar-size($pre, $sz, $pd, $rd, $fs);
+            @include spf-set-bar-shape($pre, $sz, $pd, $rd, $fs);
+            @include spf-set-bar-stretch($pre, $sz, $pd, $rd, $fs);
+            @include spf-set-bar-tightness($pre, $sz, $pd, $rd, $fs);
+        }
+    }
+}
+/** 批量设置各 status 下的 effect 样式值 **/
+@mixin spf-effect-shift-mix-default($pre: bar-, $effect: normal, $bgk: unset, $fk: unset, $bdk: unset) {
+    //缓存 normal|active 状态下的 值 map
+    $n-map: null;
+    $a-map: null;
+
+    //status 状态循环
+    @each $status in $spfStatusList {
+        //计算 $status 状态下的 bgk|fk|bdk 值
+        $kmap: spf-effect-calc($effect, $status, $bgk, $fk, $bdk);
+        @if is-nemmap($kmap) {
+            //读取
+            $s-bgk: map.get($kmap, bgk);
+            $s-fk: map.get($kmap, fk);
+            $s-bdk: map.get($kmap, bdk);
+
+            //应用样式
+            @if $status == normal {
+                //缓存
+                $n-map: map.merge((), $kmap);
+                //普通状态 直接写样式
+                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+            } @else if $status == hover {
+                //hover 状态要增加子样式类
+                &.#{$pre}hoverable:hover {
+                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                }
+            } @else if $status == active {
+                //缓存
+                $a-map: map.merge((), $kmap);
+                //active 状态要增加子样式类
+                &.#{$pre}active {
+                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                    //active 状态下需要覆盖 hover 翻转
+                    &.#{$pre}hoverable:hover {
+                        @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                    }
+                }
+            }
+        }
+    }
+
+    //disabled 情况下的 status
+    &.#{$pre}disabled {
+        //强制 opacity 0.3
+        opacity: 0.3 !important;
+        cursor: not-allowed;
+        & * {cursor: not-allowed;}
+
+        //覆盖 normal|hover 状态
+        @if is-nemmap($n-map) {
+            //读取
+            $s-bgk: map.get($n-map, bgk);
+            $s-fk: map.get($n-map, fk);
+            $s-bdk: map.get($n-map, bdk);
+            //覆盖普通状态
+            @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+            //覆盖 hover 状态
+            &.#{$pre}hoverable:hover {
+                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+            }
+        }
+        //覆盖 active 状态
+        @if is-nemmap($a-map) {
+            //读取
+            $s-bgk: map.get($a-map, bgk);
+            $s-fk: map.get($a-map, fk);
+            $s-bdk: map.get($a-map, bdk);
+            //覆盖 active 状态
+            &.#{$pre}active {
+                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                &.#{$pre}hoverable:hover {
+                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 合并资源 temp_spf_kFwuIk.scss
+ * !! 不要手动修改 !!
+ */
+
+
+
+
+/**
+ * 合并资源 base.scss
+ * !! 不要手动修改 !!
+ */
+
+/**
+ * SPF-Vcom vue2.x 组件库 基础样式 scss
+ * vcom/spf/1.0.0/common/base.scss
+ * !! 不要手动修改 !!
+ * 
+ */
+
+//tab 标签行样式
+@mixin spf-tab-row($pre: tab-, $h: $size-bar-m) {
+
+}
+
+
+
+
+/**
+ * 合并资源 icon.scss
+ * !! 不要手动修改 !!
+ */
+
+// spf-icon|icon-logo 组件公用样式
+.spf-icon, .spf-icon-logo {
+    width: 1em; height: 1em;
+    //vertical-align: -0.15em;
+    //margin-top: 0.05em;
+    fill: currentColor;
+    overflow: hidden;
+    transition: all $ani-dura;
+
+    //默认 size
+    font-size: $size-icon-m;
+
+    //尺寸循环 
+    @include spf-size-shift(self, 'icon-', font-size, icon, $extraIconSizeQueue, false);
+}
+
+// spf-icon 组件样式
+.spf-icon {
+    //默认 color
+    color: $color-fc-m;
+
+    //颜色循环 引用 .fc-*
+    @include spf-color-extend(self, icon-, fc-, fc, (white,black), (l1,m,d1));
+}
+
+// spf-icon-logo 组件样式
+.spf-icon-logo {
+    //默认 长方形 logo
+    width: auto; 
+
+    //正方形
+    &.icon-square {
+        width: 1em;
+    }
+
+    //单色 logo
+    &.icon-single-color {
+        //& * {
+            //让填充色继承外部的 color 值
+            fill: currentColor !important;
+            //让描边色也继承（如果 SVG 有描边）
+            stroke: currentColor !important;
+            //清除所有内部的颜色相关属性
+            stroke-color: unset !important;
+            fill-opacity: 1 !important;
+            stroke-opacity: 1 !important;
+        //}
+
+        //颜色循环 引用 .fc-*
+        @include spf-color-extend(self, icon-, fc-, fc, (white,black), (l1,m,d1));
+    }
+}
+
+
+
+
+
+/**
+ * 合并资源 group.scss
+ * !! 不要手动修改 !!
+ */
+
+
+
+
+/**
+ * 合并资源 button.scss
+ * !! 不要手动修改 !!
+ */
+
+.spf-btn {
+    @include spf-po-ov($w: unset, $h: $size-btn-m, $pd: 0 $size-btn-pd-m, $mg: 0);
+    @include spf-flex-x($x: center, $y: center);
+    min-width: $size-btn-m;
+    font-size: $size-btn-fs-m;
+    font-family: $font-fml-default;
+    border: {
+        style: solid;
+        width: 1px;
+    }
+    cursor: pointer;
+    transition: background-color $ani-dura,
+                border-color $ani-dura,
+                transform .1s;
+
+    //icon 图标默认样式
+    &>svg[class*=icon] {
+        cursor: pointer;
+        transition: color .1s;
+        &:first-child {
+            &:last-child {
+                font-size: 1.7em;
+            }
+        }
+        &:not(:last-child):first-child {
+            font-size: 1.6em;
+            margin-left: -0.1em;
+        }
+        &:not(:first-child):last-child {
+            font-size: 1.6em;
+            margin-right: -0.1em;
+        }
+    }
+
+    &>label {
+        margin-top: -0.1em;
+        //@include spf-text-ellipsis;
+        @extend .f-ellipsis;
+        overflow: unset;
+        cursor: pointer;
+        transition: color .1s,
+                    text-underline-offset .1s;
+    }
+    //在 表格单元格中
+    &.btn-incell>label {
+        width: 0; text-align: center;
+    }
+    //当作页面标题
+    &.btn-astitle>label {
+        font-weight: bold;
+        font-size: 1.4em;
+    }
+
+    //mouse-down 按下效果
+    &.btn-mouse-down {
+        transform: scale(0.9);
+        //active|disabled 状态覆盖
+        &.btn-active, &.btn-disabled {
+            transform: none;
+        }
+    }
+    
+    //尺寸循环
+    @include spf-size-shift(self, btn-, bar-size, btn, $extraBtnSizeQueue, true);
+    //与尺寸值无关的 静态样式
+    @include spf-set-bar-size-static(btn-);
+    @include spf-set-bar-shape-static(btn-);
+    @include spf-set-bar-stretch-static(btn-);
+    @include spf-set-bar-tightness-static(btn-);
+
+    //effect
+    @include spf-effect-shift(self, btn-);
+
+    //紧密排列
+    &.btn-no-gap {
+        &+.btn-no-gap {
+            margin-left: 0;
+        }
+    }
+}
+
+
+
+/**
+ * 合并资源 layout.scss
+ * !! 不要手动修改 !!
+ */
+
+
+//共用 layout 边框色
+$layout-bdc: $color-bdc-m;
+
+.spf-layout {
+    @include spf-po-ov($w: 100%, $h: 100vh, $pd: 0, $mg: 0);
+    @include spf-flex-y;
+    background-color: $color-bgc-m;
+
+    &>.layout-navbar-container {
+        @include spf-po-fix($w: 100%, $h: navbar-m, $pd: 0, $mg: 0, $l: 0, $t: 0);
+        @include spf-flex-x-noinner($y: center);
+        border: {
+            style: solid;
+            width: 0 0 $size-bd-m 0;
+            color: $layout-bdc;
+        }
+
+        &>svg[class*=logo], &>.layout-usrbar {
+            width: $size-menubar-max-m;
+        }
+
+        &>.layout-navbar {
+            @include spf-po-ov($w: unset, $h: navbar-m, $pd: 0 bar-pd-xxl, $mg: 0);
+            @include spf-flex-x($y: center);
+            flex: 1;
+
+            &>.navbar-item {
+
+            }
+        }
+
+        &>.layout-usrbar {
+            @include spf-po-ov($w: menubar-max-m, $h: navbar-m, $pd: 0 bar-pd-m, $mg: 0);
+            @include spf-flex-x($x: flex-end);
+
+        }
+    }
+
+    &>.layout-mainbody {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include spf-flex-x-noinner($y: stretch);
+        flex: 1;
+        border: none;
+
+        &>.layout-menubar-container {
+            @include spf-po-ov($w: menubar-max-m, $h: unset, $pd: 0, $mg: 0);
+            @include spf-flex-y-noinner($x: center);
+
+            &>.menubar-navholder, &>.menubar-taskholder {width: 100%;}
+            &>.menubar-navholder {height: $size-navbar-m;}
+            &>.menubar-taskholder {height: $size-taskbar-m;}
+
+            &>.layout-menubar {
+                @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+                @include spf-flex-y($x: center);
+                flex: 1;
+                border: {
+                    style: solid;
+                    width: 0 $size-bd-m 0 0;
+                    color: $layout-bdc;
+                }
+            }
+        }
+
+        &>.layout-content {
+            @include spf-po($w: unset, $h: unset, $pd: navbar-m 0 taskbar-m 0, $mg: 0, $ov: hidden auto);
+            @include spf-flex-y;
+            @extend .scroll;
+            flex: 1;
+            &>* {flex-shrink: 0;}
+        }
+    }
+
+    &>.layout-taskbar-container {
+        @include spf-po-fix($w: 100%, $h: taskbar-m, $pd: 0, $mg: 0, $l: 0, $t: unset, $b: 0, $r: unset);
+        @include spf-flex-x-noinner($y: stretch);
+        border: {
+            style: solid;
+            width: $size-bd-m 0 0 0;
+            color: $layout-bdc;
+        }
+
+        &>.taskbar-ctrlbox {
+            @include spf-po-ov($w: unset, $h: taskbar-m, $pd: 0 pd-s, $mg: 0);
+            min-width: $size-btn-m;
+            @include spf-flex-x-noinner;
+            border: {
+                style: solid;
+                width: 0 $size-bd-m 0 0;
+                color: $layout-bdc;
+            }
+        }
+
+        &>.layout-taskbar {
+            @include spf-po($w: unset, $h: taskbar-m, $pd: 0, $mg: 0, $ov: auto hidden);
+            @include spf-flex-x-noinner($x: flex-end, $y: stretch);
+            flex: 1;
+
+            &>.taskbar-item {
+                @include spf-po-ov($w: taskitem-m, $h: taskbar-m, $pd: 0 pd-xxs 0 pd-s, $mg: 0);
+                @include spf-flex-x-noinner;
+                flex-shrink: 0;
+                border: {
+                    style: solid;
+                    width: 0 0 0 $size-bd-m;
+                    color: $layout-bdc;
+                }
+                cursor: pointer;
+                transition: all $ani-dura;
+                &>.taskitem-label {
+                    width: unset; flex: 1; margin: 0 $size-pd-xs;
+                    font-size: $size-fs-s;
+                    @include spf-text-ellipsis;
+                    cursor: pointer;
+                }
+
+                &:hover {
+                    background-color: set-alpha($color-bgc-l2, 0.8);
+                    color: $color-fc-d2;
+                    &>svg[class*=icon] {color: $color-fc-d2;}
+                }
+
+                &.taskitem-active, &.taskitem-active:hover {
+                    background-color: $color-bgc-l3;
+                    color: $color-fc-d3;
+                    &>svg[class*=icon] {color: $color-fc-d3;}
+                }
+            }
+
+
+        }
+    }
+
+    &>.layout-navbar-container, &>.layout-taskbar-container {
+        //background-color: set-alpha($color-bgc-m, 0.8);
+        //backdrop-filter: blur($size-blur-m);
+        @extend .bg-backdrop-blur;
+        z-index: 1;
+    }
+}
+
+
+
+/**
+ * 合并资源 win.scss
+ * !! 不要手动修改 !!
+ */
+
+//根据传入的 block-[m|xs|xxl] 计算对应的 win 窗口相关尺寸  <返回：map>
+@function win-size-key-calc($skey: block-m) {
+    //读取基础尺寸值
+    $sz: size-get($skey);
+    @if not is-string($skey) or not is-number($sz) {@return null;}
+    //block-xxl  -->  (block-xxl, block, xxl, l, 3, size)
+    $skl: key-parse($skey, true);
+    //尺寸类型 block..
+    $ztp: nth($skl, 2);
+    //传入尺寸的偏移形式 以及 偏移量
+    $sfx: nth($skl, 3);     // xxl|xs|m
+    $stp: nth($skl, 4);     // s|m|l
+    $lvl: nth($skl, 5);     // 0|1|2|3|4
+
+    //计算
+    //按钮使用默认尺寸
+    $btn: $size-btn-m;
+    //窗口的最小宽度
+    $min-w: n-clamp(256px, round(mul($sz, 8)), 1280px);
+    //窗口 padding
+    $pd: size-get(bar-pd-#{$sfx});
+    //窗口 radius
+    $rd: size-get(bar-rd-#{$sfx});
+    //窗口 titbar 高度
+    $tit-h: size-get(bar-#{$sfx});
+    //窗口 titbar 右侧 最小化|最大化|关闭 按钮到右边的 gap
+    $tit-gap: round(div(sub($tit-h, $btn), 2));
+    //窗口 titbar 右侧 最小化|最大化|关闭 按钮与 窗口 radius 匹配的 btn-radius
+    //$tit-btn-rd: sub($rd, $tit-gap);
+    //窗口 ctrlbar 高度
+    $ctrl-h: add($btn, mul($pd, 2));
+
+    //输出
+    @return (
+        min-h:      $sz,    //基础尺寸作为窗口的 min-height
+        min-w:      $min-w,
+        pd:         $pd,
+        rd:         $rd,
+        tit-h:      $tit-h,
+        tit-gap:    $tit-gap,
+        //tit-btn-rd: $tit-btn-rd,
+        ctrl-h:     $ctrl-h,
+    );
+}
+//根据传入的 block-[m|xs|xxl] 设置对应的 尺寸样式
+@mixin win-set-size($pre: win-, $size: block-m) {
+    $smap: win-size-key-calc($size);
+    @if is-nemmap($smap) {
+        $szs: map.values($smap);
+        @if is-number($szs...) {
+            //读取数据
+            $min-w:         map.get($smap, min-w);
+            $min-h:         map.get($smap, min-h);
+            $pd:            map.get($smap, pd);
+            $rd:            map.get($smap, rd);
+            $tit-h:         map.get($smap, tit-h);
+            $tit-gap:       map.get($smap, tit-gap);
+            //$tit-btn-rd:    map.get($smap, tit-btn-rd);
+            $ctrl-h:        map.get($smap, ctrl-h);
+            //padding 一半
+            $pd-05x: round(div($pd, 2));
+        
+            //窗口样式
+            min-width: $min-w;
+            min-height: $min-h;
+            border-radius: $rd;
+            //titbar
+            &>.#{$pre}titbar {
+                height: $tit-h;
+                padding: 0 0 0 $pd;
+                &>*[class*=btn]:last-child {
+                    margin-right: $tit-gap;
+                    //border-radius: 0 $tit-btn-rd 0 0 !important;
+                }
+                .#{$pre}title {
+                    padding: 0 $pd 0 0;
+                }
+                &>*[class*=icon]+.#{$pre}title {
+                    padding-left: $pd-05x;
+                }
+                &>.#{$pre}titctrl {
+                    padding: 0 $pd 0 0;
+                }
+            }
+            //tabbar
+            &>.#{$pre}tabbar {
+                height: $tit-h;
+            }
+            //body
+            &>.#{$pre}body {
+                min-height: $min-h;
+                padding: $pd 0;
+                .#{$pre}row {
+                    padding: 0 $pd;
+                    //默认 min-height
+                    min-height: $tit-h;
+                    &>*[class*=icon]:first-child {
+                        &+* {
+                            margin-left: $pd-05x;
+                        }
+                    }
+                }
+            }
+            //ctrlbar
+            &>.#{$pre}ctrlbar {
+                padding: 0 $pd;
+                height: $ctrl-h;
+            }
+        }
+    }
+}
+
+
+.spf-win {
+    @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+    @include spf-flex-y-noinner($x: stretch);
+    //默认自带 backdrop-blur 效果
+    @extend .bg-backdrop-blur;
+    @extend .bd-default;
+    transition: all $ani-dura;
+
+    //titbar
+    &>.win-titbar {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include spf-flex-x-noinner;
+        &>* {flex-shrink: 0;}
+        &>.win-title {
+            @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+            @include spf-flex-x-noinner;
+            flex: 1;
+            font-weight: $size-fw-xl;
+        }
+        &>.win-titctrl {
+            @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+            @include spf-flex-x-noinner($x: flex-end);
+        }
+    }
+
+    //tabbar
+    &>.win-tabbar {
+        @include spf-po($w: 100%, $h: unset, $pd: 0, $mg: 0, $ov: auto hidden);
+        @include spf-flex-x-noinner($x: center);
+        @extend .scroll-x;
+        
+        &>* {flex-shrink: 0;}
+        &>.tabbar-start, &>.tabbar-end {
+            @include spf-po-ov($w: unset, $h: bar-m, $pd: 0, $mg: 0);
+            min-width: $size-bar-m;
+            flex: 1;
+            border: {
+                style: solid;
+                width: 0 0 $size-bd-m 0;
+                color: $color-bdc-d1;
+            }
+        }
+        &>.tabbar-item {
+            @include spf-po-ov($w: unset, $h: bar-xs, $pd: 0 bar-pd-s, $mg: sub($size-bar-m, $size-bar-xs) 0 0 0);
+            min-width: $size-bar-m;
+            @include spf-flex-x-noinner($x: center);
+            border: {
+                style: solid;
+                width: 0 0 $size-bd-m 0;
+                color: $color-bdc-d1;
+                radius: $size-bar-rd-xs $size-bar-rd-xs 0 0;
+            }
+            cursor: pointer;
+
+            &>label {
+                color: $color-fc-m;
+                cursor: pointer;
+            }
+            &>*[class*=btn]:last-child {
+                margin-left: $size-bar-pd-xs;
+                margin-right: round(mul($size-bar-pd-s, -0.8));
+            }
+
+            &:hover {
+                &>label {
+                    color: $color-fc-d1;
+                }
+            }
+
+            &.tabitem-active {
+                border-width: $size-bd-m $size-bd-m 0 $size-bd-m;
+                &>label, &:hover>label {
+                    color: $color-fc-d3;
+                }
+            }
+        }
+    }
+
+    //body
+    &>.win-body {
+        @include spf-po($w: 100%, $h: unset, $pd: 0, $mg: 0, $ov: hidden auto);
+        flex: 1;
+        @include spf-flex-y;
+        @extend .scroll;
+        .win-row {
+            @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+            min-height: $size-bar-m;
+            @include spf-flex-x($x: flex-start);
+
+            //row 尺寸循环 .win-row.row-xxl 控制 min-height
+            @include spf-size-shift(self, row-, min-height, bar, $extraBarSizeQueue, false);
+        }
+    }
+
+    //ctrlbar
+    &>.win-ctrlbar {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include spf-flex-x-noinner($x: flex-end);
+        @extend .bd-default;
+    }
+
+    //默认窗口尺寸
+    @include win-set-size(win-, block-m);
+
+    //border
+    &.win-border {
+        border-width: $size-bd-m;
+        &>.win-ctrlbar {
+            border-width: $size-bd-m 0 0 0;
+        }
+    }
+
+    //sharp
+    &.win-sharp, &.win-type-inside {
+        border-radius: 0;
+        &>.win-titbar {
+            &>*[class*=btn]:last-child {
+                border-radius: 0 !important;
+            }
+        }
+    }
+
+    //shadow
+    &.win-shadow {
+        &, &.win-shadow-normal {
+            @extend .shadow-m-a1;
+        }
+        &.win-shadow-thin {@extend .shadow-s-a1;}
+        &.win-shadow-bold {
+            border-color: $color-bdc-d1;
+            @extend .shadow-l-a2;
+        }
+    }
+
+    //hoverable 窗口悬停增加阴影
+    &.win-hoverable:hover {
+        border-color: $color-bdc-d1;
+
+        //悬停背景翻转
+        background-color: set-alpha($color-bgc-l2, 0.8);
+
+        //叠加 shadow 效果
+        @extend .shadow-s-a1;
+        &.win-shadow {
+            &, &.win-shadow-normal {
+                @extend .shadow-l-a1;
+            }
+            &.win-shadow-thin {@extend .shadow-m-a1;}
+            &.win-shadow-bold {
+                border-color: $color-bdc-d2;
+                @extend .shadow-xl-a3;
+            }
+        }
+    }
+
+    //inside
+    &.win-type-inside {
+        width: 100%; height: unset; 
+        min-width: unset; min-height: unset;
+        flex: 1;
+    }
+
+    //tightness
+    &.win-tightness-loose {
+        @include win-set-size(win-, block-xxl);
+    }
+    &.win-tightness-tight {
+        @include win-set-size(win-, block-xs);
+    }
+
+
+}
+
+
+
+
+
+
+/**
+ * 合并资源 temp.scss
+ * !! 不要手动修改 !!
+ */
+
+
+
+
+/**
+ * 合并资源 base.scss
+ * !! 不要手动修改 !!
+ */
+
+.spf-pms-pms-index {
+    @include spf-po-ov($w: 100vw, $h: 100vh, $pd: 0, $mg: 0);
+}
+
+
+
+
+
+
+
+

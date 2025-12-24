@@ -216,4 +216,71 @@ class Svg extends Plain
         }
         return implode("", $svg);
     }
+    
+    /**
+     * 将图标库的 glyph["svg"] 中可能存在的 id="..." 替换为指定的 $id
+     * @param String $glyph 通标库中 通过解析得到的 svg 代码 <svg id="..." viewbox="">...</svg>
+     * @return String glyph 代码格式 <svg id="..." ...>...</svg>
+     */
+    public static function glyphSetId($glyph, $id)
+    {
+        if (!Is::nemstr($glyph) || strpos($glyph, "<svg")===false) return null;
+        if (!Is::nemstr($id)) return $glyph;
+        
+        if (strpos($glyph, "id=\"") !== false) {
+            //替换 id
+            $gs = explode("id=\"", $glyph);
+            $ds = explode("\"", $gs[1]);
+            $glyph = $gs[0] ."id=\"". $id ."\"". implode("\"", array_slice($ds, 1));
+        } else {
+            //替换 svg --> svg id="..."
+            $glyph = preg_replace("/<svg\s+/", "<svg id=\"".$id."\" ", $glyph);
+        }
+        return $glyph;
+    }
+
+    /**
+     * 将图标库的 glyph["svg"] 中可能存在的 <svg ... foo="..." bar="..." ... > 中的 foo|bar 属性值去除
+     * @param String $glyph 通标库中 通过解析得到的 svg 代码 <svg id="..." viewbox="">...</svg>
+     * @param Array $props 要去除的 property
+     * @return String glyph 代码
+     */
+    public static function glyphRemoveProperty($glyph, ...$props) 
+    {
+        if (!Is::nemstr($glyph) || strpos($glyph, "<svg")===false) return null;
+        if (!Is::nemarr($props)) return $glyph;
+
+        foreach ($props as $prop) {
+            //匹配
+            $mt = preg_match("/<svg.+(".$prop."=\".*\")[^>]*>/U", $glyph, $matches);
+            if ($mt !== 1) continue;
+            //匹配到的完整字符
+            $str = $matches[0];
+            //匹配到的 prop="..." 字符串
+            $pstr = $matches[1];
+            //去除
+            $nstr = str_replace($pstr, "", $str);
+            $glyph = str_replace($str, $nstr, $glyph);
+        }
+
+        //去除连续空格
+        $glyph = preg_replace("/\s+/"," ", $glyph);
+        return $glyph;
+    }
+    
+    /**
+     * 将图标库的 glyph["svg"] 转为雪碧图中的 symbol 代码
+     * @param String $glyph 通标库中 通过解析得到的 svg 代码 <svg id="" viewbox="">...</svg>
+     * @return String symbol 代码格式 <symbol id="..." ...>...</symbol>
+     */
+    public static function glyphToSymbol($glyph, $id=null)
+    {
+        if (!Is::nemstr($glyph) || strpos($glyph, "<svg")===false) return null;
+        //如果指定了 id
+        if (Is::nemstr($id)) $glyph = static::glyphSetId($glyph, $id);
+        //替换 svg --> symbol
+        $glyph = preg_replace("/<svg\s+/", "<symbol ", $glyph);
+        $glyph = str_replace("</svg>", "</symbol>", $glyph);
+        return $glyph;
+    }
 }

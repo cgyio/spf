@@ -1,0 +1,237 @@
+//根据传入发 基础尺寸键名 计算并设置 tabbar 相关的尺寸样式 
+@mixin tabbar-set-size($pre: tabbar-, $size: bar-m) {
+    $sz: size-get($size);
+    @if is-number($sz) {
+        $pd: null;
+        @if is-string($size) {
+            //bar-xxl  -->  (bar-xxl, bar, xxl, l, 3, size)
+            $skl: key-parse($size, true);
+            $sfx: nth($skl, 3);
+            $pd: size-get(bar-pd-#{$sfx});
+        } @else {
+            $pd: round(div($sz, 2));
+        }
+        $pd-05x: div($pd, 2);
+
+        //tabbar 样式
+        height: $sz;
+        
+        //左右控制按钮
+        &>.#{$pre}ctrl-start, &>.#{$pre}ctrl-end {
+            min-width: $pd;
+        }
+        &>.#{$pre}ctrl-start {
+            padding: 0 $pd-05x 0 $pd;
+        }
+        &>.#{$pre}ctrl-end {
+            padding: 0 $pd 0 $pd-05x;
+        }
+
+        //no-scroll
+        &.#{$pre}no-scroll {
+            &>.#{$pre}ctrl-start, &>.#{$pre}ctrl-end {
+                padding: 0;
+            }
+        }
+    }
+}
+//根据传入的 item 尺寸，设置 tabbar-item 相关尺寸样式
+@mixin tabbar-set-item-size($pre: tabbar-, $size: btn-m) {
+    $sz: size-get($size);
+    @if is-number($sz) {
+        $pd: null;
+        $rd: null;
+        $fs: null;
+        @if is-string($size) {
+            $skl: key-parse($size, true);
+            $sfx: nth($skl, 3);
+            $pd: size-get(btn-pd-#{$sfx});
+            $rd: size-get(btn-rd-#{$sfx});
+            $fs: size-get(btn-fs-#{$sfx});
+        } @else {
+            $smap: spf-bar-size-calc($sz);
+            $pd: map.get($smap, pd);
+            $rd: map.get($smap, rd);
+            $fs: map.get($smap, fs);
+        }
+        $w-max: n-clamp(128px, mul($sz, 5), 256px);
+        $w-min: $sz;
+        @if is-number($pd, $rd, $fs, $w-max, $w-min) {
+            $sz-05x: div($sz, 2);
+            $pd-15x: round(mul($pd, 1.5));
+            $pd-05x: div($pd, 2);
+            $pd-02x: round(div($pd, 5));
+
+            //tabbar list
+            &>.#{$pre}list {
+                &>.#{$pre}item {
+                    padding: 0 $pd-15x;
+                    min-width: $w-min; max-width: $w-max; height: $sz;
+                    border-radius: $sz-05x;
+                    font-size: $fs;
+                    &>label+*, &>*+label {
+                        margin-left: $pd-05x;
+                    }
+                    &>svg[class*=icon] {
+                        font-size: 1.4em !important;
+                    }
+
+                    &+.#{$pre}item {
+                        margin-left: $pd;
+                    }
+                }
+            }
+
+            //border 样式
+            &.#{$pre}border {
+                //tabbar-ctrl-start|end
+                &>.#{$pre}ctrl-start, &>.#{$pre}ctrl-end {
+                    padding-bottom: $pd-02x;
+                }
+                //tabbar list
+                &>.#{$pre}list {
+                    &>.#{$pre}list-holder {
+                        min-width: $pd;
+                        height: $sz;
+                    }
+                    &>.#{$pre}item {
+                        border-radius: $rd $rd 0 0;
+                        &+.#{$pre}item {
+                            margin-left: 0;
+                        }
+                    }
+                }
+            }
+
+            //closable
+            &.#{$pre}closable {
+                &>.#{$pre}list {
+                    &>.#{$pre}item.#{$pre}item-active {
+                        padding-right: $pd-05x;
+                    }
+                }
+            }
+
+        }
+    }
+}
+
+.__PRE__-tabbar {
+    @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+
+    &>.tabbar-ctrl-start, &>.tabbar-ctrl-end {
+        @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+    }
+
+    &>.tabbar-list {
+        @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0, $ov: auto hidden);
+        flex-wrap: nowrap;
+
+        &>.tabbar-list-holder {
+            width: unset;
+            flex: 1;
+        }
+
+        &>.tabbar-item {
+            @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+            //@include spf-flex-x-noinner($x: center);
+            background-color: transparent;
+            color: $color-fc-l1;
+            cursor: pointer;
+            transition: width $ani-dura,
+                        height $ani-dura,
+                        background-color $ani-dura;
+
+            &>* {cursor: pointer;}
+            &>svg[class*=icon] {
+                color: $color-fc-l1;
+            }
+            &>label {
+                width: unset;
+                @extend .f-ellipsis;
+            }
+
+            &:hover {
+                $fc: fore-color($color-bgc-d1, 0.8);
+                background-color: $color-bgc-d1;
+                color: $fc;
+                &>svg[class*=icon] {
+                    color: $fc;
+                }
+            }
+
+            &.tabbar-item-active, &.tabbar-item-active:hover {
+                $fc: fore-color($color-primary-m, 0.8);
+                background-color: $color-primary-m;
+                color: $fc;
+                &>svg[class*=icon] {
+                    color: $fc;
+                }
+            }
+        }
+    }
+
+    //border 带边框样式
+    &.tabbar-border {
+        $bdsz: $size-bd-m;
+
+        //position
+        &.tabbar-position-top {
+            &>.tabbar-ctrl-start, &>.tabbar-ctrl-end, 
+            &>.tabbar-list>.tabbar-list-holder, &>.tabbar-list>.tabbar-item {
+                @extend .bd-default;
+                border-width: 0 0 $bdsz 0;
+            }
+        }
+        &.tabbar-position-bottom {
+            &>.tabbar-ctrl-start, &>.tabbar-ctrl-end, 
+            &>.tabbar-list>.tabbar-list-holder, &>.tabbar-list>.tabbar-item {
+                @extend .bd-default;
+                border-width: $bdsz 0 0 0;
+            }
+        }
+
+        &>.tabbar-ctrl-start, &>.tabbar-ctrl-end {
+            align-items: flex-end;
+        }
+
+        &>.tabbar-list {
+            align-items: flex-end;
+            &>.tabbar-item {
+                &:hover {
+                    background-color: transparent;
+                    color: $color-primary-m;
+                    &>svg[class*=icon] {
+                        color: $color-primary-m;
+                    }
+                }
+                &.tabbar-item-active {
+                    border-width: $bdsz $bdsz 0 $bdsz;
+                }
+                &.tabbar-item-active, &.tabbar-item-active:hover {
+                    background-color: transparent;
+                    color: $color-fc-d3;
+                    font-weight: $size-fw-xl;
+                    &>svg[class*=icon] {
+                        color: $color-fc-d3;
+                    }
+                }
+            }
+        }
+    }
+
+    //默认尺寸
+    @include tabbar-set-size(tabbar-, bar-m);
+    @include tabbar-set-item-size(tabbar-, btn-m);
+    //尺寸循环
+    @each $si in xs,s,m,l {
+        $szk: map.get($sizeKeyMap, $si);
+        $clsns: mk(unquote("&.tabbar-#{$si}"));
+        @if is-nemstr($szk) {$clsns: push($clsns, unquote("&.tabbar-#{$szk}"));}
+        #{$clsns} {
+            @include tabbar-set-size(tabbar-, bar-#{$si});
+            @include tabbar-set-item-size(tabbar-, btn-#{$si});
+        }
+    }
+
+}

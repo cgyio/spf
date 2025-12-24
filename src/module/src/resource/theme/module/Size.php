@@ -33,9 +33,13 @@ class Size extends Module
             //作为基本尺寸的 尺寸分组
             "base" => [
                 //基本尺寸 默认值，所有 mode 都应指定这些尺寸
-                "fs", "fw", "mg", "pd", "rd", "bar", "icon",
+                "fs", "fw", "mg", "pd", "rd", "icon",
                 //按钮
                 "btn", "btn-fs", "btn-pd", "btn-rd",
+                //单行
+                "bar", "bar-pd", "bar-rd",
+                //多行盒容器
+                "block",
                 //阴影
                 "shadow",
             ],
@@ -45,6 +49,12 @@ class Size extends Module
                 "bd",
                 //backdrop-filter: blur(*px)
                 "blur",
+                //navbar
+                "navbar",
+                //menubar
+                "menubar-max", "menubar-min",
+                //taskbar
+                "taskbar", "taskitem",
             ],
             //作为当前主题 自定义尺寸的 尺寸分组
             "custom" => [],
@@ -59,97 +69,106 @@ class Size extends Module
         "common" => [
             //分别定义 尺寸分组中指定的 必须的 尺寸
 
-            "fs" => [
+            "fs" => [           //字号 8,9,10,12,14,16,18,20,24
                 //字体尺寸  标准尺寸参数 数据格式
                 "value" => 14,
-                //字体尺寸 自动缩放 参数不同于 默认值
                 "shift" => [
-                    //"on" => true,
+                    //字体尺寸 自动缩放 参数不同于 默认值
                     "step" => 2,
                     //缩放级数
-                    "steps" => 5,
+                    "steps" => 4,
                     //手动覆盖
                     "manual" => [
-                        "xxxxs" => 8,
-                        "xxxs"  => 9,
-                        "xxs"   => 10,
-                        "xxl"   => 22,
-                        "xxxl"  => 26,
-                        "xxxxl" => 32,
+                        "xxxs"  => 8,
+                        "xxs"   => 9,
+                        "xxxl"  => 24,
                     ],
                 ],
-
-                //这些参数 可以使用通用参数，或自动生成，可以不指定
-                //"key" => "fs",
-                //"unit" => "px",
-                //"alias" => [ ... ],
-                //"editor" => [ ... ],
             ],
 
-            "fw" => [
-                //字重
+            "fw" => [           //字重 100,200,300,400,500,700,900
                 "value" => 400,
                 //字重没有单位
                 "unit" => "",
-                //字重 自动缩放
                 "shift" => [
-                    //"on" => true,
                     "step" => 100,
-                    //缩放级数
-                    "steps" => 3,
-                    //手动覆盖
                     "manual" => [
-                        "l"     => 500,
                         "xl"    => 700,
                         "xxl"   => 900,
                     ],
                 ],
             ],
 
-            "rd" => [
-                //圆角尺寸  标准尺寸参数 数据格式
-                "value" => 8,
-                //圆角尺寸 自动缩放 参数不同于 默认值
+            "rd" => [           //radius 4,6,8,12,16,20,24
+                "value" => 12,
                 "shift" => [
-                    //"on" => true,
-                    "step" => 2,
-                    //缩放级数
-                    //"steps" => 3,
+                    //"step" => 4,
+                    "manual" => [
+                        "xxs"   => 4,
+                        "xs"    => 6,
+                    ]
                 ],
             ],
 
-            //还可以使用 简易的定义方法 直接指定 原始尺寸值，其他参数都是用 通用|默认 参数
-            "mg"    => 16,      //margin
-            "pd"    => 12,      //padding
-            "bar"   => 36,      //默认 行 尺寸
-            "icon"  => 24,      //默认 icon 尺寸
+            "mg" => [           //margin 8,12,16,20,24,32,48
+                "value" => 20,
+                "shift" => [
+                    //"step" => 4,
+                    "manual" => [
+                        "xl"    => 32,
+                        "xxl"   => 48,
+                    ]
+                ],
+            ],
+            "pd"    => [        //padding 4,8,12,16,20,24,32
+                "value" => 16,
+                "shift" => [
+                    //"step" => 4,
+                    "manual" => [
+                        "xxl"   => 32,
+                    ]
+                ],
+            ],
+            "icon"  => [        //icon 14,16,20,24,28,32,36
+                "value" => 24,
+                "shift" => [
+                    //"step" => 4,
+                    "manual" => [
+                        "xxs"   => 14,
+                    ],
+                ],
+            ], 
 
             //按钮
-            "btn" => [      //20,24,28,32,36,42,48
+            "btn" => [          //20,24,28,32,36,42,48
                 "value" => 32,
                 "shift" => [
+                    //"step" => 4,
                     "manual" => [
                         "xl"    => 42,
                         "xxl"   => 48,
                     ],
                 ],
             ],      
-            "btn-fs" => [   //10,10,12,14,16,18,20
+            "btn-fs" => [       //10,12,12,14,14,18,18
                 "value" => 14,
                 "shift" => [
                     "step" => 2,
                     "manual" => [
                         "xxs"   => 10,
+                        "xs"    => 12,
+                        "l"     => 14,
+                        "xxl"   => 18,
                     ]
                 ],
             ],      
-            "btn-pd" => [      //8,10,12,14,16,20,24
-                "value" => 14,
+            "btn-pd" => [      //4,6,8,12,16,20,24
+                "value" => 12,
                 "shift" => [
-                    "step" => 2,
+                    //"step" => 4,
                     "manual" => [
-                        "xl"    => 20,
-                        "xxl"   => 24,
+                        "xxs"   => 4,
+                        "xs"    => 6,
                     ]
                 ],
             ],
@@ -162,16 +181,73 @@ class Size extends Module
                     ]
                 ],
             ],
-            "shadow" => [       //2,4,6,8,10,12,14
+
+            //单行元素
+            "bar"   => [        //单行高 28,32,36,40,48,54,64
+                "value" => 40,
+                "shift" => [
+                    //"step" => 4,
+                    "manual" => [
+                        "l"     => 48,
+                        "xl"    => 54,
+                        "xxl"   => 64,
+                    ],
+                ],
+            ],  
+            "bar-pd" => [      //6,8,12,16,20,24,32
+                "value" => 16,
+                "shift" => [
+                    //"step" => 4,
+                    "manual" => [
+                        "xxs"   => 6,
+                        "xxl"   => 32,
+                    ]
+                ],
+            ],
+            "bar-rd" => [       //6,7,8,9,10,12,14
+                "value" => 9,
+                "shift" => [
+                    "step" => 1,
+                    "manual" => [
+                        "xl"    => 12,
+                        "xxl"   => 14,
+                    ]
+                ],
+            ],
+
+            //多行容器元素
+            "block"   => [      //多行容器 min-height = bar + 2*bar-pd 36,44,56,68,80,96,118
+                "value" => 68,
+                "shift" => [
+                    "step" => 12,
+                    "manual" => [
+                        "xxs"   => 36,
+                        "xl"    => 96,
+                        "xxl"   => 118,
+                    ],
+                ],
+            ],
+
+
+            "shadow" => [       //4,8,12
                 "value" => 8,
                 "shift" => [
-                    "step" => 2
+                    "step" => 4,
+                    "steps" => 2,
+                    "manual" => [
+                        "xs" => 2,
+                    ]
                 ],
             ],
             
             //静态尺寸
-            "bd"    => 1,       //border-width
-            "blur"  => 8,       //backdrop-filter: blur()
+            "bd"    => 1,           //border-width
+            "blur"  => 16,          //backdrop-filter: blur()
+            "navbar" => 48,         // == bar-xl
+            "menubar-max" => 256,
+            "menubar-min" => 36,    // == bar-m
+            "taskbar" => 36,        // == bar-m
+            "taskitem" => 192,      //任务栏中的某个 item 宽度
         ],
 
         //定义所有 mode 模式下的 参数
@@ -244,10 +320,14 @@ class Size extends Module
 
             //不同组件的 额外尺寸序列
             "extraSizeQueue" => [
+                //fs
+                "fs"    => [28,32,48,54,64,72],
                 //icon
-                "icon" => [48,54,64,72,88,96,128],
+                "icon"  => [48,54,64,72,88,96,128],
+                //bar
+                "bar"   => [64,72,88,96],
                 //button
-                "btn" => [54,64,72,88,96,128],
+                "btn"   => [54,64,72,88,96,128],
             ],
 
             /**
@@ -256,8 +336,27 @@ class Size extends Module
              * 对应着组件中的 shape 参数可选值
              */
             "shapes" => [
-                "normal", "pill", "sharp",
+                "normal", "pill", "circle", "sharp",
             ],
+
+            /**
+             * stretch 序列
+             * 定义主题系统中的 stretch 类型
+             * 对应着组件中的 stretch 参数可选值
+             */
+            "stretches" => [
+                "square", "normal", "grow", "row",
+            ],
+
+            /**
+             * tightness 序列
+             * 定义主题系统中的 tightness 类型
+             * 对应着组件中的 tightness 参数可选值
+             */
+            "tightnesses" => [
+                "loose", "normal", "tight",
+            ],
+
         ],
     ];
     //此模块中，某个 参数 item 的 标准参数格式
@@ -350,8 +449,33 @@ class Size extends Module
 
         // 3    生成 额外的 list | map
         $extra = $conf["extra"] ?? [];
-        //生成 $sizeStrMap
+        //生成 $size[Str|Key]Map
         if (isset($extra["sizeStrMap"]) && Is::nemarr($extra["sizeStrMap"])) {
+            $vms = $extra["sizeStrMap"];
+            $rower->rowDef("sizeStrQueue", array_keys($vms));
+            $rower->rowAdd("\$sizeStrMap: (", "");
+            foreach ($vms as $vk => $vv) {
+                $rower->rowDef($vk, $vv, [
+                    "prev" => "",
+                    "rn" => ",",
+                    "quote" => "'",
+                ]);
+            }
+            $rower->rowAdd(");", "");
+            $rower->rowAdd("\$sizeKeyMap: (", "");
+            foreach ($vms as $vk => $vv) {
+                $rower->rowDef($vv, $vk, [
+                    "prev" => "",
+                    "rn" => ",",
+                    "quote" => "'",
+                ]);
+            }
+            $rower->rowAdd(");", "");
+            //空行
+            $rower->rowEmpty(1);
+        }
+        //生成 $sizeKeyMap
+        /*if (isset($extra["sizeStrMap"]) && Is::nemarr($extra["sizeStrMap"])) {
             $vms = $extra["sizeStrMap"];
             $rower->rowDef("sizeStrQueue", array_keys($vms));
             $rower->rowAdd("\$sizeStrMap: (", "");
@@ -365,7 +489,7 @@ class Size extends Module
             $rower->rowAdd(");", "");
             //空行
             $rower->rowEmpty(1);
-        }
+        }*/
         //生成 $extraSizeQueue
         $eszQue = $extra["extraSizeQueue"] ?? [];
         if (Is::nemarr($eszQue)) {
@@ -378,6 +502,12 @@ class Size extends Module
         //生成 shapeList 
         $sps = $conf["extra"]["shapes"] ?? [];
         $rower->rowDef("shapeList", $sps);
+        //生成 stretchList 
+        $sts = $conf["extra"]["stretches"] ?? [];
+        $rower->rowDef("stretchList", $sts);
+        //生成 tightnessList 
+        $sts = $conf["extra"]["tightnesses"] ?? [];
+        $rower->rowDef("tightnessList", $sts);
         $rower->rowEmpty(1);
 
 

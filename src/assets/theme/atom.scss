@@ -1,0 +1,75 @@
+/**
+ * SPF-Theme 主题系统配套 scss
+ * 定义主题系统的 atom 原子样式
+ * !! 此 scss 不要定义任何 function|mixin... 等可能被后续 scss 引用的内容
+ * !! 此文件不处理任何 import 语句                           保存所有其他 css 变量的 map
+ */
+
+/** 初始化 body 样式 **/
+body, view, .page {
+    margin: 0; padding: 0;
+
+    //默认字体
+    font: {
+        size: $size-fs-m;
+        weight: $size-fw-m;
+        family: $font-fml-default;
+    }
+    color: $color-fc-m;
+
+    //默认背景
+    background-color: $color-bgc-m;
+}
+
+[v-cloak] {
+    display: none;
+}
+
+//通用字体样式 .fc-*|.fs-*|.fw-*|.fml-*|.f-a|.f-highlight|.f-code|.f-ellipsis
+@include spf-fo-shift(self);
+//通用 padding|margin 样式 .pd-*|.mg-*
+@include spf-mg-shift(self);
+@include spf-pd-shift(self);
+//通用背景样式 .bgc-*
+@include spf-bg-shift(self);
+//通用带 backdrop-filter-blur 的背景样式
+.bg-backdrop-blur {
+    background-color: set-alpha($color-bgc-m, 0.8);
+    @extend .bg-blur;
+}
+//通用边框样式 .bd-*|.bdc-*|.rd-*
+@include spf-bd-shift(self);
+//通用 border 初始样式
+.bd-default {
+    border: {
+        style: solid;
+        width: 0;
+        color: $color-bdc-m;
+        radius: 0;
+    }
+}
+//通用透明度样式 .opa-10~100
+@include spf-opa-shift(self);
+//通用 text|box-shadow 样式 .text-shadow-*|.shadow-*
+@include spf-shadow-shift(self, text-shadow-, text-shadow);
+@include spf-shadow-shift(self, shadow-, box-shadow);
+
+
+//通用 flex 样式
+.flex-x {@include spf-flex-x($gap: $size-mg-m);}
+.flex-y {@include spf-flex-y($gap: $size-mg-m);}
+
+
+//自定义 scroll-bar 样式
+.scroll, .scroll-y {
+    @include spf-scroll;
+    .scroll-none {@include spf-scroll($size: 0);}
+    .scroll-thin {@include spf-scroll($size: 4px);}
+    .scroll-bold {@include spf-scroll($size: 8px);}
+}
+.scroll-x {
+    @include spf-scroll($ov: auto hidden);
+    .scroll-none {@include spf-scroll($size: 0, $ov: auto hidden);}
+    .scroll-thin {@include spf-scroll($size: 4px, $ov: auto hidden);}
+    .scroll-bold {@include spf-scroll($size: 8px, $ov: auto hidden);}
+}

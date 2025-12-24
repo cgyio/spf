@@ -48,7 +48,9 @@ import directive from 'plugin/directive';
 
 //组件库插件依赖的 一些服务(通用功能，是一组特殊组件，全局单例，挂载到 Vue 对象上)
 //import serviceEvtBus from 'mixin/evt-bus';
+import serviceDc from 'plugin/service/dc';
 import serviceUi from 'plugin/service/ui';
+import serviceWin from 'plugin/service/win';
 //import serviceUsr from 'plugin/service/usr';
 //import serviceNav from 'plugin/service/nav';
 //import serviceDb from 'plugin/service/db';
@@ -77,13 +79,14 @@ cgy.def(Vue, {
         //此插件支持的 服务列表
         support: [
             //服务 必须严格按顺序加载
-            //'bus', 'ui', //'usr', 'nav', 'db',
-            'ui'
+            'dc', 'ui', 'win',
         ],
         //所有启用的服务，必须对应着 import mixin/service-base.js
         imports: {
-            //bus:    serviceEvtBus,
+            //bus:        serviceEvtBus,
+            dc:     serviceDc,
             ui:     serviceUi,
+            win:    serviceWin,
             //usr:    serviceUsr,
             //nav:    serviceNav,
             //db:     serviceDb,

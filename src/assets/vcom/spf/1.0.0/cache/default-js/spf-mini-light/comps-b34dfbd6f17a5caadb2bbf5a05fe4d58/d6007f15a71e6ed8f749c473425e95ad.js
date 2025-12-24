@@ -26,26 +26,21 @@ const defineSpfIcon = {
             default: false
         },
 
-        //使用外部 icon 图标，不通过自带 iconPackage 图标包
-        //图标来源 https://io.cgy.design/icon/***
-        /*useExtraIcon: {
-            type: Boolean,
-            default: false
-        },
-        extraIconApi: {
+        //spin dura
+        spinDura: {
             type: String,
-            default: 'https://io.cgy.design/icon/'
-        },*/
+            default: '2s'
+        },
     },
     data() {return {
             
         /**
          * 覆盖 base-style 样式系统参数
          */
-        styTemp: {
+        styInit: {
             class: {
                 //根元素
-                root: ['spf-icon-wrapper'],
+                root: ['spf-icon'],
             },
             style: {
                 //根元素
@@ -58,7 +53,7 @@ const defineSpfIcon = {
             color: true,
             animate: false,
         },
-        styEnableSwitches: {
+        stySwitches: {
             
         },
         styCsvKey: {
@@ -73,22 +68,25 @@ const defineSpfIcon = {
          * icon
          */
         iconKey() {
+            let ico = this.icon;
+            if (this.spin === true) {
+                //图标 spin 将调用 spinner 图标库
+                if (ico=='-empty-') return 'spinner-spin';
+                return 'spinner-' + ico;
+            }
             if (this.icon=='-empty-') return '-empty-';
             //if (this.spin) return 'spiner-180-ring';
             return this.icon;
         },
 
-        /**
-         * spin
-         */
         //计算 spin 中心坐标
-        spinCenter() {
+        /*spinCenter() {
             let fsz = this.sizePropVal,
                 fsarr = this.sizeToArr(fsz),
                 fszn = fsarr[0],
                 r = fszn/2;
             return ` ${r} ${r}`;
-        },
+        },*/
     },
     methods: {
 
@@ -99,7 +97,7 @@ const defineSpfIcon = {
 
 
 
-defineSpfIcon.template = `<svg :class="styComputedClassStr.root" :style="styComputedStyleStr.root" aria-hidden="true"><use v-if="icon!='-empty-'" v-bind:xlink:href="'#'+iconKey"><animateTransform v-if="spin" attributeName="transform" attributeType="XML" type="rotate" :from="'0'+spinCenter" :to="'360'+spinCenter" dur="1.6s" repeatCount="indefinite" /></use></svg>`;
+defineSpfIcon.template = `<svg :class="styComputedClassStr.root" :style="styComputedStyleStr.root" aria-hidden="true"><use v-if="iconKey!='-empty-'" v-bind:xlink:href="'#'+iconKey"><animateTransform v-if="spin" attributeName="transform" attributeType="XML" type="rotate" :from="'0'+spinCenter" :to="'360'+spinCenter" :dur="spinDura" repeatCount="indefinite" /></use></svg>`;
 
 if (defineSpfIcon.computed === undefined) defineSpfIcon.computed = {};
 defineSpfIcon.computed.profile = function() {return {};}
@@ -142,13 +140,22 @@ const defineSpfIconLogo = {
             type: Boolean,
             default: false
         },
+
+        /**
+         * logo 默认多色图标，要显示为单色 需要设置此参数为 true
+         * !! 需要同时指定 color 参数
+         */
+        singleColor: {
+            type: Boolean,
+            default: false
+        },
     },
     data() {return {
             
         /**
          * 覆盖 base-style 样式系统参数
          */
-        styTemp: {
+        styInit: {
             class: {
                 //根元素
                 root: ['spf-icon-logo'],
@@ -164,9 +171,10 @@ const defineSpfIconLogo = {
             color: true,
             animate: false,
         },
-        styEnableSwitches: {
-            //启用 square 开关
+        stySwitches: {
+            //启用开关
             square: true,
+            singleColor: true,
         },
         styCsvKey: {
             size: 'icon',

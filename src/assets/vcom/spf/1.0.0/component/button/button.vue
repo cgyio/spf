@@ -2,7 +2,6 @@
     <div
         :class="styComputedClassStr.root"
         :style="styComputedStyleStr.root"
-        :title-bak="title"
         @click="whenBtnClick"
         @mouseenter="whenMouseEnter"
         @mouseleave="whenMouseLeave"
@@ -10,23 +9,25 @@
         @mouseup="whenMouseUp"
     >
         <PRE@-icon
-            v-if="!isEmptyIcon && !iconRight"
+            v-if="!iconRight && !isEmptyIcon"
             :icon="icon"
-            :size="styComputedStyle.icon.fontSize"
-            :spin="spin"
+            :size="iconSize"
+            :spin="iconSpin"
+            :shape="iconShape"
             :custom-class="iconClass"
             :custom-style="iconStyle"
         ></PRE@-icon>
         <label 
-            v-if="!isEmptyLabel && stretch!=='square'"
+            v-if="!isEmptyLabel && stretch!=='square' && shape !== 'circle'"
             :class="labelClass"
             :style="labelStyle"
         >{{label}}</label>
         <PRE@-icon
-            v-if="!isEmptyIcon && iconRight"
+            v-if="iconRight && !isEmptyIcon"
             :icon="icon"
-            :size="styComputedStyle.icon.fontSize"
-            :spin="spin"
+            :size="iconSize"
+            :spin="iconSpin"
+            :shape="iconShape"
             :custom-class="iconClass"
             :custom-style="iconStyle"
         ></PRE@-icon>
@@ -45,19 +46,16 @@ export default {
             type: String,
             default: '-empty-'
         },
-
-        //按钮文字
-        label: {
+        //图标形状
+        iconShape: {
             type: String,
-            default: ''
+            default: 'round',
         },
-
-        //title
-        title: {
-            type: String,
-            default: ''
+        //图标旋转，参数要求与 icon 组件相同
+        spin: {
+            type: [Boolean, String],
+            default: false
         },
-
         //icon 额外的样式
         iconClass: {
             type: String,
@@ -68,6 +66,11 @@ export default {
             default: ''
         },
 
+        //按钮文字
+        label: {
+            type: String,
+            default: ''
+        },
         //label 额外样式
         labelClass: {
             type: String,
@@ -77,6 +80,7 @@ export default {
             type: [String, Object],
             default: ''
         },
+
 
         /**
          * 样式开关
@@ -97,10 +101,10 @@ export default {
             default: false
         },
         /**
-         * radius 圆角类型
-         * 可选值： normal(默认) | pill | sharp
+         * shape 形状
+         * 可选值： normal(默认) | pill | circle | sharp
          */
-        radius: {
+        shape: {
             type: String,
             default: 'normal'
         },
@@ -125,65 +129,81 @@ export default {
             type: Boolean,
             default: false
         },
-        //spin
-        spin: {
+        //no-gap 按钮之间紧密排列，无间隙
+        noGap: {
             type: Boolean,
             default: false
         },
+
+        /**
+         * 按钮防抖
+         */
+        //启用防抖 
+        debounce: {
+            type: Boolean,
+            default: false
+        },
+        //启用组件外部的 fullfilled 标记
+        fullfilled: {
+            type: Boolean,
+            default: false
+        },
+        //fullfilled == false 时，使用此处定义的等待时间
+        debounceDura: {
+            type: Number,
+            default: 500,   //默认等待 500ms
+        },
+        //指定一个组件外部的 fullfilled 标记
+        fullfilledWhen: {
+            type: Boolean,
+            default: false
+        }
     },
     data() {return {
             
-        /**
-         * 覆盖 base-style 样式系统参数
-         */
-        styCalculators: {
-            class: {
-                //root 是计算根元素的 class 样式类，必须指定
-                root: 'styCalcRootClass',
+        //覆盖 base-style 样式系统参数
+        sty: {
+            init: {
+                class: {
+                    root: ['__PRE__-btn', 'flex-x', 'flex-x-center'],
+                }
             },
-            style: {
-                //root 是计算根元素的 css 样式，必须指定
-                root: 'styCalcRootStyle',
-                /**
-                 * !! 定义 icon 样式计算方法
-                 */
-                icon: 'styCalcIconStyle'
-            }
-        },
-        styInit: {
-            class: {
-                //根元素
-                root: ['__PRE__-btn'],
+            prefix: 'btn',
+            sub: {
+                size: true,
+                color: true,
+                animate: 'enabled',
             },
-            style: {
-                //根元素
-                root: {},
-                //icon
-                icon: {},
+            switch: {
+                //启用 下列样式开关
+                iconRight: true,
+                'hoverable:disabled': true,
+                shape: true,
+                effect: true,
+                stretch: true,
+                link: true,
+                noGap: true,
+                active: true,
+                'stage.pending:disabled': 'pending',
+                'stage.press:disabled': 'pressed',
+                'fullfilledWhen:disabled': 'fullfilled',
             },
-        },
-        styCssPre: 'btn',
-        stySwitches: {
-            //启用 下列样式开关
-            iconRight: true,
-            'hoverable:disabled': true,
-            radius: true,
-            effect: true,
-            stretch: true,
-            link: true,
-            active: true,
-            'mouse.down:disabled': true,
-        },
-        styCsvKey: {
-            size: 'btn',
-            color: 'fc',
+            csvKey: {
+                size: 'btn',
+                color: 'fc',
+            },
         },
 
-        //mouse 状态
-        mouse: {
+        /**
+         * 按钮点击状态
+         */
+        stage: {
+            ready: true,
             enter: false,
-            down: false,
-            clicking: false,    //for debounce 点击按钮防抖
+            press: false,
+            //debounce
+            pending: false,
+            //fullfilled: false,
         },
     }},
     computed: {
@@ -200,153 +220,116 @@ export default {
             return !(is.string(label) && label !== '');
         },
 
-        /**
-         * customClass/Style 配套的 计算属性
-         * !! 引用的组件内部 应根据需要覆盖
-         */
-        //计算后的 class override
-        /*computedClass() {
-            let is = this.$is,
-                sz = this.sizeClass,
-                tp = this.typeClass,
-                clss = ['cv-btn'];
-            if (!is.empty(sz)) clss.push(...sz);
-            if (!is.empty(tp)) clss.push(...tp);
-            if (this.label=='') clss.push('btn-no-label');
-            if (this.square) clss.push('btn-square');
-            if (this.round) clss.push('btn-round');
-            if (this.plain) clss.push('btn-plain');
-            if (this.text) clss.push('btn-text');
-            if (this.popout) clss.push('btn-popout');
-            if (this.active) clss.push('btn-active');
-            if (this.disabled) clss.push('btn-disabled');
-            //if (this.mouse.enter==true) clss.push('btn-msov');
-            if (this.mouse.down==true) clss.push('btn-shrink');
-            return this.mixinCustomClass(...clss);
-        },
-
-        //根据 size 属性 获取 icon size 数字 或 px字符串
+        //根据 btn-size 计算 内部 icon 的 size 参数
         iconSize() {
             let is = this.$is,
-                sz = this.sizeKey,
-                csv = this.cssvar.size.btn;
-            if (is.realNumber(sz)) return sz-12;
-            if (is.string(sz)) {
-                if (is.defined(csv.icon[sz])) return csv.icon[sz];
-                if (sz.endsWith('px')) {
-                    sz = sz.replace('px', '');
-                    return sz*1 - 12;
-                }
+                ui = this.$ui,
+                sztp = this.sizePropType,
+                squ = this.stretch==='square' || this.effect==='circle',
+                size = this.size;;
+            if ('str,key'.split(',').includes(sztp)) {
+                //按钮内部 icon 尺寸 小一级
+                return squ ? size : ui.sizeKeyShiftTo(size, 's1');
             }
-            return sz;
+            let sz = this.sizePropVal;
+            if (!ui.isSizeVal(sz)) return size;
+            let fs = ui.sizeCalcBarFs(sz),
+                nsz = ui.sizeValToKey(fs, 'icon');
+            if (is.string(nsz)) return nsz;
+            return fs;
         },
 
-        //popout 指定的 图标/文本 颜色
-        popoutColor() {
+        //stage 状态是否处于 pending 
+        stagePending() {
+            return this.debounce && this.stage.pending === true;
+        },
+
+        //根据 spin 参数以及 debounce 状态，确定要传给 icon 组件的实际 spin 参数
+        iconSpin() {
             let is = this.$is,
-                csv = this.cssvar.color,
-                po = this.popout;
-            if (!is.string(po)) return '';
-            let c = this.$cgy.loget(csv, po, '');
-            if (is.plainObject(c) && is.defined(c.$)) return c.$;
-            if (is.string(c) && c!='') return c;
-            if (po.startsWith('#') || po.startsWith('rgb')) return po;
-            return '';
-        },*/
+                spin = this.spin;
+            if (!this.debounce) return spin;
+            if (this.stagePending) {
+                if (is.boolean(spin)) return true;
+                return spin;
+            }
+            return false;
+        },
+    },
+    watch: {
+        //外部 fullfilled 标记变化
+        fullfilledWhen(nv, ov) {
+            //处于 pending 阶段且 fullfilled 标记变为 true
+            if (this.stagePending && nv === true) {
+                //修改 pending 标记
+                this.stage.pending = false;
+                //this.stage.fullfilled = true;
+            }
+        },
     },
     methods: {
 
-        /**
-         * 定义 icon 的样式计算方法，用于计算 icon 组件的 size 参数
-         * @return {Object} css{}
-         */
-        styCalcIconStyle() {
-            let is = this.$is,
-                //按钮尺寸在 $ui.cssvar.size 中的定义 {}
-                szd = this.$ui.cssvar.size.btn,
-                //按钮对应文字的 size 定义 {}
-                fszd = this.$ui.cssvar.size['btn-fs'],
-                //当前输入的 size 参数类型
-                sztp = this.sizePropType,
-                //按钮文字 size
-                fszv = '',
-                //计算得到的样式
-                rtn = {};
-
-            if ('str,key'.split(',').includes(sztp)) {
-                //通过 尺寸字符串 或 尺寸 key 定义的按钮尺寸
-                let sz = this.size,
-                    szk = '';
-                if (sztp === 'key') szk = sz;
-                if (sztp === 'str') szk = this.sizeStrToKey;
-                //直接取得 按钮文字的 size 100px 形式
-                fszv = fszd[szk];
-            } else {
-                //通过直接输入 尺寸字符串 定义的 按钮尺寸
-                let szv = this.sizePropVal,
-                    szarr = this.sizeToArr(szv),
-                    //得到按钮尺寸数字
-                    szn = szarr[0];
-                //按钮文字 size 是 按钮尺寸的 0.5
-                fszv = (szn*0.5)+'px';
-            }
-            
-            //将得到的 按钮文字 size 转为 icon size
-            let fszarr = this.sizeToArr(fszv),
-                //数字
-                iszn = fszarr[0],
-                //是否 props.stretch === square && props.effect === popout
-                pot = this.stretch === 'square' && this.effect === 'popout';
-            if (pot) {
-                iszn = iszn * 1.6;
-            } else {
-                iszn = iszn * 1.4;
-            }
-
-            //将得到的 icon size 写入 {}
-            return {
-                fontSize: iszn+'px',
-            };
-        },
-
         //click 事件
-        //防抖 debounce
         whenBtnClick(event) {
-            if (this.disabled) return false;
-            if (this.mouse.clicking!==true) {
-                this.mouse.clicking = true;
-                event.targetComponent = this;
-                //this.$ev('click', this, event);
-                this.$wait(500).then(()=>{
-                    this.mouse.clicking = false;
-                });
+            if (this.disabled || this.stagePending) return false;
+            if (this.debounce) {
+                //pending 标记
+                this.stage.pending = true;
+                //this.stage.fullfilled = false;
+                if (this.fullfilled === true) {
+                    //启用了外部 fullfilled 标记，则检查此标记
+                    if (this.fullfilledWhen === true) {
+                        this.stage.pending = false;
+                        //this.stage.fullfilled = true;
+                        //不触发 click 事件
+                        return false;
+                    }
+                } else {
+                    //未启用外部 fullfilled 标记，则 setTimeout
+                    this.$wait(this.debounceDura).then(()=>{
+                        this.stage.pending = false;
+                        //this.stage.fullfilled = true;
+                    });
+                }
             }
+
+            //触发 click 事件，如果启用了 debounce 以及外部 fullfilled 标记，这将触发外部 async 方法异步修改外部标记
+            //event.targetComponent = this;
+            return this.$emit('click');
         },
 
         //mouse 事件
         whenMouseEnter(event) {
-            if (this.disabled) return false;
-            this.mouse.enter = true;
-            event.targetComponent = this;
+            if (this.disabled || this.stagePending) return false;
+            //进入标记
+            this.stage.enter = true;
+            //event.targetComponent = this;
             //this.$ev('mouse-enter', this, event);
+            return this.$emit('mouse-enter');
         },
         whenMouseLeave(event) {
             if (this.disabled) return false;
-            this.mouse.enter = false;
-            event.targetComponent = this;
+            //进入标记
+            this.stage.enter = false;
+            //event.targetComponent = this;
             //this.$ev('mouse-leave', this, event);
+            return this.$emit('mouse-leave');
         },
         whenMouseDown(event) {
-            if (this.disabled) return false;
-            this.mouse.down = true;
-            event.targetComponent = this;
+            if (this.disabled || this.stagePending) return false;
+            //按下标记
+            this.stage.press = true;
+            //event.targetComponent = this;
             //this.$ev('mouse-down', this, event);
+            return this.$emit('mouse-down');
         },
         whenMouseUp(event) {
             if (this.disabled) return false;
-            this.mouse.down = false;
-            event.targetComponent = this;
+            //按下标记
+            this.stage.press = false;
+            //event.targetComponent = this;
             //this.$ev('mouse-up', this, event);
+            return this.$emit('mouse-up');
         },
     }
 }

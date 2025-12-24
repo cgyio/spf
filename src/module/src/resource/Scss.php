@@ -9,6 +9,7 @@ namespace Spf\module\src\resource;
 use Spf\module\src\SrcException;
 use Spf\Request;
 use Spf\Response;
+use Spf\exception\BaseException;
 use Spf\module\src\Mime;
 use Spf\util\Is;
 use Spf\util\Arr;
@@ -140,7 +141,7 @@ class Scss extends Codex
     //!! 20251202 CombineScssPatch 合并 ScssPhp 库补丁文件，生成最终 scss 内容
     public function stageCombineScssPatch($params=[]) {
         //scss 文件内容 增加补丁文件内容
-        $this->content = static::patchScssPhpParser($this->content);
+        $this->content = static::patchDartScss($this->content);
         return true;
     }
     //ParseScss 将 scss content 解析为 css
@@ -152,7 +153,8 @@ class Scss extends Codex
         //如果指定输出 css
         if ($exp === "css") {
             //解析 scss 默认不压缩，由 Codex 类统一处理代码压缩
-            $this->content = static::parseScss($cnt, false);
+            //$this->content = static::parseScss($cnt, false);
+            $this->content = static::parseByDartSass($cnt, false);
         }
         
         return true;
@@ -165,7 +167,7 @@ class Scss extends Codex
      */
 
     /**
-     * 调用工具 解析 scss 内容
+     * 调用 ScssPhp 库 解析 scss 内容
      * @param String $scss 内容字符串
      * @param Bool $compressed 是否压缩字符串，默认 true
      * @return String 解析得到的 css 字符串
@@ -175,7 +177,7 @@ class Scss extends Codex
         if (!Is::nemstr($scss)) return "";
         
         //为 ScssPhp 库打补丁
-        $scss = static::patchScssPhpParser($scss);
+        $scss = static::patchDartScss($scss);
         //var_dump($scss);
 
         $compiler = new scssCompiler();
@@ -196,15 +198,127 @@ class Scss extends Codex
     }
 
     /**
-     * !! 处理要编译的 scss 内容
-     * !! 为 ScssPhp 编译库自动打补丁
-     * 补丁文件位于：vendor/cgyio/spf/src/module/src/resource/util/scssphp-patcher.scss
+     * 调用 dart-sass v1.94.2 命令行工具解析 scss
+     * !! 命令行工具位置：spf/module/src/resource/util/dart-sass/sass 文件和路径必须拥有执行权限
+     * !! scss|css 临时文件路径 spf/assets/temp/dart-sass 路径必须拥有写权限
+     * @param String $scss 内容字符串
+     * @param Bool $compressed 是否压缩字符串，默认 true
+     * @return String 解析得到的 css 字符串
+     */
+    public static function parseByDartSass($scss="", $compressed=false)
+    {
+        if (!Is::nemstr($scss)) return "";
+        //为要解析的 scss 代码添加全局 patch
+        $scss = static::patchDartScss($scss);
+
+        $dartSass = Path::find("spf/module/src/resource/util/dart-sass/sass", Path::FIND_FILE);
+        $tempDir = Path::find("spf/assets/temp/dart-sass", Path::FIND_DIR);
+        if (!file_exists($dartSass) || !is_dir($tempDir)) {
+            throw new SrcException("Dart-Sass 编译器未找到或无权限", "resource/export");
+        }
+
+        //return function_exists("proc_open") ? "ok" : "fail";
+
+        //临时文件名
+        $tempName = date("YmdHis", time())."-".Str::nonce(8, false);
+        $tempScss = $tempDir. DS . "$tempName.scss";
+        $tempCss = $tempDir. DS . "$tempName.css";
+        $tempCssMap = $tempDir. DS . "$tempName.css.map";
+
+        //创建临时 scss 文件
+        Path::mkfile($tempScss, $scss);
+        if (file_exists($tempScss)) {
+            //0777
+            chmod($tempScss, 0777);
+        } else {
+            throw new SrcException("Dart-Sass 编译器编译失败，无法创建 scss 临时文件", "resource/export");
+        }
+
+        //调用 dart-sass 命令行
+        try {
+            //处理参数
+            //$p1 = escapeshellarg($tempScss);
+            
+            //拼接命令
+            $cmd = [$dartSass, $tempScss, $tempCss, "--no-source-map"];
+            //return $cmd;
+
+            //固定管道描述数组
+            $descriptorspec = [
+                0 => ["pipe", "r"],     //stdin 写管道，php向命令输入数据，无需交互则后续关闭
+                1 => ["pipe", "w"],     //stdout 读管道，接受命令的正常输出
+                2 => ["pipe", "w"],     //stderr 读管道，接受命令的错误信息
+            ];
+
+            //创建进程
+            $process = proc_open($cmd, $descriptorspec, $pipes, null, null, [
+                "timeout" => 10,        //超时时间 10s
+                "bypass_shell" => true, //跳过 shell 解析，更安全
+            ]);
+
+            if (!is_resource($process)) {
+                throw new SrcException("Dart-Sass 编译器编译失败，创建编译进程失败！", "resource/export");
+            }
+
+            //!! 关闭 stdin 无需向命令输入数据时必须关闭，否则进程会阻塞
+            fclose($pipes[0]);
+
+            //读取输出和错误信息
+            $stdout = stream_get_contents($pipes[1]);   //命令输出
+            $stderr = stream_get_contents($pipes[2]);   //错误信息
+
+            //关闭管道和进程，获取退出码 0=成功 1=失败
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            $returnVar = proc_close($process);
+
+            //if ($returnVar === 0) {
+                //读取输出的 css 文件
+                if (file_exists($tempCss)) {
+                    $css = file_get_contents($tempCss);
+                    //删除 临时文件
+                    unlink($tempScss);
+                    unlink($tempCss);
+                    if (file_exists($tempCssMap)) unlink($tempCssMap);
+                    //返回 css
+                    return $css;
+                } else {
+                    throw new SrcException("Dart-Sass 编译器编译失败，输出：$stdout   错误：$stderr", "resource/export");
+                }
+            //} else {
+            //    throw new SrcException("Dart-Sass 编译器编译失败，输出：$stdout   错误：$stderr", "resource/export");
+            //}
+
+            
+
+        } catch (BaseException $e) {
+            $e->handleException();
+        }
+    }
+
+    /**
+     * !! 处理要编译的 scss 内容，增加一些全局功能
+     * patch 文件位于：vendor/cgyio/spf/src/module/src/resource/util/dart-scss-patch.scss
      * 需要将此文件内容，附加到 scss @import 语句之后
      * @param String $scss 代码内容
-     * @return String 添加 补丁文件内容后的 代码
+     * @return String 添加 patch 文件内容后的 代码
      */
-    public static function patchScssPhpParser($scss="")
+    public static function patchDartScss($scss="")
     {
+        //为 scss 代码增加 @use 规则 这些语句必须在最顶部
+        $userows = [
+            "@use 'sass:string';",
+            "@use 'sass:list';",
+            "@use 'sass:map';",
+            "@use 'sass:color';",
+            "@use 'sass:math';",
+            "@use 'sass:meta';",
+            "@use 'sass:selector';",
+            "",
+            "",
+        ];
+
+        //拆分当前 scss 代码为 rows
         $rows = explode("\n", $scss);
         $improws = [];
         $cntrows = [];
@@ -220,15 +334,16 @@ class Scss extends Codex
             }
         }
         //读取补丁文件
-        $ptf = Path::find("spf/module/src/resource/util/scssphp-patcher.scss", Path::FIND_FILE);
+        $ptf = Path::find("spf/module/src/resource/util/dart-scss-patch.scss", Path::FIND_FILE);
         if (file_exists($ptf)) {
             $ptcnt = file_get_contents($ptf);
             $improws[] = "\n\n";
             $improws[] = $ptcnt;
             $improws[] = "\n\n";
         }
+
         //合并为 scss cnt 等待 编译器解析
-        return implode("\n", $improws) . implode("\n", $cntrows);
+        return implode("\n", $userows) . implode("\n", $improws) . implode("\n", $cntrows);
     }
 
     /**

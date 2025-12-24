@@ -45,7 +45,7 @@ class ViewConfig extends Configer
             //图标 url 地址
             "href" => "/src/icon/spf/logo-light.svg",
             //图表类型，默认 svg
-            "type" => "image/svg+xml",
+            //"type" => "image/svg+xml",
         ],
 
         /**

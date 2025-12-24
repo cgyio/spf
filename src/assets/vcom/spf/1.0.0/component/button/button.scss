@@ -1,80 +1,6 @@
-/** __PRE__-button 相关组件样式 **/
-/** 定义通用 mixin **/
-//link 链接形式 btn effect 设置
-@mixin btn-link-effect-setter($ck: null, $status: null) {
-    @if $ck == null {
-        $ck: primary;
-    }
-    @if $status == null {
-        //未悬停效果
-        @include css-set-effect(transparent, #{$ck}-m);
-        //label 文字移除下划线
-        &>label {
-            text-decoration: underline;
-            text-underline-offset: 0.3em;
-        }
-        //覆盖 effect 效果
-        &.btn-effect {
-            @include css-set-effect(transparent, #{$ck}-m);
-            border-width: 0;
-            &.btn-effect-fill, &.btn-effect-plain {
-                @include css-set-effect(transparent, #{$ck}-m);
-                border-width: 0;
-            }
-        }
-    } @else if $status == 'hover' {
-        //悬停效果
-        @include css-set-effect(transparent, #{$ck}-d1);
-        //label 文字增加下划线
-        &>label {
-            text-decoration: underline;
-            text-underline-offset: 0.2em;
-        }
-        //覆盖 effect 效果
-        &.btn-effect {
-            @include css-set-effect(transparent, #{$ck}-d1);
-            border-width: 0;
-            &.btn-effect-fill, &.btn-effect-plain {
-                @include css-set-effect(transparent, #{$ck}-d1);
-                border-width: 0;
-            }
-        }
-    } @else if $status == 'active' {
-        //选中 | visited 效果
-        @include css-set-effect(transparent, #{$ck}-d2);
-        //label 文字移除下划线
-        &>label {
-            text-decoration: underline;
-            text-underline-offset: 0.3em;
-        }
-        //覆盖 effect 效果
-        &.btn-effect {
-            @include css-set-effect(transparent, #{$ck}-d2);
-            border-width: 0;
-            &.btn-effect-fill, &.btn-effect-plain {
-                @include css-set-effect(transparent, #{$ck}-d2);
-                border-width: 0;
-            }
-        }
-    }
-}
-//link 链接形式 btn size 设置
-@mixin btn-link-size-setter() {
-    overflow: visible;
-    //无 height padding border radius
-    height: unset; padding: 0; border-radius: 0;
-    border-width: 0;
-    //icon 无 margin
-    &>svg[class*=icon-] {margin: 0;}
-    //icon label 间距 固定
-    &>svg[class*=icon-]+label, &>label+svg[class*=icon-] {
-        margin-left: 0.2em;
-    }
-}
-
 .__PRE__-btn {
     @include spf-po-ov($w: unset, $h: $size-btn-m, $pd: 0 $size-btn-pd-m, $mg: 0);
-    @include spf-flex-x($x: center, $y: center);
+    //@include spf-flex-x($x: center, $y: center);
     min-width: $size-btn-m;
     font-size: $size-btn-fs-m;
     font-family: $font-fml-default;
@@ -88,14 +14,28 @@
                 transform .1s;
 
     //icon 图标默认样式
-    &>svg[class*=icon-] {
+    &>svg[class*=icon] {
         cursor: pointer;
         transition: color .1s;
+        &:first-child {
+            &:last-child {
+                //font-size: 1.7em;
+            }
+        }
+        &:not(:last-child):first-child {
+            //font-size: 1.6em;
+            margin-left: -0.1em;
+        }
+        &:not(:first-child):last-child {
+            //font-size: 1.6em;
+            margin-right: -0.1em;
+        }
     }
 
     &>label {
-        //margin-top: -0.1em;
-        @include spf-text-ellipsis;
+        margin-top: -0.1em;
+        //@include spf-text-ellipsis;
+        @extend .f-ellipsis;
         overflow: unset;
         cursor: pointer;
         transition: color .1s,
@@ -108,391 +48,33 @@
     //当作页面标题
     &.btn-astitle>label {
         font-weight: bold;
-        font-size: 1.2em;
+        font-size: 1.4em;
     }
 
-    /** 设置按钮尺寸 通用参数 **/
-    @include css-set-bar-size;
-
-    /** 设置按钮颜色 通用参数 **/
-    //@include css-set-effect(bgc-m, fc-m, bdc-m);
-
-
-
-    /** btn-radius-* **/
-    &.btn-radius {
-        @include bar-radius-setter('btn');
-    }
-
-    /** btn-stretch-* **/
-    &.btn-stretch {
-        @include bar-stretch-setter('btn');
-    }
-
-    /** btn-effect-* **/
-    &.btn-effect {
-        @include effect-setter('btn');
-    }
-
-    /** btn-link 链接样式按钮 **/
-    &.btn-link {
-        @include btn-link-size-setter;
-        @include btn-link-effect-setter;
-    }
-
-    /** btn-hoverable 悬停 **/
-    &.btn-hoverable:hover {
-        //effect 效果
-        @include effect-setter('btn', null, 'hover');
-        //btn-link
-        &.btn-link {
-            @include btn-link-effect-setter(null, 'hover');
-        }
-    }
-
-    /** btn-active 选中 **/
-    &.btn-active {
-        //effect 效果
-        @include effect-setter('btn', null, 'active');
-        //btn-link
-        &.btn-link {
-            @include btn-link-effect-setter(null, 'active');
-        }
-        //覆盖悬停效果，悬停样式相同
-        &.btn-hoverable:hover {
-            @include effect-setter('btn', null, 'active');
-            &.btn-link {
-                @include btn-link-effect-setter(null, 'active');
-            }
-        }
-    }
-
-    /** btn-mouse-down 点击微缩 **/
-    &.btn-mouse-down {
+    //pressed 按下效果
+    &.btn-pressed {
         transform: scale(0.9);
-    }
-
-    /** btn-disabled 失效 **/
-    &.btn-disabled {
-        opacity: 0.3;
-        cursor: not-allowed;
-        &>svg[class*=icon-] {cursor: not-allowed;}
-        &>label {cursor: not-allowed;}
-    }
-
-    /** size 循环 **/
-    //size 循环 huge,large,medium,normal,small,mini,tiny
-    @each $sz in $sizeStrQueue {
-        //normal --> m
-        $szk: map-get($sizeStrMap, $sz);
-        @if $szk != null {
-            &.btn-#{$sz}, &.btn-#{$szk} {
-                //设置尺寸 通用参数
-                @include css-set-bar-size($szk);
-                //btn-radius-*
-                &.btn-radius {
-                    @include bar-radius-setter('btn', $szk);
-                }
-                //btn-stretch-* 
-                &.btn-stretch {
-                    @include bar-stretch-setter('btn', $szk);
-                }
-                //btn-link
-                &.btn-link {
-                    @include btn-link-size-setter;
-                }
-            }
+        //active|disabled 状态覆盖
+        &.btn-active, &.btn-disabled, &.btn-pending, &.btn-fullfilled {
+            transform: none;
         }
     }
-    //size 循环 $extraBtnSizeQueue
-    @each $szn in $extraBtnSizeQueue {
-        &.btn-#{$szn}px {
-            //设置尺寸 通用参数
-            @include css-set-bar-size($szn: $szn);
-            //btn-radius-*
-            &.btn-radius {
-                @include bar-radius-setter('btn', null, $szn);
-            }
-            //btn-stretch-* 
-            &.btn-stretch {
-                @include bar-stretch-setter('btn', null, $szn);
-            }
-            //btn-link
-            &.btn-link {
-                @include btn-link-size-setter;
-            }
-        }
-    }
-
-    /** color 循环 **/
-    @each $ck in $colorListAll {
-        &.btn-#{$ck}, &.btn-#{$ck}-m {
-            //设置按钮颜色 通用参数
-            //@include btn-set-color(#{$ck}-l3, null, #{$ck}-l2);
-
-            /** btn-effect-* **/
-            &.btn-effect {
-                @include effect-setter('btn', $ck);
-            }
-
-            /** btn-link 链接样式按钮 **/
-            &.btn-link {
-                @include btn-link-effect-setter($ck);
-            }
-
-            /** btn-hoverable 悬停 **/
-            &.btn-hoverable:hover {
-                //effect 效果
-                @include effect-setter('btn', $ck, 'hover');
-                //btn-link
-                &.btn-link {
-                    @include btn-link-effect-setter($ck, 'hover');
-                }
-            }
-
-            /** btn-active 选中 **/
-            &.btn-active {
-                //effect 效果
-                @include effect-setter('btn', $ck, 'active');
-                //btn-link
-                &.btn-link {
-                    @include btn-link-effect-setter($ck, 'active');
-                }
-                //覆盖悬停效果，悬停样式相同
-                &.btn-hoverable:hover {
-                    @include effect-setter('btn', $ck, 'active');
-                    &.btn-link {
-                        @include btn-link-effect-setter($ck, 'active');
-                    }
-                }
-            }
-        }
-    }
-
-
-
-}
-
-
-
-//set btn-group-radius
-@mixin btns-radius-setter($szk: 'm', $szn: null) {
-    $szm: bar-size-map($szk, $szn);
-    $szv: map-get($szm, sz);
-    $szrd: map-get($szm, rd);
-    //-normal
-    &>.__PRE__-btn {
-        //第一个按钮
-        &:first-child {
-            border-top-right-radius: 0 !important;
-            border-bottom-right-radius: 0 !important;
-            border-top-left-radius: #{$szrd} !important;
-            border-bottom-left-radius: #{$szrd} !important;
-        }
-        //最后一个按钮
-        &:last-child {
-            border-top-left-radius: 0 !important;
-            border-bottom-left-radius: 0 !important;
-            border-top-right-radius: #{$szrd} !important;
-            border-bottom-right-radius: #{$szrd} !important;
-        }
-        //中间元素
-        &:not(:first-child):not(:last-child) {
-            border-radius: 0 !important;
-        }
-    }
-    //-pill
-    &.btns-radius-pill {
-        &>.__PRE__-btn {
-            //第一个按钮
-            &:first-child {
-                border-top-right-radius: 0 !important;
-                border-bottom-right-radius: 0 !important;
-                border-top-left-radius: calc(#{$szv} / 2) !important;
-                border-bottom-left-radius: calc(#{$szv} / 2) !important;
-            }
-            //最后一个按钮
-            &:last-child {
-                border-top-left-radius: 0 !important;
-                border-bottom-left-radius: 0 !important;
-                border-top-right-radius: calc(#{$szv} / 2) !important;
-                border-bottom-right-radius: calc(#{$szv} / 2) !important;
-            }
-            //中间元素
-            &:not(:first-child):not(:last-child) {
-                border-radius: 0 !important;
-            }
-        }
-    }
-    //-sharp
-    &.btns-radius-sharp {
-        &>.__PRE__-btn {
-            border-radius: 0 !important;
-        }
-    }
-}
-
-.__PRE__-btn-group {
-    @include spf-po-ov($w: unset, $h: $size-btn-m, $pd: 0, $mg: 0);
-    @include spf-flex-x($x: center, $y: center);
-    min-width: $size-btn-m;
-    border-radius: 0;
-    border: none;
-    background: transparent;
-
-    &+.__PRE__-btn-group {
-        margin-left: calc(#{$size-btn-pd-m} / 2);
-    }
-
-    //内部按钮
-    &>.__PRE__-btn {
-        margin: 0 !important;
-        //取消点击缩放
-        &.btn-mouse-down {
-            transform: none !important;
-        }
-    }
-
-    /** btns-radius-* **/
-    &.btns-radius {
-        @include btns-radius-setter;
-    }
-
-    /** btn-full-line **/
-    &.btns-full-line {
-        flex: 1;
-        &>.__PRE__-btn {
-            flex: 1 !important;
-        }
-    }
-
-    /** btn-effect-* **/
-    &.btns-effect {
-        //默认 effect 带边框，强制内部 btn 组件使用 btn-group 样式
-        &>.__PRE__-btn {
-            //相邻按钮的后一个
-            &+.__PRE__-btn {
-                border-left-width: 0 !important;
-            }
-            //与 active 按钮相邻的 后一个
-            &.btn-active+.__PRE__-btn {
-                border-left-width: 1px !important;
-            }
-            //选中的内部按钮
-            &.btn-active:not(:last-child) {
-                border-right-width: 0 !important;
-            }
-
-            //应用 btn-group 样式到 内部按钮
-            /** btn-effect-* **/
-            &.btn-effect {
-                //@include btn-set-effect;
-                @include effect-setter('btn');
-            }
-
-            /** btn-hoverable 悬停 **/
-            &.btn-hoverable:hover {
-                //effect 效果
-                @include effect-setter('btn', null, 'hover');
-            }
-
-            /** btn-active 选中 **/
-            &.btn-active {
-                //effect 效果
-                @include effect-setter('btn', null, 'active');
-                //覆盖悬停效果，悬停样式相同
-                &.btn-hoverable:hover {
-                    @include effect-setter('btn', null, 'active');
-                }
-            }
-        }
-        //-fill 都不带边框
-        &.btns-effect-fill {
-            &>.__PRE__-btn {
-                //所有按钮
-                border-width: 0 !important;
-            }
-        }
-        //-plain 线框
-        &.btns-effect-plain {
-            
-            /*&>.__PRE__-btn {
-                //相邻按钮的后一个
-                &+.__PRE__-btn {
-                    border-left-width: 0 !important;
-                }
-            }*/
-        }
-    }
-
-    /** size 循环 **/
-    //size 循环 huge,large,medium,normal,small,mini,tiny
-    @each $sz in $sizeStrQueue {
-        //normal --> m
-        $szk: map-get($sizeStrMap, $sz);
-        @if $szk != null {
-            &.btns-#{$sz}, &.btns-#{$szk} {
-                //设置尺寸 通用参数
-                height: size-get(btn-#{$szk});
-                &+.__PRE__-btn-group {
-                    $szpd: size-get(btn-pd-#{$szk});
-                    margin-left: calc(#{$szpd} / 2);
-                }
-
-                //btns-radius-*
-                &.btns-radius {
-                    @include btns-radius-setter($szk);
-                }
-            }
-        }
-    }
-    //size 循环 $extraBtnSizeQueue
-    @each $szn in $extraBtnSizeQueue {
-        &.btn-#{$szn}px {
-            //设置尺寸 通用参数
-            height: #{$szn}px;
-            &+.__PRE__-btn-group {
-                $szpd: bar-size-pd($szn);
-                margin-left: calc(#{$szpd}px / 2);
-            }
-
-            //btns-radius-*
-            &.btns-radius {
-                @include btns-radius-setter($szn: $szn);
-            }
-        }
-    }
-
-    /** color 循环 **/
-    @each $ck in $colorListAll {
-        &.btns-#{$ck}, &.btns-#{$ck}-m {
-            &>.__PRE__-btn{
-                //设置按钮颜色 通用参数
-                //@include btn-set-color(#{$ck}-l3, null, #{$ck}-l2);
-                /** btn-effect-* **/
-                &.btn-effect {
-                    //@include btn-set-effect($ck);
-                    @include effect-setter('btn', $ck);
-                }
     
-                /** btn-hoverable 悬停 **/
-                &.btn-hoverable:hover {
-                    //effect 效果
-                    @include effect-setter('btn', $ck, 'hover');
-                }
-    
-                /** btn-active 选中 **/
-                &.btn-active {
-                    //effect 效果
-                    @include effect-setter('btn', $ck, 'active');
-                    //覆盖悬停效果，悬停样式相同
-                    &.btn-hoverable:hover {
-                        @include effect-setter('btn', $ck, 'active');
-                    }
-                }
-            }
+    //尺寸循环
+    @include spf-size-shift(self, btn-, bar-size, btn, $extraBtnSizeQueue, true);
+    //与尺寸值无关的 静态样式
+    @include spf-set-bar-size-static(btn-);
+    @include spf-set-bar-shape-static(btn-);
+    @include spf-set-bar-stretch-static(btn-);
+    @include spf-set-bar-tightness-static(btn-);
+
+    //effect
+    @include spf-effect-shift(self, btn-);
+
+    //紧密排列
+    &.btn-no-gap {
+        &+.btn-no-gap {
+            margin-left: 0;
         }
     }
-
-
 }

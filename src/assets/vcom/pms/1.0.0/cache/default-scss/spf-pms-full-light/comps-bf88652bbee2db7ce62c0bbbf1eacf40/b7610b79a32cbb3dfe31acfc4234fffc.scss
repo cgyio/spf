@@ -1,0 +1,13 @@
+
+
+
+/**
+ * 合并资源 base.scss
+ * !! 不要手动修改 !!
+ */
+
+.__PRE__-pms-index {
+    @include spf-po-ov($w: 100vw, $h: 100vh, $pd: 0, $mg: 0);
+}
+
+

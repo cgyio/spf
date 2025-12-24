@@ -45,6 +45,9 @@ class Vcom extends Compound
 
         //合并外部指定的 scss|js 资源，可指定 资源实例 或通过 url 指定资源路径，可以是 本地|远程 资源路径
         "combine" => [],
+
+        //显示 scss 文件时 是否包含 dart-sass-patch 内容
+        "patch" => false,
         
     ];
     
@@ -270,7 +273,10 @@ class Vcom extends Compound
          * !! 可以指定一个或多个 本地 *.icon.json 文件真实路径，文件后缀名可以省略
          */
         "iconset" => [
-            //"spf/assets/icon/spf",
+            //"spf/assets/icon/md-round",
+            //"spf/assets/icon/md-sharp",
+            //"spf/assets/icon/md-fill",
+            //"spf/assets/icon/spinner",
         ],
         
 
@@ -780,7 +786,7 @@ class Vcom extends Compound
                 "prefix" => $desc["prefix"],
                 //如果此组件库是 业务组件库，需要提供不同的 basePrefix
                 "basepre" => $desc["basePrefix"],
-                //不自动注册
+                //自动注册
                 "regist" => false,
                 //不注入样式
                 "inject" => false,
@@ -800,7 +806,7 @@ class Vcom extends Compound
             $cvu = $cvu."?".$qs;
 
             //js 代码
-            $esmrows[] = "'".$compc["vcn"]."': ()=>{import('".$cvu."')},";
+            $esmrows[] = "'".$compc["vcn"]."': () => import('".$cvu."'),";
         }
         $esmrows[] = "}";
 
@@ -1280,6 +1286,14 @@ class Vcom extends Compound
         $thres = $this->theme;
         //clone
         $tho = $thres->clone([
+            /*//!! 强制 create 因为 combine 参数不会体现到 cache 文件名上
+            //!! 如果不强制 create 则当 combine 改变时也不会触发 create
+            //!! 主题中的 vcom.scss 默认优先读取 default.css 缓存以跳过主体自身文件的编译
+            //!! 因此如果主题本身代码发生改变，需要先单独 create default.css?mode=...
+            "create" => true,
+            //!! 调用 SPF-Theme 主题中的 vcom.scss 子资源
+            "file" => "vcom",*/
+
             //输出格式为 scss
             "export" => "scss",
             //传入合并资源数组
@@ -1303,6 +1317,7 @@ class Vcom extends Compound
                 "ext" => "scss",
                 "export" => "scss",
                 "ignoreGet" => true,
+                "patch" => $this->params["patch"] ?? false,
             ]
         );
         $this->subResource = $temp;
@@ -1515,7 +1530,7 @@ class Vcom extends Compound
         }
 
         //图标库资源信息
-        /*if ($isBase) {
+        if ($isBase) {
             //只有基础组件库，才能初始定义
             $thrower->rowAdd("Vue.service.options.ui.iconset = {","");
             if (Is::nemarr($this->icon)) {
@@ -1528,7 +1543,7 @@ class Vcom extends Compound
                     //图表库中包含的所有图标名 数组，不含前缀
                     $icns = array_keys($isetres->glyphs);
                     //插入 js 代码
-                    $thrower->rowAdd("    $iset: ['".implode("', '", $icns)."'],","");
+                    $thrower->rowAdd("    '$iset': ['".implode("', '", $icns)."'],","");
                 }
             } else {
                 //未启用图标库
@@ -1547,10 +1562,10 @@ class Vcom extends Compound
                     //图表库中包含的所有图标名 数组，不含前缀
                     $icns = array_keys($isetres->glyphs);
                     //插入 js 代码
-                    $thrower->rowAdd("Vue.service.options.ui.iconset.$iset = ['".implode("', '", $icns)."'];","");
+                    $thrower->rowAdd("Vue.service.options.ui.iconset['$iset'] = ['".implode("', '", $icns)."'];","");
                 }
             }
-        }*/
+        }
 
         //临时 js 生成 content
         $thjs->content = $thrower->rowCombine();
@@ -1728,7 +1743,13 @@ class Vcom extends Compound
         $cfp = [];
         foreach ($combine as $cbi) {
             if (Is::nemstr($cbi)) {
-                $cfp[] = $cbi;
+                //!! 传入了 combine 待合并资源的路径，如果存在 ?queryString 则去除
+                //!! 否则create 模式下生成的 缓存文件名 与 !create 模式下的缓存文件名不同
+                if (strpos($cbi, "?") !== false) {
+                    $cfp[] = explode("?", $cbi)[0];
+                } else {
+                    $cfp[] = $cbi;
+                }
                 continue;
             }
             if ($cbi instanceof Resource) {
@@ -1904,7 +1925,8 @@ class Vcom extends Compound
         //实例化参数
         $ps = $vuec["params"] ?? [];
         //附加其他实例化参数
-        $ps = $this->fixSubResParams($ps);
+        //!! Vue 库资源不跟随 Vcom 自动刷新，如有修改需要手动 create
+        $ps = $this->fixSubResParams($ps, false);
         //创建资源实例
         $vueres = Resource::create($vfp, $ps);
         if (!$vueres instanceof Compound) return null;
@@ -1932,7 +1954,8 @@ class Vcom extends Compound
             $uifp = Path::find($uif, Path::FIND_FILE);
             if (!Is::nemstr($uifp)) continue;
             $uip = $uic["params"] ?? [];
-            $uip = $this->fixSubResParams($uip);
+            //!! 第三方 UI 库资源不跟随 Vcom 自动刷新，如有修改需要手动 create
+            $uip = $this->fixSubResParams($uip, false);
             $uires = Resource::create($uifp, $uip);
             if (!$uires instanceof Compound) continue;
             //缓存
@@ -1997,7 +2020,8 @@ class Vcom extends Compound
         $isets = array_map(function($isetf) {
             if (!Is::nemstr($isetf)) return null;
             if (substr($isetdf, -10)!==".icon.json") $isetf .= ".icon.json";
-            $isetres = Resource::create($isetf, $this->fixSubResParams());
+            //!! Icon 图标库资源不跟随 Vcom 自动刷新，如有修改需要手动 create
+            $isetres = Resource::create($isetf, $this->fixSubResParams([], false));
             if (!$isetres instanceof Icon) return null;
             return $isetres;
         }, $iset);

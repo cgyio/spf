@@ -1,6 +1,6 @@
 <template>
     <div class="pms-layout-wrapper">
-        <BPRE@-layout>foobar</BPRE@-layout>
+        <span>__PRE__ + __BPRE__</span>
     </div>
 </template>
 

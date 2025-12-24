@@ -1,0 +1,1534 @@
+/** dart-scss patch functions **/
+//所有支持的 数据类型
+$dartScssTypeList: number,string,color,list,map,calculation,bool,'null',function,mixin,arglist;
+//scss 支持的 unit 单位 map 用于 set-unit
+$dartScssUnitMap: (
+    cm:     1cm,
+    mm:     1mm,
+    in:     1in,
+    px:     1px,
+    pt:     1pt,
+    pc:     1pc,
+    q:      1q,
+    em:     1em,
+    rem:    1rem,
+    ex:     1ex,
+    ch:     1ch,
+    vw:     1vw,
+    vh:     1vh,
+    vmin:   1vmin,
+    vmax:   1vmax,
+    //!! %:    1%,  非法键名，使用 pec 代替 %
+    '%':    1%,
+    pec:    1%,
+    fr:     1fr,
+    cap:    1cap,
+    ic:     1ic,
+    lh:     1lh,
+    rlh:    1rlh,
+    s:      1s,
+    deg:    1deg,
+);
+//list 默认 separator comma
+$dftListSeparator: comma;
+//所有可选的 top|right|bottom|left 方位字符的简写列表
+$trblQueue: t,r,b,l,tr,tb,tl,rb,rl,bl,trb,trl,rbl,tbl,trbl,x,y,xy,all;
+//所有可选的 top-left,top-right,bottom-left,bottom-right 角标字符的简写列表
+$cornerQueue: t,b,r,l,tl,tr,bl,br,tbl,tbr,btl,btr,rtl,rbl,ltr,lbr,trbl,all;
+
+/** type-system patch **/
+//isa 快捷调用 meta.type-of($val) == $tp  <返回：bool>
+@function isa($value, $type) {
+    @if meta.type-of($type) != 'string' or list.index($dartScssTypeList, $type) == null {@return false;}
+    @return meta.type-of($value) == $type;
+}
+//is-any 多个类型快捷判断  <返回：bool>
+@function is-any($value, $types...) {
+    @each $i in $types {
+        @if isa($value, $i) {
+            @return true;
+        }
+    }
+    @return false;
+}
+//all-is 多个值类型快捷判断  <返回：bool>
+@function all-is($type, $values...) {
+    @if not isa($type, string) or len($values) <= 0 {@return false;}
+    @each $i in $values {
+        @if not isa($i, $type) {@return false;}
+    }
+    @return true;
+}
+//is-*** 快捷类型判断  <返回：bool>
+@function is-number($values...) {@return all-is(number, $values...);}
+@function is-string($values...) {@return all-is(string, $values...);}
+@function is-color($values...) {@return all-is(color, $values...);}
+@function is-list($values...) {@return all-is(list, $values...);}
+@function is-map($values...) {@return all-is(map, $values...);}
+@function is-bool($values...) {@return all-is(bool, $values...);}
+@function is-null($values...) {@return all-is('null', $values...);}
+@function is-function($values...) {@return all-is(function, $values...);}
+@function is-arglist($values...) {@return all-is(arglist, $values...);}
+@function is-mixin($values...) {@return all-is(mixin, $values...);}
+@function is-calculation($values...) {@return all-is(calculation, $values...);}
+//is-empty 快捷判断 null|list|map|string 为空  <返回：bool>
+@function is-empty($value) {
+    //null 返回 true
+    @if is-null($value) {@return true;}
+    @if is-any($value, list,arglist,map) {@return len($value) <= 0;}
+    @if is-string($value) {@return str-len($value) <= 0;}
+    //其他类型一律返回 false
+    @return false;
+}
+//is-nemstr 简写 is-string(val) and val != ''  <返回：bool>
+@function is-nemstr($value) {@return is-string($value) and $value != '';}
+//is-nemlist 简写 is-any(val, list,arglist) and not is-empty(val)  <返回：bool>
+@function is-nemlist($value) {@return is-any($value, list, arglist) and not is-empty($value);}
+//is-nemmap 简写 is-map(val) and not is-empty(val)  <返回：bool>
+@function is-nemmap($value) {@return is-map($value) and not is-empty($value);}
+//is-digit 判断是否纯数字或纯数字字符串  <返回：bool>
+@function is-digit($value) {
+    //无单位 number --> true
+    @if is-number($value) {@return math.is-unitless($value);}
+    //非 string 空 string --> false
+    @if not is-string($value) or is-empty($value) {@return false;}
+    //一些无效字符串
+    @if list.index(('-','.','-.','.-'), $value) != null {@return false;}
+    $nl: ('0','1','2','3','4','5','6','7','8','9');
+    @if str-len($value) == 1 {@return list.index($nl, $value) != null;}
+    $minus: false;
+    $dot: false;
+    @for $i from 1 through str-len($value) {
+        $ch: string.slice($value, $i, $i);
+        @if $ch == '-' {
+            //- 负数符号仅允许在第 1 位，且只能有 1 个
+            @if $i != 1 or $minus == true {
+                @return false;
+            } @else {
+                $minus: true;
+            }
+        } @else if $ch == '.' {
+            //只允许 1 个小数点
+            @if $dot == true {
+                @return false;
+            } @else {
+                $dot: true;
+            }
+        } @else if list.index($nl, $ch) == null {
+            @return false;
+        }
+    }
+    @return true;
+}
+//is-numeric 判断一个值是否是数值形式（纯数字、带单位数字、字符串）  <返回：bool|number>
+@function is-numeric($value, $conv: false) {
+    //is-numer --> true
+    @if is-number($value) {@return true;}
+    //非 string 空 string --> false
+    @if not is-string($value) or is-empty($value) {@return false;}
+    $len: str-len($value);
+    $num-str: '';
+    $unit: '';
+    $minus: false;
+    $dot: false;
+    @for $i from 1 through $len {
+        $ch: string.slice($value, $i, $i);
+        @if $ch == '-' or $ch == '.' or is-digit($ch) {
+            @if $ch == '-' {
+                @if $i != 1 or $minus == true {
+                    //负号只能在首位，且只能有 1 个
+                    @return false;
+                } @else {
+                    $minus: true;
+                }
+            } @else if $ch == '.' {
+                @if $dot == true {
+                    //只允许有 1 个 .
+                    @return false;
+                } @else {
+                    $dot: true;
+                }
+            } @else {
+                @if $unit != '' {
+                    //在 单位后 还有数字，返回 false
+                    @return false;
+                }
+            }
+            $num-str: $num-str + $ch;
+        } @else {
+            @if $num-str == '' {
+                //字符串首位 非数字，返回 false
+                @return false;
+            }
+            $unit: $unit + $ch;
+        }
+    }
+    @if $conv == debug {
+        @return ($num-str, $unit);
+    }
+    //不包含任何数字
+    @if $num-str == '' {@return false;}
+    //将数字字符串转为 number
+    $num: to-digit($num-str);
+    @if not is-number($num) {@return false;}
+    //$conv = true 返回转换后的 number
+    @if $conv == true {
+        @if $unit == '' {@return $num;}
+        //合并 unit 返回 number
+        @return set-unit($num, $unit);
+    } @else {
+        @return true;
+    }
+}
+//to-digit 将 is-digit 字符串转为 number  <返回：number|null>
+@function to-digit($value) {
+    @if not is-digit($value) {@return null;}
+    //number 直接返回
+    @if is-number($value) {@return $value;}
+    $nl: ('0','1','2','3','4','5','6','7','8','9');
+    $vl: (0,1,2,3,4,5,6,7,8,9);
+    $len: str-len($value);
+    @if $len == 1 {
+        @return nth($vl, list.index($nl, $value));
+    }
+    //标记 - 负数
+    $is-minus: string.slice($value, 1, 1) == '-';
+    @if $is-minus {
+        $value: string.slice($value, 2, $len);
+    }
+    //.3 --> 0.3
+    @if string.slice($value, 1, 1) == '.' {
+        $value: '0' + $value;
+    }
+    //3. --> 3.0
+    @if string.slice($value, $len, $len) == '.' {
+        $value: $value + '0';
+    }
+    $len: str-len($value);
+
+    //不含 . 
+    @if string.index($value, '.') == null {
+        $num: 0;
+        @for $i from 1 through $len {
+            $dig: to-digit(string.slice($value, $i, $i));
+            // 105 = 1 * pow(10, 2) + 0 * pow(10, 1) + 5 * pow(10, 0)
+            $num: $num + $dig * math.pow(10, $len - $i);
+        }
+        @return if($is-minus, $num * -1, $num);
+    }
+
+    //包含 . 数字字符串拆为 整数部分 和 小数部分
+    $nstrs: string.split($value, '.');
+    $nsl: len($nstrs);
+    @if $nsl > 2 or $nsl < 1 {@return null;}
+    $int: to-digit(nth($nstrs, 1));
+    @if not is-number($int) {@return null;}
+    @if $nsl == 1 {@return if($is-minus, $int * -1, $int);}
+    $flo-str: nth($nstrs, 2);
+    $flo-int: to-digit($flo-str);
+    @if not is-number($flo-int) {@return null;}
+    $flo: math.div($flo-int, math.pow(10, str-len($flo-str)));
+    $num: $int + $flo;
+    @return if($is-minus, $num * -1, $num);
+}
+//to-string 任意值转为 string  <返回：string|null>
+@function to-string($value, $escape: auto) {
+    @if is-null($value) {@return null;}
+    @if is-string($value) {@return $value;}
+    @return '#{$value}';
+}
+//to-number 任意值转为 number  <返回：number|null>
+@function to-number($value) {
+    @if is-null($value) {@return null;}
+    $tp: meta.type-of($value);
+    @if $tp == 'number' {@return $value;}
+    @if $tp == 'bool' {@return if($value == true, 1, 0);}
+    @if $tp != 'string' {@return null;}
+    $num: is-numeric($value, true);
+    @if not is-number($num) {@return null;}
+    @return $num;
+}
+//to-strings 将任意多个值 转为 string 只要有一个失败 则返回 null 全部成功则返回 顺序一致的 list  <返回：list|null>
+@function to-strings($values...) {
+    @if len($values) <= 0 {@return ();}
+    $strs: ();
+    @each $i in $values {
+        $ni: to-string($i);
+        @if not is-string($ni) {@return null;}
+        $strs: list.append($strs, $ni);
+    }
+    @return $strs;
+}
+//to-numbers 将任意多个值 转为 number 只要有一个失败 则返回 null 全部成功则返回 顺序一致的 list  <返回：list|null>
+@function to-numbers($values...) {
+    @if len($values) <= 0 {@return ();}
+    $nums: ();
+    @each $i in $values {
+        $ni: to-number($i);
+        @if is-null($ni) {@return null;}
+        $nums: push($nums, $ni);
+    }
+    @return $nums;
+}
+//to-compatible-numbers 转换任意多个值为 number 且必须 compatible 成功返回 list 否则返回 null  <返回：list|null>
+@function to-compatible-numbers($values...) {
+    $nums: to-numbers($values...);
+    @if is-null($nums) {@return null;}
+    @if all-compatible($nums...) != true {@return null;}
+    @return $nums;
+}
+//to-unitless-numbers 转换任意多个值为 纯数字 number 成功返回 list 否则返回 null  <返回：list|null>
+@function to-unitless-numbers($values...) {
+    $nums: to-numbers($values...);
+    @if is-null($nums) {@return null;}
+    $ns: ();
+    @each $i in $nums {
+        $ns: push($ns, strip-unit($i));
+    }
+    @return $ns;
+}
+//to-dec 十六进制字符(ff) 转 十进制 number(255) 仅支持正整数 自动转换类型  <返回：number|null>
+@function to-dec($hex) {
+    @if is-digit($hex) {$hex: to-string($hex);}
+    @if not is-nemstr($hex) {@return null;}
+    $hex: str-lower($hex);
+    $ls: '0123456789abcdef';
+    $nl: (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+    $len: str-len($hex);
+    @if $len == 1 {
+        @return nth($nl, str-idx($ls, $hex));
+    }
+
+    $num: 0;
+    @for $i from 1 through $len {
+        $dig: to-dec(str-sub($hex, $i, $i));
+        // ff = 15 * pow(16, 1) + 15 * pow(16, 0)
+        $num: $num + $dig * pow(16, $len - $i);
+    }
+    @return $num;
+
+}
+//to-hex 十进制数(255) 转 十六进制字符串(ff) 仅支持正整数 自动类型转换  <返回：string|null>
+@function to-hex($dec) {
+    @if not is-digit($dec) {@return null;}
+    $dec-str: to-string($dec);
+    @if str-has($dec-str, '.') or str-has($dec-str, '-') {@return null;}
+    $dec: to-number($dec);
+    @if $dec == 0 {@return '0';}
+
+    $ls: '0123456789abcdef';
+    $nl: (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+
+    //确定位数，支持 8 位十六进制数
+    $digs: 0;
+    @for $i from 1 through 8 {
+        @if $digs == 0 and pow(16, $i) > $dec {
+            $digs: $i;
+        }
+    }
+    @if $digs == 0 {
+        //超过支持位数
+        @return null;
+    }
+
+    //1 位
+    @if $digs == 1 {
+        $idx: idx($nl, $dec);
+        @if is-null($idx) {
+            @return null;
+        } @else {
+            $hexi: str-sub($ls, $idx, $idx);
+            @return $hexi;
+        }
+    }
+
+    //循环除以 16 直到 商 < 16
+    //商
+    $left: $dec;
+    //余数  --> 当前位的数值 0~15
+    $quos: ();
+    @for $i from 1 through $digs {
+        $quo: $left % 16;
+        $left: floor(div($left, 16));
+        $quos: push($quos, $quo);
+    }
+    
+    //依次将每一位的数值 转为 十六进制字符
+    $ts: '';
+    @each $i in $quos {
+        $idx: idx($nl, $i);
+        @if is-null($idx) or (is-number($idx) and $idx > 16) {
+            @return null;
+        } @else {
+            $hexi: str-sub($ls, $idx, $idx);
+            $ts: $ts + $hexi;
+        }
+    }
+    @return $ts;
+}
+
+/** string patch **/
+//根据传入的不定参数创建字符串  <返回：string>
+@function str($pieces...) {
+    $ts: '';
+    @each $i in $pieces {
+        $si: to-string($i);
+        @if is-string($si) {
+            $ts: $ts + $si;
+        }
+    }
+    @return $ts;
+}
+//str-len 增强 string.length 自动转换类型  <返回：number>
+@function str-len($string) {
+    $string: to-string($string);
+    @if not is-string($string) {@return 0;}
+    @return string.length($string);
+}
+//str-sub 增强 string.slice 自动类型转换  <返回：string>
+@function str-sub($string, $start-at, $end-at: -1) {
+    $str: to-string($string);
+    @if not is-string($str) or is-empty($str) {@return $string;}
+    @return string.slice($string, $start-at, $end-at);
+}
+//str-idx 增强 string.index 自动类型转换  <返回：string>
+@function str-idx($string, $substring) {
+    $strs: to-strings($string, $substring);
+    @if is-null($strs) {@return $string;}
+    @return string.index($strs...);
+}
+//str-includes 自动类型转换  <返回：bool>
+@function str-includes($string, $search) {
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return false;}
+    @return not is-null(string.index($strs...));
+}
+//str-has 简写 str-includes  <返回：bool>
+@function str-has($args...) {@return str-includes($args...);}
+//str-join 使用连接符 连接 pieces  <返回：string>
+@function str-join($glue: '-', $pieces...) {
+    $list: ();
+    @each $i in $pieces {
+        $si: to-string($i);
+        @if is-string($si) {
+            $list: push($list, $si);
+        }
+    }
+    @return list-join($list, $glue);
+}
+//str-starts-with 自动类型转换  <返回：bool>
+@function str-starts-with($string, $search) {
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return false;}
+    $idx: string.index($strs...);
+    @return is-number($idx) and $idx == 1;
+}
+//str-ends-with 自动类型转换  <返回：bool>
+@function str-ends-with($string, $search) {
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return false;}
+    @if not str-includes($strs...) {@return false;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $len: str-len($string);
+    $slen: str-len($search);
+    @return string.slice($string, $len - $slen + 1, $len) == $search;
+}
+//str-replace 替换字符串 递归替换所有找到的 search 自动转换类型  <返回：string>
+@function str-replace($string, $search, $replace) {
+    $strs: to-strings($string, $search, $replace);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $replace: nth($strs, 3);
+    $len: str-len($string);
+    $slen: str-len($search);
+    @if $len < $slen {@return $string;}
+    $idx: string.index($string, $search);
+    @if is-null($idx) {@return $string;}
+    $nstr-a: if($idx == 1, '', string.slice($string, 1, $idx - 1));
+    $nstr-b: '';
+    @if $len - $idx - $slen + 1 >= $slen {
+        //剩余字符串长度 >= search 字符串长度，递归调用
+        $nstr-b: str-replace(string.slice($string, $idx + $slen, $len), $search, $replace);
+    } @else {
+        //剩余字符串长度 < search 字符串长度，直接截取剩余的部分
+        $nstr-b: if($idx + $slen == $len + 1, '', string.slice($string, $idx + $slen, $len));
+    }
+    @return $nstr-a + $replace + $nstr-b + '';
+}
+//trim|trim-start|trim-end 去除字符串首尾的 空格 或 $search 自动类型转换  <返回：string>
+@function trim-start($string, $search: ' ') {
+    @if not str-includes($string, $search) or  not str-starts-with($string, $search) {@return to-string($string);}
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $len: str-len($string);
+    $slen: str-len($search);
+    $slice-n: math.ceil(math.div($len, $slen));
+    $ts: $string;
+    @for $i from 1 through $slice-n {
+        $ch: string.slice($ts, 1, $slen);
+        @if $ch == $search {
+            $ts: string.slice($ts, $slen + 1, str-len($ts));
+        } @else {
+            @return $ts;
+        }
+    }
+    @return '';
+}
+@function trim-end($string, $search: ' ') {
+    @if not str-includes($string, $search) or  not str-ends-with($string, $search) {@return to-string($string);}
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $len: str-len($string);
+    $slen: str-len($search);
+    $slice-n: math.ceil(math.div($len, $slen));
+    $ts: $string;
+    @for $i from 1 through $slice-n {
+        $tlen: str-len($ts);
+        $si: $tlen - $slen + 1;
+        @if $si < 1 {$si: 1;}
+        $ch: string.slice($ts, $si, $tlen);
+        @if $ch == $search {
+            $ts: string.slice($ts, 1, $si - 1);
+        } @else {
+            @return $ts;
+        }
+    }
+    @return '';
+}
+@function trim($string, $search: ' ') {
+    @return trim-start(trim-end($string, $search), $search);
+}
+//str-upper|str-lower|str-ucfirst|str-lcfirst|str-camel|str-kebab 自动转换类型  <返回：string>
+@function str-upper($string) {
+    $str: to-string($string);
+    @return if(not is-string($str), $string, string.to-upper-case($str));
+}
+@function str-lower($string) {
+    $str: to-string($string);
+    @return if(not is-string($str), $string, string.to-lower-case($str));
+}
+@function str-ucfirst($string) {
+    $str: to-string($string);
+    @if not is-string($str) or is-empty($str) {@return $string;}
+    $fs: string.slice($str, 1, 1);
+    $len: str-len($str);
+    $rs: if($len <= 1, '', string.slice($str, 2, $len));
+    $ufs: str-upper($fs);
+    @return $ufs + $rs;
+}
+@function str-lcfirst($string) {
+    $str: to-string($string);
+    @if not is-string($str) or is-empty($str) {@return $string;}
+    $fs: string.slice($str, 1, 1);
+    $len: str-len($str);
+    $rs: if($len <= 1, '', string.slice($str, 2, $len));
+    $lfs: str-lower($fs);
+    @return $lfs + $rs;
+}
+@function str-camel($string, $separator: '-') {
+    $strs: to-strings($string, $separator);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $separator: nth($strs, 2);
+    $pieces: string.split($string, $separator);
+    @if not is-list($pieces) or is-empty($pieces) {@return $string;}
+    $ts: '';
+    @each $i in $pieces {
+        $ui: str-ucfirst(str-lower($i));
+        $ts: $ts + $ui;
+    }
+    @return $ts;
+}
+@function str-kebab($string, $separator: '-') {
+    $strs: to-strings($string, $separator);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $separator: nth($strs, 2);
+    $str: str-lcfirst($string);
+    $us: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $ts: '';
+    @for $i from 1 through str-len($str) {
+        $ch: string.slice($str, $i, $i);
+        @if str-includes($us, $ch) {
+            $ts: $ts + $separator + $ch;
+        } @else {
+            $ts: $ts + $ch;
+        }
+    }
+    @return str-lower($ts);
+}
+
+/** number|math patch **/
+//unit 简写  <返回：string|null> 
+@function unit($number) {
+    $num: to-number($number);
+    @if not is-number($num) {@return null;}
+    @return math.unit($number);
+}
+//strip-unit 将 100px 形式数值 去除单位 自动转换类型  <返回：number 无单位>
+@function strip-unit($number) {
+    $num: to-number($number);
+    @if not is-number($num) {@return $number;}
+    $number: $num;
+    @if math.is-unitless($number) {@return $number;}
+    $u: unit($number);
+    $num-str: $number + '';
+    $num-str: str-replace($num-str, $u, '');
+    @return to-digit($num-str);
+}
+//set-unit 替换传入的 number 的 unit 单位 自动转换类型   <返回：number 带单位>
+@function set-unit($number, $unit) {
+    $num: to-number($number);
+    $unit: to-string($unit);
+    @if not is-number($num) or not is-string($unit) {@return $number;}
+    $number: $num;
+
+    //!! % 在 $unitMap 中的键名为 pec
+    @if $unit == '%' {$unit: pec;}
+
+    //传入 空 unit 则 strip-unit
+    @if $unit == '' {@return strip-unit($num);}
+
+    $du: map.get($dartScssUnitMap, $unit);
+    @if is-null($du) {@return $number;}
+    @if unit($number) == $unit {@return $number;}
+    $number: strip-unit($number);
+    @if $unit == '' {@return $number;}
+    @return $number * $du;
+}
+//all-compatible 扩展到多个 numbers 判断 compatible  <返回：bool>
+@function all-compatible($numbers...) {
+    $numbers: to-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return false;}
+    $len: len($numbers);
+    @if $len == 1 {@return true;}
+    @for $i from 1 to $len - 1 {
+        $n1: nth($numbers, $i);
+        $n2: nth($numbers, $i + 1);
+        @if math.compatible($n1, $n2) != true {
+            @return false;
+        }
+    }
+    @return true;
+}
+//num-clamp 确保输入的 number 在 min|max 范围内 自动转换类型  <返回：number|null>
+@function n-clamp($min, $number, $max) {
+    $nums: to-compatible-numbers($min, $number, $max);
+    @if is-null($nums) {@return null;}
+    @return math.clamp($nums...);
+}
+//min 最小值 自动转换类型  <返回：number|null>
+@function min($numbers...) {
+    //type-of($numbers) == arglist 可用 nth|length|@each
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    @return math.min($numbers...);
+}
+//max 最大值 自动转换类型  <返回：number|null>
+@function max($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    @return math.max($numbers...);
+}
+//扩展 加减乘除方法 add|sub|mul|div 自动转换类型  <返回：number|null>
+@function add($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    $sum: 0;
+    @each $i in $numbers {
+        $sum: $sum + $i;
+    }
+    @return $sum;
+}
+@function sub($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    @if length($numbers) == 1 {@return nth($numbers, 1);}
+    $diff: nth($numbers, 1);
+    @for $i from 2 through length($numbers) {
+        $n: nth($numbers, $i);
+        $diff: $diff - $n;
+    }
+    @return $diff;
+}
+//!! 乘法|除法 会自动统一单位，使用 第一个存在的单位 作为最终结果的 单位
+@function mul($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    $len: len($numbers);
+    @if $len == 1 {@return nth($numbers, 1);}
+    //统一单位，只保留第一个单位
+    $unit: '';
+    @each $i in $numbers {
+        @if $unit == '' {
+            $ui: unit($i);
+            @if $ui != '' {
+                $unit: $ui;
+            }
+        }
+    }
+    $prod: 1;
+    @each $i in $numbers {
+        $ni: strip-unit($i);
+        $prod: $prod * $i;
+    }
+    @return if($unit != '', set-unit($prod, $unit), $prod);
+}
+@function div($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    $len: len($numbers);
+    @if $len == 1 {@return nth($numbers, 1);}
+    //统一单位，只保留第一个单位
+    $unit: '';
+    @each $i in $numbers {
+        @if $unit == '' {
+            $ui: unit($i);
+            @if $ui != '' {
+                $unit: $ui;
+            }
+        }
+    }
+    $quo: strip-unit(nth($numbers, 1));
+    @for $i from 2 through $len {
+        $ni: strip-unit(nth($numbers, $i));
+        $quo: math.div($quo, $ni);
+    }
+    @return if($unit != '', set-unit($quo, $unit), $quo);
+}
+//扩展 round|ceil|floor|abs 方法 增加自动类型转换功能  <返回：number>
+@function round($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.round($n);
+}
+@function ceil($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.ceil($n);
+}
+@function floor($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.floor($n);
+}
+@function abs($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.abs($n);
+}
+
+/** list patch **/
+//mk 根据不定参数 创建 list  <返回：list>
+@function mk($values...) {
+    @return push((), $values...);
+}
+//len  <返回：number|null>
+@function len($list) {
+    @if is-any($list, list, arglist, map) {@return list.length($list);}
+    @return null;
+}
+//idx 自动处理 quote  <返回：number|null>
+@function idx($list, $value, $quote: false) {
+    @if not is-list($list) {@return null;}
+    $idx: list.index($list, $value);
+    @if is-number($idx) {@return $idx;}
+    @if is-string($value) and $quote == true {
+        //quote 后再尝试一遍
+        $idx: list.index(list-quote($list), $value);
+        @if is-number($idx) {@return $idx;}
+    }
+    @return null;
+}
+//includes  <返回：bool>
+@function includes($list, $value, $quote: false) {
+    @return idx($list, $value, $quote) != null;
+}
+//has includes 简写  <返回：bool>
+@function has($args...) {@return includes($args...);}
+//将 list 中所有 is-string 元素执行 quote  <返回：list>
+@function list-quote($list) {
+    @if not is-list($list) {@return $list;}
+    $rtn: ();
+    @each $i in $list {
+        @if is-string($i) {
+            $rtn: list.append($rtn, string.quote($i));
+        } @else {
+            $rtn: list.append($rtn, $i);
+        }
+    }
+    @return $rtn;
+}
+//push   <返回：list>
+@function push($list, $values...) {
+    @if not is-list($list) {@return $list;}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    @return list.join($list, $values, $sep, $bra);
+}
+//unshift  <返回：list>
+@function unshift($list, $values...) {
+    @if not is-list($list) {@return $list;}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    //$values: list-args($values...);
+    @return list.join($values, $list, $sep, $bra);
+}
+//first|last  <返回：any>
+@function first($list) {
+    @if not is-list($list) or is-empty($list) {@return null;}
+    @return nth($list, 1);
+}
+@function last($list) {
+    @if not is-list($list) or is-empty($list) {@return null;}
+    @return nth($list, len($list));
+}
+//slice 切片 list 支持负 index  <返回：list>
+@function slice($list, $start, $end: 0) {
+    @if not is-list($list) or is-empty($list) {@return $list;}
+    @if not is-number($start) or not is-number($end) {@return $list;}
+    $len: len($list);
+    $sep: list.separator($list);
+    $bra: list.is-bracketed($list);
+    @if $start == 0 and $end == 0 {@return ();}
+    @if $end == 0 {
+        @if $start < 0 {$start: $start + $len + 1;}
+        $end: $len;
+    } @else if $start >= 0 {
+        @if $end < 0 {$end: $end + $len;}
+        @if $start == 0 {$start: 1;}
+    } @else if $start < 0 {
+        @if $end < 0 {$end: $end + $len + 1;}
+        $start: $start + $len + 1;
+    }
+    //@if $start <= 0 {$start: $start + $len + 1;}
+    //@if $end <= 0 {$end: $end + $len + 1;}
+    $start: n-clamp(1, $start, $len);
+    $end: n-clamp(1, $end, $len);
+    @if $start > $end {
+        $t: $end;
+        $end: $start;
+        $start: $t;
+    }
+    $rtn: ();
+    @for $i from $start through $end {
+        $ch: nth($list, $i);
+        $rtn: list.append($rtn, $ch, $sep);
+    }
+    @return $rtn;
+}
+//splice 插入  支持负 index  <返回：list>
+@function splice($list, $index, $length: 0, $values...) {
+    @if not is-list($list) {@return $list;}
+    @if not is-number($index) or not is-number($length) {@return $list;}
+    $len: len($list);
+    $sep: list.separator($list);
+    $bra: list.is-bracketed($list);
+    $length: n-clamp(0, $length, $len);
+    //待拼接的 list 片段
+    $l-s: ();
+    $l-i: $values;  //list-args($values...);
+    $l-e: ();
+    @if $length == 0 {
+        //不删除元素
+        @if $index == 0 {
+            $index: 1;
+        } @else if $index < 0 {
+            $index: $index + $len + 2;
+        }
+        $index: n-clamp(1, $index, $len + 1);
+        $l-s: if($index == 1, (), slice($list, 1, $index - 1));
+        $l-e: if($index == $len + 1, (), slice($list, $index, $len));
+    } @else {
+        //需要删除长度为 length 的 元素
+        @if $index == 0 {$index: 1;}
+        $start: $index;
+        $end: $index + $length - 1;
+        //调用 slice 的逻辑 取得要截取的 起止 index
+        @if $end == 0 {
+            @if $start < 0 {$start: $start + $len + 1;}
+            $end: $len;
+        } @else if $start >= 0 {
+            @if $end < 0 {$end: $end + $len;}
+            @if $start == 0 {$start: 1;}
+        } @else if $start < 0 {
+            @if $end < 0 {$end: $end + $len + 1;}
+            $start: $start + $len + 1;
+        }
+        $start: n-clamp(1, $start, $len);
+        $end: n-clamp(1, $end, $len);
+        @if $start > $end {
+            $t: $end;
+            $end: $start;
+            $start: $t;
+        }
+        
+        $l-s: if($start == 1, (), slice($list, 1, $start - 1));
+        $l-e: if($end == $len, (), slice($list, $end + 1, $len));
+    }
+    //拼接 list
+    $rtn: list.join($l-s, $l-i, $sep, $bra);
+    @return list.join($rtn, $l-e, $sep, $bra);
+}
+//list-insert 使用 scss 的参数风格执行 splice  <返回：list>
+@function list-insert($list, $insert, $index, $length: 0) {
+    @if is-list($insert) {
+        @return splice($list, $index, $length, $insert...);
+    }
+    @return splice($list, $index, $length, $insert);
+}
+//nth 简写  <返回：any>
+@function nth($list, $n) {
+    @if not is-nemlist($list) {@return null;}
+    @return list.nth($list, $n);
+}
+//set-nth 简写  <返回：list>
+@function set-nth($list, $n, $value) {
+    @if not is-list($list) {@return $list;}
+    @return list.set-nth($list, $n, $value);
+}
+//del-nth 从 list 删除某个 index 支持负 index  <返回：list>
+@function del-nth($list, $index) {
+    @if not is-list($list) or is-empty($list) or not is-number($index) or $index == 0 {@return $list;}
+    $len: len($list);
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    @if $index == 0 {$index: 1;}
+    @if $index < 0 {$index: $index + $len + 1;}
+    $i: n-clamp(1, $index, $len);
+    $la: if($index == 1, (), slice($list, 1, $index - 1));
+    $lb: if($index == $len, (), slice($list, $index + 1, $len));
+    @return list.join($la, $lb, $sep, $bra);
+
+}
+//remove 从 list 中删除元素 支持传入多个要删除的元素组成的 list  <返回：list>
+@function remove($list, $removes...) {
+    @if not is-list($list) {@return $list;}
+    $len: length($list);
+    @if $len <= 0 {@return $list;}
+    @each $i in $removes {
+        $index: idx($list, $i, true);
+        @if not is-null($index) {
+            $list: del-nth($list, $index);
+        }
+    }
+    @return $list;
+}
+//inter 计算多个 list 的交集  <返回：list|null>
+@function inter($list, $lists...) {
+    @if not is-list($list) or not is-list($lists...) {@return null;}
+    @if len($lists) <= 0 {@return ();}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    //计算交集
+    @if len($lists) == 1 {
+        $list-i: nth($lists, 1);
+        $union: unique(list.join($list, $list-i));
+        $rtn: ();
+        @each $i in $union {
+            @if has($list, $i) and has($list-i, $i) {
+                $rtn: list.join($rtn, ($i), $sep, $bra);
+            }
+        }
+        @return $rtn;
+    }
+    //连续计算交集
+    $rtn: mk($list...);
+    @each $list-i in $lists {
+        $rtn: inter($rtn, $list-i);
+        @if len($rtn) <= 0 {@return ();}
+    }
+    @return $rtn;
+}
+//unique 去重  <返回：list>
+@function unique($list) {
+    @if not is-nemlist($list) {@return ();}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    $rtn: ();
+    @each $i in $list {
+        @if not has($rtn, $i) {
+            $rtn: list.join($rtn, ($i), $sep, $bra);
+        }
+    }
+    @return $rtn;
+}
+//list-join  <返回：string|null>
+@function list-join($list, $glue: '-') {
+    @if not is-list($list) {@return null;}
+    @if is-empty($list) {@return '';}
+    $ts: '';
+    @each $i in $list {
+        $si: to-string($i);
+        @if not is-string($si) {
+            $si: 'null';
+        }
+        @if $ts == '' {
+            $ts: $si;
+        } @else {
+            $ts: $ts + $glue + $si;
+        }
+    }
+    @return $ts;
+}
+//根据输入的 $p 解析得到 left,right,top,bottom 列表  <返回：list|null>
+@function trbl($p: all) {
+    $p: to-string($p);
+    @if not is-nemstr($p) {@return null;}
+    @if not has($trblQueue, $p, true) {@return null;}
+    @if $p == all or $p == xy {
+        @return mk(top,right,bottom,left);
+    } @else if $p == x {
+        @return mk(null,right,null,left);
+    } @else if $p == y {
+        @return mk(top,null,bottom,null);
+    } @else {
+        $cp: mk(null,null,null,null);
+        @if str-has($p, t) { $cp: set-nth($cp, 1, top); }
+        @if str-has($p, r) { $cp: set-nth($cp, 2, right); }
+        @if str-has($p, b) { $cp: set-nth($cp, 3, bottom); }
+        @if str-has($p, l) { $cp: set-nth($cp, 4, left); }
+        @return $cp;
+    }
+}
+//将 trbl 解析得到的 list 填充为 0 10px 10px 0 形式的 css 属性值  <返回：list(separator: space)|null>
+@function set-trbl($trbl, $size) {
+    @if not is-nemlist($trbl) or not is-number($size) {@return null;}
+    $rtn: ();
+    @each $i in $trbl {
+        @if is-null($i) {
+            $rtn: push($rtn, 0);
+        } @else {
+            $rtn: push($rtn, $size);
+        }
+    }
+    //设置 separator|bracketed
+    @return list.join((), $rtn, space, false);
+}
+//根据输入的 $r 解析得到 top-left,top-right,bottom-left,bottom-right 列表  <返回：list|null>
+@function corner($r: all) {
+    $r: to-string($r);
+    @if not is-nemstr($r) {@return null;}
+    @if not has($cornerQueue, $r, true) {@return null;}
+    $rlen: str-len($r);
+    //完整的角标 list 顺序
+    $full: mk(top-left,top-right,bottom-right,bottom-left);
+    @if $rlen >= 4 or $r == 'all' or $r == 'tb' or $r == 'rl' or $r == 'trbl' {
+        @return $full;
+    } @else if $rlen == 3 {
+        //3 个字符 tbl|tbr|btl|btr|rtl|rbl|ltr|lbr 同时设置 3 个角 
+        //第一个字符 等同于 corner(t|b|r|l)
+        $f: str-sub($r, 1,1);
+        $cor-a: corner($f);
+        //后两个字符，表示某一个角
+        $b: str-sub($r, 2,3);
+        $cor-b: corner($b);
+        $rtn: ();
+        @each $i in $full {
+            @if has($cor-a, $i) or has($cor-b, $i) {
+                $rtn: push($rtn, $i);
+            } @else {
+                $rtn: push($rtn, null);
+            }
+        }
+        @return $rtn;
+    } @else if $rlen == 2 {
+        //2 个字符 tl|tr|bl|br 设置 1 个角
+        $cor: mk(top,left);
+        @if str-has($r, t) { $cor: set-nth($cor, 1, top); }
+        @if str-has($r, b) { $cor: set-nth($cor, 1, bottom); }
+        @if str-has($r, l) { $cor: set-nth($cor, 2, left); }
+        @if str-has($r, r) { $cor: set-nth($cor, 2, right); }
+        $corstr: list-join($cor, '-');
+        $rtn: ();
+        @each $i in $full {
+            @if $corstr == $i {
+                $rtn: push($rtn, $corstr);
+            } @else {
+                $rtn: push($rtn, null);
+            }
+        }
+        @return $rtn;
+    } @else if $rlen == 1 {
+        //1 个字符 t|b|r|l 同时设置 2 个角
+        @if $r == t {
+            @return mk(top-left,top-right,null,null);
+        } @else if $r == b {
+            @return mk(null,null,bottom-right,bottom-left);
+        } @else if $r == l {
+            @return mk(top-left,null,null,bottom-left);
+        } @else if $r == r {
+            @return mk(null,top-right,bottom-right,null);
+        }
+    }
+    @return null;
+}
+//将 corner 解析得到的角标 list 填充为 0 10px 10px 0 形式的 css 属性值  <返回：list(separator: space)|null>
+@function set-corner($corner, $size) {
+    @return set-trbl($corner, $size);
+}
+//根据传入的 list-filter-fn-* 函数 筛选 list 返回符合条件的 新 list(separator,bracketed保持，顺序将重置)  <返回：list>
+@function filter($list, $fn, $args...) {
+    @if not is-nemlist($list) or not is-string($fn) {@return ();}
+    $fn: 'list-filter-fn-' + $fn;
+    @if not meta.function-exists($fn) {@return $list;}
+    $fn: meta.get-function($fn);
+    @if not is-function($fn) {@return $list;}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    //list-filter-fn-* 函数接受至少 2 个参数：value,i  返回：bool
+    $rtn: ();
+    @for $i from 1 through len($list) {
+        $v: nth($list, $i);
+        @if meta.call($fn, $v, $i, $args...) == true {
+            $rtn: join($rtn, ($v), $sep, $bra);
+        }
+    }
+    @return $rtn;
+}
+//list-filter-fn-keys 根据 传入的 values 元素(前缀) list 筛选 list  <返回：bool>
+@function list-filter-fn-keys($value, $i, $values...) {
+    @if not is-nemlist($values) or not is-string($values...) {@return false;}
+    @each $vi in $values {
+        @if $value == $vi or str-starts-with($value, $vi + '-') {
+            @return true;
+        }
+    }
+    @return false;
+}
+
+/** map patch **/
+//根据传入的 map-filter-fn-* 函数 筛选 map 返回符合条件的 新 map  <返回：map>
+@function map-filter($map, $fn, $args...) {
+    @if not is-nemmap($map) or not is-string($fn) {@return ();}
+    $fn: 'map-filter-fn-' + $fn;
+    @if not meta.function-exists($fn) {@return $map;}
+    $fn: meta.get-function($fn);
+    @if not is-function($fn) {@return $map;}
+    //map-filter-fn-* 函数接受至少 2 个参数：key,value  返回：bool
+    $rtn: ();
+    @each $k, $v in $map {
+        @if meta.call($fn, $k, $v, $args...) == true {
+            $rtn: map.set($rtn, $k, $v);
+        }
+    }
+    @return $rtn;
+}
+//map-filter-fn-keys 根据 传入的 keys 键名(前缀) list 筛选 map  <返回：bool>
+@function map-filter-fn-keys($key, $value, $keys...) {
+    @if not is-nemlist($keys) {@return false;}
+    @each $ki in $keys {
+        $ki: to-string($ki);
+        @if $key == $ki or str-starts-with($key, $ki + '-') {
+            @return true;
+        }
+    }
+    @return false;
+}
+//快捷调用 map-filter($map, map-filter-fn-keys, ...)  <返回：map>
+@function map-filter-keys($map, $keys...) {
+    @if not is-nemmap($map) or len($keys) <= 0 {@return ();}
+    @return map-filter($map, keys, $keys...);
+}
+//map-find 根据 value 在 map 中寻找 key 返回第一个 key  <返回：string|null>
+@function map-get-key($map, $value) {
+    @if not is-nemmap($map) {@return null;}
+    @each $k, $v in $map {
+        @if $v == $value {
+            @return $k;
+        }
+    }
+    @return null;
+}
+//theme-map-get 从主题默认的 参数 map 中读取值  <返回：null|color|number|list>
+$themeMapTypes: color,size;
+@function theme-map-get($map-type, $key, $suffix: null, $map: null) {
+    @if not is-map($map) {
+        @if not is-nemstr($map-type) or not has($themeMapTypes, $map-type) {@return null;}
+        @if meta.variable-exists(#{$map-type}Map) {
+            @if $map-type == color {$map: $colorMap;}
+            @if $map-type == size {$map: $sizeMap;}
+            //可扩展...
+        } @else {
+            @return null;
+        }
+    }
+    @if not is-nemmap($map) {@return null;}
+
+    //直接输入了 color|number 原值
+    @if $map-type == color and is-color($key) {
+        @return $key;
+    }
+    @if $map-type == size and is-number($key) {
+        @return $key;
+    }
+
+    @if is-string($key) {
+        //传入了单个 key 例如：btn-xxl|red-l2
+        @if is-empty($key) {@return null;}
+        @if is-nemstr($suffix) {
+            @if $map-type == color  {$key: color-key-shift($key, $suffix);}
+            @if $map-type == size  {$key: size-key-shift($key, $suffix);}
+            //可扩展...
+        }
+        @if not is-nemstr($key) {@return null;}
+        @return map.get($map, $key);
+    }
+    @if is-list($key) {
+        //传入了 key list 例如：pd-s pd-m
+        @if is-empty($key) {@return ();}
+        $rtn: ();
+        $sep: list.separator($key);
+        $bra: list.is-bracketed($key);
+        @each $i in $key {
+            $v: theme-map-get($map-type, $i, $suffix, $map);
+            @if is-null($v) {@return null;}
+            $rtn: list.join($rtn, ($v), $sep, $bra);
+        }
+        @return $rtn;
+    }
+    @return null;
+}
+//color-get|size-get... 快捷调用 theme-map-get  <返回：null|color|number|list>
+@function color-get($key, $suffix: null, $map: null) {
+    @return theme-map-get(color, $key, $suffix, $map);
+}
+@function size-get($key, $suffix: null, $map: null) {
+    @return theme-map-get(size, $key, $suffix, $map);
+}
+/**
+    key-shift 通过给 map 键名(如：btn-d1) 增加调整后缀 l*|d*|s* 来生成新的键名  <返回：string>
+    key-shift(btn-l2, d1)           --> btn-l1
+    key-shift(btn-l1, d1)           --> btn-m
+    key-shift(btn[-m], d1)          --> btn-d1
+    key-shift(btn-d1, l3)           --> btn-l2
+    key-shift(btn-xxl, s3, true)    --> btn-m
+    key-shift(btn-xxs, l1, true)    --> btn-xs
+**/
+@function key-shift($key, $suffix, $size: false, $glue: '-') {
+    $strs: to-strings($key, $suffix, $glue);
+    @if is-null($strs) {@return $key;}
+    $key: nth($strs, 1);
+    $suffix: nth($strs, 2);
+    $glue: nth($strs, 3);
+    @if not is-bool($size) {$size: false;}
+
+    //解析调整后缀 suffix
+    $shift: key-suffix($suffix, $size);
+    @if not is-list($shift) {@return $key;}
+    $shift-tp: nth($shift, 2);
+    $shift-lvl: nth($shift, 3);
+    @if $shift-lvl == 0 {
+        //无调整，返回原值
+        @return $key;
+    }
+
+    //解析 key
+    $kps: key-parse($key, $size, $glue);
+    @if not is-list($kps) {@return $key;}
+    $pre: nth($kps, 2);
+    $key-tp: nth($kps, 4);
+    $key-lvl: nth($kps, 5);
+    
+    //调整
+    $ntp: '';
+    $nlvl: 0;
+    @if $shift-tp == $key-tp {
+        $ntp: $key-tp;
+        $nlvl: add($shift-lvl, $key-lvl);
+    } @else {
+        @if $key-tp == m {
+            $ntp: $shift-tp;
+            $nlvl: $shift-lvl;
+        } @else {
+            $d: sub($key-lvl, $shift-lvl);
+            @if $d == 0 {
+                $ntp: m;
+                $nlvl: 0;
+            } @else if $d > 0 {
+                $ntp: $key-tp;
+                $nlvl: $d;
+            } @else {
+                $ntp: $shift-tp;
+                $nlvl: abs($d);
+            }
+        }
+    }
+
+    //生成新 suffix
+    $nsuf: '';
+    @if $ntp == m {
+        $nsuf: m;
+    } @else {
+        @if $size == true {
+            //size map-key 后缀为 xx* 形式
+            $nsuf: $ntp;
+            @if $nlvl > 1 {
+                @for $i from 1 to $nlvl {
+                    $nsuf: 'x' + $nsuf;
+                }
+            }
+        } @else {
+            //其他 map-key 后缀 为 l*|d* 形式
+            $nsuf: $ntp + $nlvl;
+        }
+    }
+    //返回新键名
+    @return $pre + $glue + $nsuf;
+}
+//size-key-shift|color-key-shift 快捷方法
+@function size-key-shift($key, $suffix, $glue: '-') {
+    @if $key == transparent {@return transparent;}
+    @return key-shift($key, $suffix, true, $glue);
+}
+@function color-key-shift($key, $suffix, $glue: '-') {@return key-shift($key, $suffix, false, $glue);}
+/**
+    key-parse 解析 map 键名 返回：list (键名，键名前缀，键名后缀，shift 方向，shift level，键名类型)|null
+    key-parse(btn-xxs, true)     --> (btn-xxl, btn, s, 3, size)
+    key-parse(btn-d3)            --> (btn-d3, btn, d, 3, color)
+    key-parse(btn)               --> (btn, btn, m, 0, color)
+    key-parse(btn, true)         --> (btn, btn, m, 0, size)
+**/
+@function key-parse($key, $size: false, $glue: '-') {
+    $strs: to-strings($key, $glue);
+    @if is-null($strs) {@return null;}
+    $key: nth($strs, 1);
+    $glue: nth($strs, 2);
+    @if not is-bool($size) {$size: false;}
+    //$key-tp: if($size, size, color);
+    //key 拆分为 list
+    $kl: string.split($key, $glue);
+    $len: len($kl);
+    //key 不含有效后缀
+    @if $len < 2 or key-suffix(nth($kl, $len), $size) == null {
+        $kl: push($kl, m);
+        $len: $len + 1;
+    }
+    //key 前缀
+    $pre: list-join(slice($kl, 1, -1), $glue);
+    //key 后缀解析
+    $suf: key-suffix(nth($kl, $len), $size);
+    @if not is-list($suf) {@return null;}
+    //合并返回
+    @return push((), $key, $pre, $suf...);
+}
+/**
+    key-suffix 解析 map 键名后缀 返回：list (后缀，shift 方向，shift level，后缀类型)|null
+    key-suffix(d3)              --> (d3, d, 3, color)
+    key-suffix(s2, true)        --> (s2, s, 2, size)
+    key-suffix(xxl, true)       --> (xxl, l, 3, size)
+    key-suffix(l, true)         --> (l, l, 1, size)
+    key-suffix(m)               --> (m, m, 0, color)
+    key-suffix(m, true)         --> (m, m, 0, size)
+**/
+@function key-suffix($suffix, $size: false) {
+    $str: to-string($suffix);
+    @if not is-string($str) or $str == '' {@return null;}
+    $suffix: $str;
+    @if not is-bool($size) {$size: false;}
+    $suf-tp: if($size, size, color);
+    $len: str-len($suffix);
+    //是否以数字结尾
+    $num-end: is-digit(string.slice($suffix, $len, $len));
+
+    //解析 l1|d2|s3 形式
+    @if $num-end == true {
+        //字符长度必须 >= 2
+        @if $len < 2 {@return null;}
+        $stp: string.slice($suffix, 1,1);
+        //shift 方向可选 lds
+        @if not str-includes('lds', $stp) {@return null;}
+        $lvl: strip-unit(string.slice($suffix, 2, $len));
+        @return push((), $suffix, $stp, $lvl, $suf-tp);
+    }
+
+    //解析 l|s|m
+    @if $len == 1 {
+        @if not str-includes('lsm', $suffix) {@return null;}
+        @if $suffix != 'm' and $size != true {@return null;}
+        @return push((), $suffix, $suffix, if($suffix == 'm', 0, 1), $suf-tp);
+    }
+
+    //解析 xxl|xs
+    //这种形式一定是 size map-key
+    @if $size != true {@return null;}
+    //最后一个字符可选 ls
+    $stp: string.slice($suffix, $len, $len);
+    @if not str-includes('ls', $stp) {@return null;}
+    //之前的字符一定是一个或多个 x
+    $lss: str-replace(string.slice($suffix, 1, $len - 1), x, '');
+    @if $lss != '' {@return null;}
+    //shift level == $len
+    @return push((), $suffix, $stp, $len, size);
+}
+
+/** color patch **/
+//is-transparent 判断 color 是否完全透明  <返回：bool>
+@function is-transparent($color) {
+    @if not is-color($color) {@return false;}
+    @if $color == transparent {@return true;}
+    @return channel($color, a) == 0;
+}
+//has-alpha 判断 color 的 alpha 通道是否 < 1  <返回：bool>
+@function has-alpha($color) {
+    @if not is-color($color) {@return false;}
+    $a: channel($color, a);
+    @return is-number($a) and $a < 1;
+}
+// #ff112233 形式字符串 转为 color  <返回：color>
+@function hex-to-color($hex) {
+
+}
+//channel 获取 color 颜色的 rgbhsla 7个通道值  <返回：单通道 number | list | null>
+@function channel($color, $key: rgb) {
+    @if not is-color($color) {@return null;}
+    //$space 仅支持 rgb|hsl
+    $dftSpace: rgb;
+    $len: str-len($key);
+    @if $len == 1 {
+        $channels: (
+            r: 'red',   g: 'green',         b: 'blue',
+            h: 'hue',   s: 'saturation',    l: 'lightness',
+            a: 'alpha'
+        );
+        @if map.has-key($channels, $key) != true {@return null;}
+        $space: if(str-has(hsl, $key), hsl, rgb);
+        @return color.channel($color, map.get($channels, $key), $space);
+    }
+    $rtn: ();
+    @for $i from 1 through $len {
+        $k: str-sub($key, $i, $i);
+        $v: channel($color, $k);
+        @if not is-number($v) {@return null;}
+        $rtn: push($rtn, $v);
+    }
+    @return $rtn;
+}
+//set-rgb|set-hsl|set-alpha 快捷调用 color.change  <返回：color|null>
+@function set-rgb($color, $r: null, $g: null, $b: null) {
+    @if not is-color($color) {@return null;}
+    @if not is-null($r) {$color: color.change($color, $red: $r, $space: rgb);}
+    @if not is-null($g) {$color: color.change($color, $green: $g, $space: rgb);}
+    @if not is-null($b) {$color: color.change($color, $blue: $b, $space: rgb);}
+    @return $color;
+}
+@function set-hsl($color, $r: null, $g: null, $b: null) {
+    @if not is-color($color) {@return null;}
+    @if not is-null($h) {$color: color.change($color, $hue: $h, $space: hsl);}
+    @if not is-null($s) {$color: color.change($color, $saturation: $s, $space: hsl);}
+    @if not is-null($l) {$color: color.change($color, $lightness: $l, $space: hsl);}
+    @return $color;
+}
+@function set-alpha($color, $a: null) {
+    @if not is-color($color) {@return null;}
+    @if not is-null($a) {$color: color.change($color, $alpha: $a, $space: rgb);}
+    @return $color;
+}
+//scale-lightness|lighten|darken 通过 color.scale 加深|减淡  <返回：color|null>
+@function scale-lightness($color, $level: 0, $step: 10%) {
+    @if not is-color($color) {@return null;}
+    @if is-transparent($color) {@return $color;}
+    @if not is-number($level) {$level: to-number($level);}
+    @if not is-number($level) or strip-unit($level) == 0 {@return $color;}
+    $l: 0;
+    @if math.is-unitless($level) {
+        //无单位 level 表示 加深|减淡 级数 -10~0~10
+        //限制步长在 1%~50%
+        $step: n-clamp(1%, set-unit(abs($step), pec), 50%);
+        //根据 step 计算支持的 最大|最小 级数
+        $lmax: floor(strip-unit(div(100%, $step)));
+        $lmin: mul($lmax, -1);
+        //确保输入的 级数 在有效范围内
+        $level: n-clamp($lmin, $level, $lmax);
+        //级数转为实际的 lightness 参数值
+        $l: mul($level, $step);
+    } @else if unit($level) == '%' {
+        //% 单位表示 加深|减淡 百分比
+        $l: n-clamp(-100%, $level, 100%);
+    } @else{
+        //无效输入
+        @return $color;
+    }
+    //调用 color.scale 方法
+    @return color.scale($color, $lightness: $l);
+}
+@function lighten($color, $level: 0, $step: 10%) {@return scale-lightness($color, abs($level), $step);}
+@function darken($color, $level: 0, $step: 10%) {@return scale-lightness($color, mul(abs($level), -1), $step);}
+//scale-alpha 通过 set-alpha 为颜色增加 $level 级透明度  <返回：color|null>
+@function scale-alpha($color, $level: 0, $step: 0.1) {
+    @if not is-color($color) {@return null;}
+    @if is-transparent($color) {@return $color;}
+    //透明度级数无单位
+    $level: strip-unit($level);
+    //限制透明度步长 step 在 0.05~0.5
+    $step: n-clamp(0.05, strip-unit($step), 0.5);
+    //根据 step 确定透明度级数范围 0~$lmax
+    $lmax: div(1, $step);
+    $level: n-clamp(0, $level, $lmax);
+    //根据透明度级数计算实际透明度值 级数 0~max 表示 完全透明~完全不透明
+    $alpha: n-clamp(0, mul($level, $step), 1);
+    //设置透明度
+    @return set-alpha($color, $alpha);
+}
+//luma 计算颜色的视觉亮度  <返回：null|number 0~255 无单位>
+@function luma($color) {
+    @if not is-color($color) {@return null;}
+    $rgb: channel($color, rgb);
+    @if is-null($rgb) {@return null;}
+    //$luma: round(0.299*$r + 0.587*$g + 0.114*$b);
+    $r: mul(nth($rgb, 1), 0.299);
+    $g: mul(nth($rgb, 2), 0.587);
+    $b: mul(nth($rgb, 3), 0.114);
+    @return round(add($r, $g, $b));
+}
+//fore-color 自动计算前景色 保证对比度 返回：color
+@function fore-color($color, $alpha: 0.8, $dark: #000000, $light: #ffffff) {
+    @if not is-color($color) {@return null;}
+    @if is-transparent($color) {@return set-alpha($dark, $alpha);}
+    $luma: luma($color);
+    $fc: if($luma < 128, $light, $dark);
+    @return set-alpha($fc, $alpha);
+}
+
+/** selector patch **/
+/**
+ *  根据 $target 返回类名前缀 自动判断是否存在 &(父选择器)  <返回：string 类名前缀>
+ *  cls-pre(self, '')           --> [&]
+ *  cls-pre(self, '.')          --> [&].
+ *  cls-pre(self, '-')          --> [&]-
+ *  cls-pre(child, 'btn-')      --> [&] .btn-
+ *  cls-pre(self, 'btn', '_')   --> [&].btn_
+ *  cls-pre(self, '-', '_')     --> [&].-_
+ */
+@function cls-pre($target: self, $pre: '', $glue: '-') {
+    @if not is-string($target, $pre, $glue) or not has((self,child), $target) {@return null;}
+    @if not is-nemstr($glue) {$glue: '-';}
+    //自动补全 pre
+    @if is-nemstr($pre) and $pre != '.' and $pre != $glue {
+        @if not str-starts-with($pre, '.') {$pre: '.' + $pre;}
+        @if not str-ends-with($pre, $glue) {$pre: $pre + $glue;}
+    }
+    @if not & {
+        @return unquote("#{$pre}");
+    } @else {
+        @return if($target == self, unquote("&#{$pre}"), unquote("& #{$pre}"));
+    }
+}
+
+
+
+/** for debug **/
+@mixin dump($map) {
+    $cnt: '';
+    @each $key, $val in $map {
+        $cti: $key + ': ' + $val + ' (' + meta.type-of($val) + ');';
+        $cnt: if($cnt == '', $cti, $cnt + ' | ' + $cti);
+    }
+    content: $cnt;
+}

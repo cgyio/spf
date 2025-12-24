@@ -9,7 +9,7 @@
     },
 
     "required": [
-        "icon-*", "button-*", "theme-*"
+        "icon-*", "button-*","layout-*", "tabbar-*", "win-*"
     ],
     "loadmode": {
         "basic": [
@@ -58,7 +58,10 @@
     },
 
     "iconset": [
-        "spf/assets/icon/vant",
+        "spf/assets/icon/md-round",
+        "spf/assets/icon/md-sharp",
+        "spf/assets/icon/md-fill",
+        "spf/assets/icon/spinner",
         "spf/assets/icon/spf"
     ]
     

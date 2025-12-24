@@ -1,0 +1,10 @@
+{
+    "name": "md-sharp",
+    "iconset": "md-sharp",
+    "multicolor": false,
+    "iconcss": "spf/assets/icon/base.css",
+
+    "ext": ["js","css","svg"],
+    
+    "root": ""
+}

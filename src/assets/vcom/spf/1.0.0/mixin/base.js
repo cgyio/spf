@@ -9,10 +9,7 @@ export default {
     props: {
         
     },
-
-    //通用的基础组件
-
-    data: function() {return {
+    data() {return {
         
     }},
 

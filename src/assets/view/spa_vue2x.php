@@ -24,6 +24,7 @@ use Spf\util\Arr;
 $view->runtimeSetInit([
     //默认 页面标题
     "title" => "Vue-SPA",
+
     //视图调用的复合资源
     "compound" => [
         //强制刷新资源缓存，可被 url 参数覆盖
@@ -61,10 +62,12 @@ $view->runtimeSetInit([
             ],
         ],
     ],
+
     //需要调用主题参数的 scss
     "merge" => [
         //"spf/assets/view/css/cb.scss",
     ],
+
     //默认 页面 CSS 样式文件 url
     "static" => [
         //"/src/view/css/exception.css",
@@ -82,127 +85,151 @@ $view->renderStart();
 ?>
 
 <!-- 此时图页面的 模板内容 -->
-<div id="PRE@_app" class="PRE@-layout-wrapper">
-    <PRE@-icon icon="vant-sync" size="mini" type="info"></PRE@-icon>
-    <PRE@-icon icon="vant-sync" size="small" type="warn"></PRE@-icon>
-    <PRE@-icon icon="vant-sync" type="primary" spin></PRE@-icon>
-    <PRE@-icon icon="vant-sync" size="medium" type="success"></PRE@-icon>
-    <PRE@-icon icon="vant-sync" size="large" type="danger"></PRE@-icon>
-    <br><br>
-    <PRE@-icon-logo 
-        icon="spf-pms-app-light"
-        size="128px"
-        square
-    ></PRE@-icon-logo>
-    <PRE@-icon-logo 
-        icon="spf-qy-logo-light"
-        size="128px"
-        color="gray"
-        custom-style="width:200px;"
-    ></PRE@-icon-logo>
-    <br><br>
-    <br><br>
-    <br><br>
-    <div class="flex-x">
-        <PRE@-button icon="vant-sync" label="刷新数据" size="mini" type="primary"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" size="small" type="danger"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" size="medium" color="cyan"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" size="large" color="black"></PRE@-button>
-    </div><br><br>
-    <div class="flex-x">
-        <PRE@-button icon="vant-sync" label="刷新数据" type="primary" spin active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="danger" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="warn" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="success" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="cyan" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="orange" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="purple" active></PRE@-button>
-    </div><br>
-    <div class="flex-x">
-        <PRE@-button icon="vant-sync" label="刷新数据" type="primary" spin></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="danger"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="warn"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="success"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="cyan"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="orange"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="purple"></PRE@-button>
-    </div><br><br>
-    <div class="flex-x">
-        <PRE@-button icon="vant-sync" label="刷新数据" type="primary" effect="plain" spin></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="danger" effect="plain"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="warn" effect="plain"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="success" effect="plain"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="cyan" effect="plain"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="orange" effect="plain"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="purple" effect="plain"></PRE@-button>
-    </div><br><br>
-    <div class="flex-x">
-        <PRE@-button icon="vant-sync" label="刷新数据" type="primary" effect="fill" spin active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="danger" effect="fill" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="warn" effect="fill" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="success" effect="fill" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="cyan" effect="fill" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="orange" effect="fill" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="purple" effect="fill" active></PRE@-button>
-    </div><br>
-    <div class="flex-x">
-        <PRE@-button icon="vant-sync" label="刷新数据" type="primary" effect="fill" spin></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="danger" effect="fill"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="warn" effect="fill"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="success" effect="fill"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="cyan" effect="fill"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="orange" effect="fill"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="purple" effect="fill"></PRE@-button>
-    </div><br>
-    <div class="flex-x">
-        <PRE@-button icon="vant-sync" label="刷新数据" effect="popout" spin></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="primary" effect="popout" spin></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="danger" effect="popout"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="warn" effect="popout"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="success" effect="popout"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="cyan" effect="popout"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="orange" effect="popout"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="purple" effect="popout"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="fc" effect="popout" spin></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="gray" effect="popout"></PRE@-button>
-    </div><br><br>
-    <div class="flex-x">
-        <PRE@-button icon="vant-sync" label="刷新数据" type="primary" radius="normal"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="primary" radius="pill" stretch="full-line"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="primary" radius="sharp"></PRE@-button>
-        ---
-        <PRE@-button icon="vant-sync" label="刷新数据" type="danger" radius="pill" effect="normal" spin icon-class="f-white-m"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="danger" radius="normal" effect="fill"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" type="danger" radius="sharp" effect="plain" disabled></PRE@-button>
-        ---
-        <PRE@-button icon="vant-sync" label="刷新数据" color="orange" radius="normal" effect="fill" icon-right></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="orange" radius="pill" effect="fill" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="orange" radius="sharp" effect="fill" active disabled></PRE@-button>
-        ---
-        <PRE@-button icon="vant-sync" label="刷新数据" color="green" radius="pill" effect="popout"></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="green" radius="sharp" effect="popout" disabled></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="green" radius="normal" effect="popout" stretch="square" ></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="green" radius="sharp" effect="popout" stretch="square" active></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" color="green" radius="normal" effect="popout" stretch="square" disabled></PRE@-button>
-        <PRE@-button icon="vant-sync" label="刷新数据" size="128px" color="green" radius="normal" effect="popout" stretch="square" active disabled spin></PRE@-button>
-    </div><br><br>
-    <div class="flex-x">
-        <PRE@-button label="链接按钮" link></PRE@-button>
-        <PRE@-button label="链接按钮" link active></PRE@-button>
-        <PRE@-button label="链接按钮" link disabled></PRE@-button>
-        <PRE@-button label="链接按钮" size="large" type="danger" link></PRE@-button>
-        <PRE@-button label="链接按钮" type="danger" link active></PRE@-button>
-        <PRE@-button label="链接按钮" type="danger" link active disabled></PRE@-button>
-    </div>
-    <div class="flex-x">
-        <PRE@-button icon="vant-home" label="链接按钮" link></PRE@-button>
-        <PRE@-button icon="vant-home" label="链接按钮" link active custom-class="mg-rl-xl"></PRE@-button>
-        <PRE@-button icon="vant-home" label="链接按钮" link disabled></PRE@-button>
-    </div><br><br>
-    <div class="flex-x">
-        <PRE@-button icon="vant-home" size="128px" label="链接按钮" link></PRE@-button>
-    </div><br><br>
+<div id="PRE@_app" class="PRE@-layout-wrapper" v-cloak>
+
+    <PRE@-layout>
+        <br><br>
+        <PRE@-button
+            icon="desktop-mac"
+            label="Mask On"
+            @click="testUiMaskOn"
+        ></PRE@-button>
+        <PRE@-button
+            icon="desktop-mac"
+            label="Open Win"
+            @click="openDefaultWin"
+        ></PRE@-button>
+        <!--<PRE@-win
+            win-key="test-win"
+            icon-shape="fill"
+            minimizable
+            maximizable
+            closeable
+            hoverable
+            tabbar
+            :tab-list="$ui.testTabList"
+            :tab-active="$ui.testTabActive"
+            custom-style="z-index: 10;"
+            @tab-active="tabKey => {$ui.testTabActive = tabKey;}"
+        >
+            <template v-slot:tabwin-index="{tab, win}">
+                <div class="win-row">
+                    <span class="fw-bold fc-d3">{{tab.label}}</span>
+                    <span class="flex-1"></span>
+                    <span class="fs-s fc-l2">行尾信息</span>
+                </div>
+            </template>
+            <template v-slot:tabwin-foo="{tab, win}">
+                <div class="win-row">
+                    <span>{{tab.label}}</span>
+                </div>
+            </template>
+            <template v-slot:tabwin-bar="{tab, win}">
+                <div class="win-row">
+                    <span>{{tab.label}}</span>
+                </div>
+            </template>
+            <template v-slot:tabwin-jaz="{tab, win}">
+                <div class="win-row">
+                    <span>{{tab.label}}</span>
+                </div>
+            </template>
+        </PRE@-win>
+        <br><br>
+
+        <PRE@-win
+            tightness="loose"
+            closeable
+            shadow="bold"
+            custom-style="z-index: 20;"
+        >
+            <template v-slot:titctrl>
+                <PRE@-button
+                    icon="search"
+                    label="搜索"
+                    type="primary"
+                ></PRE@-button>
+                <PRE@-button
+                    icon="storm"
+                    icon-shape="sharp"
+                    type="danger"
+                    stretch="square"
+                ></PRE@-button>
+            </template>
+        </PRE@-win>-->
+        <br><br>
+
+        <div class="flex-y mg-l mg-po-l" style="width: 640px; height: 480px;">
+            <PRE@-win
+                win-type="inside"
+                icon=""
+                sharp
+                hoverable
+                :tab-list="winTabList"
+                :tab-active="winTabActive"
+                :win-confirmed="winConfirmed"
+                @tab-active="whenTabActive"
+                @confirm="whenWinConfirm"
+            >
+                <template v-slot:tab-foo="{win, tab}">
+                    <div class="win-row">{{tab.key + ': ' + tab.label}}</div>
+                </template>
+            </PRE@-win>
+        </div>
+
+        <br><br><br><br><br><br><br><br><br><br>
+
+        <div class="flex-x">
+            <PRE@-button icon="shutter-speed" label="拍摄" size="mini" type="primary"></PRE@-button>
+            <PRE@-button icon="shutter-speed" label="拍摄" size="small" type="danger"></PRE@-button>
+            <PRE@-button icon="shutter-speed" label="拍摄"></PRE@-button>
+            <PRE@-button icon="shutter-speed" icon-shape="fill" label="拍摄" size="medium" color="cyan"></PRE@-button>
+            <PRE@-button icon="shutter-speed" icon-shape="sharp" label="拍摄" size="large" color="orange"></PRE@-button>
+            <PRE@-button icon="wallet" label="我的钱包" size="mini" type="primary" effect="fill"></PRE@-button>
+            <PRE@-button icon="wallet" label="我的钱包" size="small" type="danger" effect="fill"></PRE@-button>
+            <PRE@-button icon="wallet" icon-shape="fill" label="我的钱包" effect="fill"></PRE@-button>
+            <PRE@-button icon="wallet" icon-shape="sharp" label="我的钱包" size="medium" color="cyan" effect="fill"></PRE@-button>
+            <PRE@-button icon="drafts" label="邮件" size="large" color="orange" effect="fill"></PRE@-button>
+            <PRE@-button icon="drafts" icon-shape="sharp" label="邮件" size="mini" type="primary" effect="popout"></PRE@-button>
+            <PRE@-button icon="bluetooth-audio" label="蓝牙连接" size="small" type="danger" effect="popout"></PRE@-button>
+            <PRE@-button icon="bluetooth-audio" icon-shape="sharp" label="蓝牙连接" effect="popout"></PRE@-button>
+            <PRE@-button icon="wifi" label="无线网络" size="medium" color="cyan" effect="popout"></PRE@-button>
+            <PRE@-button icon="wifi" icon-shape="sharp" label="无线网络" size="large" color="orange" effect="popout"></PRE@-button>
+        </div><br><br>
+
+        <div class="flex-x">
+            <PRE@-button icon="drafts" label="邮件" size="large" color="orange" effect="fill"></PRE@-button>
+            <PRE@-button icon="drafts" label="邮件" size="large" color="orange" effect="fill" stretch="square"></PRE@-button>
+        </div><br><br>
+
+        <div class="flex-x">
+            <PRE@-button icon="sync" label="刷新数据" type="primary" spin></PRE@-button>
+            <PRE@-button icon="sync" label="刷新数据" type="primary" spin="self"></PRE@-button>
+            <PRE@-button icon="wifi" label="连接网络" type="primary" spin="wifi" disabled></PRE@-button>
+            <PRE@-button icon="delivery-dining" label="配送" type="danger"></PRE@-button>
+            <PRE@-button icon="delivery-dining" icon-shape="fill" label="配送" type="warn"></PRE@-button>
+            <PRE@-button icon="delivery-dining" icon-shape="sharp" label="配送" type="success"></PRE@-button>
+            <PRE@-button icon="snowboarding" label="滑雪中" color="cyan"></PRE@-button>
+            <PRE@-button icon="snowboarding" icon-shape="sharp" label="滑雪中" color="orange"></PRE@-button>
+            <PRE@-button icon="snowboarding" icon-shape="fill" label="滑雪中" color="purple"></PRE@-button>
+        </div><br>
+
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        <br><br><br><br><br><br><br><br><br><br>
+        
+    </PRE@-layout>
+    <!--
     <div class="flex-x">
         <PRE@-button-group size="normal" effect="plain">
             <PRE@-button icon="vant-home" label="主页"></PRE@-button>
@@ -249,6 +276,7 @@ $view->renderStart();
     <PRE@-theme-color-row color="bgc"></PRE@-theme-color-row>
     <PRE@-theme-color-row color="bdc"></PRE@-theme-color-row>
     <PRE@-theme-color-row color="bz"></PRE@-theme-color-row>
+-->
 </div>
 
 <!-- 应用 SPA 环境插件，创建 根组件实例 js 代码块 -->
@@ -268,7 +296,50 @@ $view->useSpaPlugin([
 //插入 Vue.rootApp() 代码，创建 根组件实例
 Vue.rootApp({
     el: '#PRE@_app',
-    //foo: '__URL_COMPONENT__',
+    //使用 baseRootMixin
+    mixins: [baseRootMixin],
+    props: {},
+    data() {return {
+        winTabList: [
+            {key: 'foo', label: 'foo',},
+            {key: 'layout', label: 'layout', component: 'pms-layout', compParams: {}}
+        ],
+        winTabActive: 'layout',
+        winConfirmed: false,
+    }},
+    methods: {
+        testUiMaskOn() {
+            this.$ui.maskOn(null, {
+                //blur: true,
+                alpha: 'light',
+                type: 'danger',
+                loading: true,
+                on: {
+                    'mask-click': () => {
+                        console.log('mask-click callback');
+                    }
+                },
+            });
+        },
+        openDefaultWin() {
+            this.$win.openSingleCompWin('pms-layout', {
+
+            });
+        },
+
+        whenTabActive(key) {
+            console.log('root tab-active:', key);
+            this.winTabActive = key;
+        },
+
+        async whenWinConfirm(win) {
+            console.log(win);
+            win.winLoading(true);
+            await this.$wait(3000);
+            win.winLoading(false);
+            this.winConfirmed = true;
+        },
+    }
 });
 </script>
 

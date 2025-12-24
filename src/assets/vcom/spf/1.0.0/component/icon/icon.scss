@@ -1,4 +1,5 @@
-.__PRE__-icon-wrapper {
+// __PRE__-icon|icon-logo 组件公用样式
+.__PRE__-icon, .__PRE__-icon-logo {
     width: 1em; height: 1em;
     //vertical-align: -0.15em;
     //margin-top: 0.05em;
@@ -9,152 +10,44 @@
     //默认 size
     font-size: $size-icon-m;
 
+    //尺寸循环 
+    @include spf-size-shift(self, 'icon-', font-size, icon, $extraIconSizeQueue, false);
+}
+
+// __PRE__-icon 组件样式
+.__PRE__-icon {
     //默认 color
     color: $color-fc-m;
 
-    //huge,large,medium,normal,small,mini,tiny
-    @each $isz in $sizeStrQueue {
-        //normal --> m
-        $iszk: map-get($sizeStrMap, $isz);
-        //实际尺寸
-        $iszv: map-get($sizeMap, icon-#{$iszk});
-        &.icon-#{$isz}, &.icon-#{$iszk} {
-            font-size: $iszv;
-        }
-    }
-
-    //手动输入 icon 尺寸
-    @each $sz in $extraIconSizeQueue {
-        &.icon-#{$sz}px {
-            font-size: #{$sz}px;
-        }
-    } 
-    
-    //默认 icon 颜色的 加深减淡
-    @each $cli in $colorShiftQueue {
-        //具体颜色
-        $cliv: map-get($colorMap, fc-#{$cli});
-        @if $cliv != null {
-            &.icon-#{$cli} {
-                color: $cliv;
-            }
-        }
-    }
-
-    //其他颜色 只 加深减淡 1 级
-    @each $cli in $colorListAll {
-        //默认颜色
-        $cliv: map-get($colorMap, #{$cli}-m);
-        @if $cliv != null {
-            &.icon-#{$cli}, &.icon-#{$cli}-m {
-                color: $cliv;
-            }
-            
-            //自动 加深减淡 1 级
-            $cliv-l: map-get($colorMap, #{$cli}-l1);
-            @if $cliv-l != null {
-                //减淡
-                &.icon-#{$cli}-hover {
-                    color: $cliv-l;
-                }
-            }
-            $cliv-d: map-get($colorMap, #{$cli}-d1);
-            @if $cliv-d != null {
-                //加深
-                &.icon-#{$cli}-visited {
-                    color: $cliv-d;
-                }
-            }
-        }
-    }
-
-    //旋转
-    /*&.icon-spin {
-        animation: spin 1s linear infinite;
-    }*/
-    
+    //颜色循环 引用 .fc-*
+    @include spf-color-extend(self, icon-, fc-, fc, (white,black), (l1,m,d1));
 }
 
-/** icon-logo **/
+// __PRE__-icon-logo 组件样式
 .__PRE__-icon-logo {
-    //vertical-align: -0.15em;
-    //margin-top: 0.05em;
-    fill: currentColor;
-    overflow: hidden;
-    transition: all $ani-dura;
+    //默认 长方形 logo
+    width: auto; 
 
-    /** 普通长方形 logo **/
-    //默认 size
-    height: $size-icon-m; width: auto;
-
-    //huge,large,medium,normal,small,mini,tiny
-    @each $isz in $sizeStrQueue {
-        //normal --> m
-        $iszk: map-get($sizeStrMap, $isz);
-        //实际尺寸
-        $iszv: map-get($sizeMap, icon-#{$iszk});
-        &.icon-#{$isz}, &.icon-#{$iszk} {
-            height: $iszv;
-        }
-    }
-
-    //手动输入 icon 尺寸
-    @each $sz in $extraIconSizeQueue {
-        &.icon-#{$sz}px {
-            height: #{$sz}px;
-        }
-    } 
-
-    /** 正方形 logo **/
+    //正方形
     &.icon-square {
-        width: 1em; height: 1em;
-        //默认 size
-        font-size: $size-icon-m;
-
-        //huge,large,medium,normal,small,mini,tiny
-        @each $isz in $sizeStrQueue {
-            //normal --> m
-            $iszk: map-get($sizeStrMap, $isz);
-            //实际尺寸
-            $iszv: map-get($sizeMap, icon-#{$iszk});
-            &.icon-#{$isz}, &.icon-#{$iszk} {
-                font-size: $iszv;
-            }
-        }
-    
-        //手动输入 icon 尺寸
-        @each $sz in $extraIconSizeQueue {
-            &.icon-#{$sz}px {
-                font-size: #{$sz}px;
-            }
-        } 
+        width: 1em;
     }
 
-    /** 多色 logo 统一为 单色 **/
-    //颜色 只 加深减淡 1 级
-    @each $cli in $colorListAll {
-        //默认颜色
-        $cliv: map-get($colorMap, #{$cli}-m);
-        @if $cliv != null {
-            &.icon-#{$cli}, &.icon-#{$cli}-m {
-                color: $cliv;
-            }
-            
-            //自动 加深减淡 1 级
-            $cliv-l: map-get($colorMap, #{$cli}-l1);
-            @if $cliv-l != null {
-                //减淡
-                &.icon-#{$cli}-hover {
-                    color: $cliv-l;
-                }
-            }
-            $cliv-d: map-get($colorMap, #{$cli}-d1);
-            @if $cliv-d != null {
-                //加深
-                &.icon-#{$cli}-visited {
-                    color: $cliv-d;
-                }
-            }
-        }
+    //单色 logo
+    &.icon-single-color {
+        //& * {
+            //让填充色继承外部的 color 值
+            fill: currentColor !important;
+            //让描边色也继承（如果 SVG 有描边）
+            stroke: currentColor !important;
+            //清除所有内部的颜色相关属性
+            stroke-color: unset !important;
+            fill-opacity: 1 !important;
+            stroke-opacity: 1 !important;
+        //}
+
+        //颜色循环 引用 .fc-*
+        @include spf-color-extend(self, icon-, fc-, fc, (white,black), (l1,m,d1));
     }
 }
+

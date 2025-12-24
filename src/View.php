@@ -19,6 +19,7 @@ use Spf\util\Arr;
 use Spf\util\Cls;
 use Spf\util\Conv;
 use Spf\util\Path;
+use Spf\util\Url;
 
 class View extends Core 
 {
@@ -451,7 +452,9 @@ class View extends Core
         $fav = $cfger->favicon;
         if (isset($fav["href"]) && Is::nemstr($fav["href"])) {
             $fav = Arr::extend($fav, [
-                "id" => "favicon",
+                //补齐完整路径，否则作为应用安装到本地时，无法获取应用图标
+                "href" => Url::current()->domain.$fav["href"],
+                //"id" => "favicon",
                 "rel" => "icon",
             ]);
             $this->link([ $fav ]);
@@ -1028,6 +1031,9 @@ class View extends Core
                 $html[] = "import $appv from '".$appres->viewUrl("esm-browser-async.min.js", [], true)."';";
             }
         }
+
+        //显示 import 基础组件库的 根组件 mixin
+        $html[] = "import baseRootMixin from '".$spa->viewUrl($spa->desc["dirs"]["mixin"]."/base-root.js")."';";
 
         //准备基础组件库插件的 use options
         if (!Is::nemarr($spaOptions)) $spaOptions = [];

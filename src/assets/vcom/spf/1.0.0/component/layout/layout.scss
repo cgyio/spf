@@ -1,0 +1,135 @@
+
+//共用 layout 样式变量
+$layout-bdc:        $color-bdc-m;
+$layout-menu-w-max: $size-menubar-max-m;
+$layout-menu-w-min: $size-menubar-min-m;
+$layout-logo-h:     $size-bar-xxl;
+$layout-usr-h:      $size-bar-xxl;
+$layout-usr-avt-w:  $size-btn-xxl;
+$layout-navtab-h:   $size-bar-xxl;
+$layout-task-h:     $size-bar-m;
+
+.__PRE__-layout {
+    @include spf-po-ov($w: 100%, $h: 100vh, $pd: 0, $mg: 0);
+    //@include spf-flex-y;
+    //background-color: $color-bgc-m;
+    border-color: $layout-bdc;
+
+    //leftside
+    &>.layout-leftside {
+        @include spf-po-ov($w: $layout-menu-w-max, $h: unset, $pd: 0, $mg: 0);
+        min-width: $layout-menu-w-min;
+        border-color: $layout-bdc;
+
+        &>.layout-logobar {
+            @include spf-po-abs($w: 100%, $h: $layout-logo-h, $pd: 0, $mg: 0, $l: 0, $t: 0, $ov: hidden);
+            z-index: 1;
+        }
+        &>.layout-usrbar {
+            @include spf-po-abs($w: 100%, $h: $layout-usr-h, $pd: 0, $mg: 0, $l: 0, $t: unset, $b: 0, $ov: hidden);
+            z-index: 1;
+            &>.layout-usr-avator {
+                @include spf-po-ov($w: $layout-usr-avt-w, $h: $layout-usr-avt-w, $pd: 0, $mg: 0);
+                border-radius: 50%;
+                background: no-repeat center/50% url('/src/icon/md-round/hide-image.svg') $color-bgc-d2;
+            }
+        }
+
+        &>.layout-menubar {
+            @include spf-po-ov($w: 100%, $h: unset, $pd: $layout-logo-h 0 $layout-usr-h 0, $mg: 0, $ov: hidden auto);
+        }
+    }
+
+    //mainbody
+    &>.layout-mainbody {
+        @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+
+        &>.layout-navtab {
+            @include spf-po-abs($w: 100%, $h: $layout-navtab-h, $pd: 0, $mg: 0, $l: 0, $t: 0, $ov: hidden);
+            //border-color: $layout-bdc;
+            z-index: 1;
+        }
+        &>.layout-taskbar {
+            @include spf-po-abs($w: 100%, $h: $layout-task-h, $pd: 0, $mg: 0, $l: 0, $t: unset, $b: 0, $ov: hidden);
+            border-color: $layout-bdc;
+            z-index: 1;
+        }
+
+        &>.layout-body {
+            @include spf-po-ov($w: unset, $h: unset, $pd: $layout-navtab-h 0 $layout-task-h 0, $mg: 0, $ov: hidden auto);
+        }
+    }
+}
+
+//全局遮罩层
+.__PRE__-mask {
+    @include spf-po-fix($w: 100vw, $h: 100vh, $pd: 0, $mg: 0, $l: 0, $t: 0);
+
+    //透明度循环
+    $almap: (
+        light:  30,
+        normal: 60,
+        dark:   80,
+    );
+    //默认透明度 0.6
+    $da: div(map.get($almap, 'normal'), 100);
+
+    //默认 mask 背景色
+    $bgc: set-alpha($color-black-m, $da);
+    $fc: fore-color($bgc, 0.8);
+    background-color: $bgc;
+    color: $fc;
+    //icon
+    &>svg[class*=icon] {
+        color: $fc;
+    }
+
+    //默认状态下 display: none
+    display: none;
+
+    //使用 backdrop-blur 效果
+    &.mask-blur {
+        @extend .bg-blur;
+    }
+
+    //show 状态下
+    &.mask-show {
+        display: flex;
+    }
+
+    //循环 $colorListBase + white,black 颜色
+    $cls: mk($colorListBase...);
+    $cls: push($cls, white, black);
+    @each $ci in $cls {
+        $c: color-get(#{$ci}-m);
+        @if not is-null($c) {
+            &.mask-#{$ci}, &.mask-#{$ci}-m {
+                //默认透明度
+                //$bgc: set-alpha($c, $da);
+                //$fc: fore-color($bgc, 0.8);
+                //background-color: $bgc;
+                //color: $fc;
+                //icon
+                //&>svg[class*=icon] {
+                //    color: $fc;
+                //}
+                //循环透明度
+                @each $ai in map.keys($almap) {
+                    $av: map.get($almap, $ai);
+                    $av: div($av, 100);
+                    $bgc: set-alpha($c, $av);
+                    $fc: fore-color($bgc, 0.8);
+                    &.mask-alpha-#{$ai} {
+                        background-color: $bgc;
+                        color: $fc;
+                        //icon
+                        &>svg[class*=icon] {
+                            color: $fc;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}

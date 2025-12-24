@@ -84,6 +84,17 @@ class Module
 
         //定义主题模块的 额外数据定义
         "extra" => [
+            /**
+             * !! 必须包含的 alias 别名主题参数项
+             * 在 Theme 类获取最终解析后主题数据时，会自动填充到这里，不需要手动操作
+             */
+            "alias" => [
+                /*
+                "primary" => "blue",
+                ...
+                */
+            ],
+
             //各子模块可以有不同的数据定义
             //...
         ],
@@ -125,9 +136,12 @@ class Module
     protected static $dftMode = "";
 
     /**
-     * 缓存 传入的 主题文件中的 此主题模块的 设置数据，已格式化为 stdDef 格式
+     * 缓存 当前主题模块的设置数据
      */
+    //主题文件中的 此主题模块的 设置数据，已格式化为 stdDef 格式
     protected $origin = [];
+    //origin 设置经过 parse 但还未进行 autoShift 时的数据缓存
+    //protected $parsedConf = [];
 
     /**
      * 此主题模块 在解析参数后 得到的 最终参数数据
@@ -183,6 +197,8 @@ class Module
         $conf = $this->origin;
         //解析 主题设置内容
         $ctx = static::parseStdDef($conf);
+        //缓存到 parsedConf
+        //$this->parsedConf = Arr::copy($ctx);
 
         //!! forDev
         //if ($this->key === "color") {
@@ -326,16 +342,21 @@ class Module
             //别名指向 不正确
             if (!isset($items[$itemv])) continue;
             //开始查找指向的 item
+            $tk = $itemv;
             $to = $items[$itemv];
             if (Is::nemstr($to) && isset($items[$to])) {
                 //指向的 item 也是 别名，重复查找，直到 指向的 item 不是别名
+                $tk = $to;
                 $to = $items[$to];
                 while (Is::nemstr($to) && isset($items[$to])) {
+                    $tk = $to;
                     $to = $items[$to];
                 }
             }
             //读取 指向的 item value
             $rtn[$item] = $to;
+            //将 alias 别名参数保存到 $this->origin["extra"]["alias"][]
+            $this->origin["extra"]["alias"][$item] = $tk;
         }
 
         return $rtn;

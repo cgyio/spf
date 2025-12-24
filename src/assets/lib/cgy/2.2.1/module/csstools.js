@@ -90,6 +90,16 @@ csstools.init = cgy => { cgy.def( {
         return sobj;
     },
 
+    /**
+     * css class
+     */
+    //样式类字符串，转为 []，例如： 'foo bar  jaz' --> [foo,bar,jaz]
+    toClassArr(cls='') {
+        if (!cgy.is.string(cls) || cls==='') return [];
+        cls = cls.replace(/\s+/g, ' ');
+        return cls.split(' ');
+    },
+
     //querySelector
     elm(selector) {return document.querySelector(selector)},
     elms(selector) {return document.querySelectorAll(selector)},

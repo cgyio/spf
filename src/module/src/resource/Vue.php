@@ -392,7 +392,13 @@ class Vue extends Codex
 
         //增加 esm 导出语句
         if ($this->paramsStandAlone("esm") === true) {
-            $rower->rowAdd("export default $vcv;","");
+            if ($this->paramsStandAlone("regist") === true) {
+                //如果存在 注册语句，则 export default [组件变量名]
+                $rower->rowAdd("export default $vcv;","");
+            } else{
+                //如果不存在注册语句，则 export default [组件定义变量名]
+                $rower->rowAdd("export default $def;","");
+            }
         }
 
         //生成 content

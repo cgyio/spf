@@ -32,35 +32,39 @@ export default {
             type: Boolean,
             default: false
         },
+
+        /**
+         * logo 默认多色图标，要显示为单色 需要设置此参数为 true
+         * !! 需要同时指定 color 参数
+         */
+        singleColor: {
+            type: Boolean,
+            default: false
+        },
     },
     data() {return {
             
-        /**
-         * 覆盖 base-style 样式系统参数
-         */
-        styInit: {
-            class: {
-                //根元素
-                root: ['__PRE__-icon-logo'],
+        //覆盖 base-style 样式系统参数
+        sty: {
+            init: {
+                class: {
+                    root: ['__PRE__-icon-logo'],
+                }
             },
-            style: {
-                //根元素
-                root: {},
+            prefix: 'icon',
+            sub: {
+                size: true,
+                color: true,
             },
-        },
-        styCssPre: 'icon',
-        styEnable: {
-            size: true,
-            color: true,
-            animate: false,
-        },
-        stySwitches: {
-            //启用 square 开关
-            square: true,
-        },
-        styCsvKey: {
-            size: 'icon',
-            color: 'fc',
+            switch: {
+                //启用开关
+                square: true,
+                singleColor: true,
+            },
+            csvKey: {
+                size: 'icon',
+                color: 'fc',
+            },
         },
         
     }},

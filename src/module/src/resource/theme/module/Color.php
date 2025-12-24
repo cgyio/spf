@@ -45,9 +45,13 @@ class Color extends Module
                 "info",     //gray
                 //业务主题色
                 "bz",
-                //其他用途 基本色
-                "fc", "bgc", "bdc", 
                 //还可以定义 其他基本色
+                //...
+            ],
+            //有特定用途的颜色
+            "specific" => [
+                "fc", "bgc", "bdc", 
+                //还可以定义 其他特定色
                 //...
             ],
             //作为静态颜色的 颜色分组，这些颜色 都不开启 shift
@@ -99,10 +103,10 @@ class Color extends Module
             "purple"    => "#ea6e9c",
             "gray"      => "#888888",
             "bz"        => "#ff8600",
-            "fc"        => "#555555",       //字体颜色
+            "fc"        => "#666666",       //字体颜色
             //背景色
             "bgc" => [
-                "value" => "#f0f0f0",
+                "value" => "#f3f3f3",
                 "shift" => [
                     //加深|减淡 l 极限值 0~1 之间 [ 最大(亮|淡), 最小(暗|深) ]
                     "lvl" => [ 
@@ -125,7 +129,7 @@ class Color extends Module
             //静态颜色
             "white"     => "#ffffff",
             "black"     => "#000000",
-            "shadow"    => "#0000004d",     //阴影色 alpha = 0.3，色值可添加透明度
+            "shadow"    => "#000000",   //阴影色 透明度由 scss 自动生成
 
             //别名颜色，可直接指定 要指向的 颜色 key
             "danger"    => "red",
@@ -159,7 +163,7 @@ class Color extends Module
 
                 //如果有不同于 common 设置的，在此指定
                 //dark 模式下 前景色|背景色|边框色 反转
-                "fc"        => "#bbbbbb",
+                "fc"        => "#aaaaaa",
                 //背景色
                 "bgc" => [
                     "value" => "#202020",
@@ -183,7 +187,7 @@ class Color extends Module
                     ],
                 ],
                 //dark 模式下 阴影为 白色
-                "shadow"    => "#ffffff4d",
+                //"shadow"    => "#000000",
                 //dark 模式下，黑白色 互换
                 "white"     => "#000000",
                 "black"     => "#ffffff",
@@ -193,12 +197,13 @@ class Color extends Module
         //定义 color 模块的 额外数据定义
         "extra" => [
             /**
+             * !! 由 scss 自动生成，此处不再需要
              * alpha 透明度级数
              * 默认 9（最大） 表示透明度 a1~a9 = 10%~90% 所有颜色增加 9 级透明度
              * 0 表示 不启用颜色透明度
              * !! 不要使用其他 透明度级数，目前仅支持 0|9
              */
-            "alpha" => 9,
+            //"alpha" => 9,
 
             /**
              * type 序列
@@ -246,7 +251,7 @@ class Color extends Module
     ];
     //此模块中，所有 参数 item 的分组类型
     protected static $stdGroups = [
-        "base", "static", "custom", 
+        "base", "specific", "static", "custom", 
     ];
     //定义此模块支持的 mode 模式列表
     protected static $stdModes = [
@@ -307,8 +312,28 @@ class Color extends Module
         //空行
         $rower->rowEmpty(1);
 
+        // 3    生成 $colorListAlias  $colorAliasMap
+        $alias = $conf["extra"]["alias"] ?? [];
+        $alks = array_keys($alias);
+        //定义 $colorListAlias
+        $rower->rowDef("colorListAlias", $alks);
+        //定义 $colorAliasMap
+        $rower->rowAdd("\$colorAliasMap: (", "");
+        foreach ($alias as $ak => $av) {
+            $rower->rowDef($ak, $av, [
+                "prev" => "",
+                "rn" => ",",
+                "quote" => "'",
+            ]);
+        }
+        $rower->rowAdd(");", "");
+        //空行
+        $rower->rowEmpty(1);
+
+
         // 3    生成透明度级数 $colorAlphaMap
-        $alvls = $conf["extra"]["alpha"] ?? 9;   //默认启用
+        //!! scss 自动处理，此处不需要
+        /*$alvls = $conf["extra"]["alpha"] ?? 9;   //默认启用
         if (is_int($alvls) && $alvls===9) {
             //!! 目前仅支持：透明度级数 只能是 0 或 9
             $als = [];
@@ -328,7 +353,7 @@ class Color extends Module
             $rower->rowDef("colorListAlpha", $als);
             //空行
             $rower->rowEmpty(1);
-        }
+        }*/
 
         // 4    生成 extra 数据中的 typeList|effectList
         $tps = $conf["extra"]["types"] ?? [];
@@ -461,12 +486,13 @@ class Color extends Module
         $val = Arr::extend($val, $manual);
 
         //为每个 颜色 创建前景色
-        $fval = [];
+        //!! 由 scss 自动处理，此处不再需要
+        /*$fval = [];
         foreach ($val as $k => $c) {
             $fc = ColorUtil::autoFrontColor($c);
             $fval["$k-fc"] = $fc;
         }
-        $val = Arr::extend($val, $fval);
+        $val = Arr::extend($val, $fval);*/
 
         //得到的 新 value 替换原来的 value
         $conf["value"] = $val;

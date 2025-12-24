@@ -1,0 +1,4596 @@
+@use 'sass:string';
+@use 'sass:list';
+@use 'sass:map';
+@use 'sass:color';
+@use 'sass:math';
+@use 'sass:meta';
+@use 'sass:selector';
+
+@import 'https://ms.systech.work/src/cdn/normalize/default.css';
+@import 'https://ms.systech.work/src/cdn/animate/default.css';
+
+
+
+/** dart-scss patch functions **/
+//所有支持的 数据类型
+$dartScssTypeList: number,string,color,list,map,calculation,bool,'null',function,mixin,arglist;
+//scss 支持的 unit 单位 map 用于 set-unit
+$dartScssUnitMap: (
+    cm:     1cm,
+    mm:     1mm,
+    in:     1in,
+    px:     1px,
+    pt:     1pt,
+    pc:     1pc,
+    q:      1q,
+    em:     1em,
+    rem:    1rem,
+    ex:     1ex,
+    ch:     1ch,
+    vw:     1vw,
+    vh:     1vh,
+    vmin:   1vmin,
+    vmax:   1vmax,
+    //!! %:    1%,  非法键名，使用 pec 代替 %
+    '%':    1%,
+    pec:    1%,
+    fr:     1fr,
+    cap:    1cap,
+    ic:     1ic,
+    lh:     1lh,
+    rlh:    1rlh,
+    s:      1s,
+    deg:    1deg,
+);
+//list 默认 separator comma
+$dftListSeparator: comma;
+//所有可选的 top|right|bottom|left 方位字符的简写列表
+$trblQueue: t,r,b,l,tr,tb,tl,rb,rl,bl,trb,trl,rbl,tbl,trbl,x,y,xy,all;
+//所有可选的 top-left,top-right,bottom-left,bottom-right 角标字符的简写列表
+$cornerQueue: t,b,r,l,tl,tr,bl,br,tbl,tbr,btl,btr,rtl,rbl,ltr,lbr,trbl,all;
+
+/** type-system patch **/
+//isa 快捷调用 meta.type-of($val) == $tp  <返回：bool>
+@function isa($value, $type) {
+    @if meta.type-of($type) != 'string' or list.index($dartScssTypeList, $type) == null {@return false;}
+    @return meta.type-of($value) == $type;
+}
+//is-any 多个类型快捷判断  <返回：bool>
+@function is-any($value, $types...) {
+    @each $i in $types {
+        @if isa($value, $i) {
+            @return true;
+        }
+    }
+    @return false;
+}
+//all-is 多个值类型快捷判断  <返回：bool>
+@function all-is($type, $values...) {
+    @if not isa($type, string) or len($values) <= 0 {@return false;}
+    @each $i in $values {
+        @if not isa($i, $type) {@return false;}
+    }
+    @return true;
+}
+//is-*** 快捷类型判断  <返回：bool>
+@function is-number($values...) {@return all-is(number, $values...);}
+@function is-string($values...) {@return all-is(string, $values...);}
+@function is-color($values...) {@return all-is(color, $values...);}
+@function is-list($values...) {@return all-is(list, $values...);}
+@function is-map($values...) {@return all-is(map, $values...);}
+@function is-bool($values...) {@return all-is(bool, $values...);}
+@function is-null($values...) {@return all-is('null', $values...);}
+@function is-function($values...) {@return all-is(function, $values...);}
+@function is-arglist($values...) {@return all-is(arglist, $values...);}
+@function is-mixin($values...) {@return all-is(mixin, $values...);}
+@function is-calculation($values...) {@return all-is(calculation, $values...);}
+//is-empty 快捷判断 null|list|map|string 为空  <返回：bool>
+@function is-empty($value) {
+    //null 返回 true
+    @if is-null($value) {@return true;}
+    @if is-any($value, list,arglist,map) {@return len($value) <= 0;}
+    @if is-string($value) {@return str-len($value) <= 0;}
+    //其他类型一律返回 false
+    @return false;
+}
+//is-nemstr 简写 is-string(val) and val != ''  <返回：bool>
+@function is-nemstr($value) {@return is-string($value) and $value != '';}
+//is-nemlist 简写 is-any(val, list,arglist) and not is-empty(val)  <返回：bool>
+@function is-nemlist($value) {@return is-any($value, list, arglist) and not is-empty($value);}
+//is-nemmap 简写 is-map(val) and not is-empty(val)  <返回：bool>
+@function is-nemmap($value) {@return is-map($value) and not is-empty($value);}
+//is-digit 判断是否纯数字或纯数字字符串  <返回：bool>
+@function is-digit($value) {
+    //无单位 number --> true
+    @if is-number($value) {@return math.is-unitless($value);}
+    //非 string 空 string --> false
+    @if not is-string($value) or is-empty($value) {@return false;}
+    //一些无效字符串
+    @if list.index(('-','.','-.','.-'), $value) != null {@return false;}
+    $nl: ('0','1','2','3','4','5','6','7','8','9');
+    @if str-len($value) == 1 {@return list.index($nl, $value) != null;}
+    $minus: false;
+    $dot: false;
+    @for $i from 1 through str-len($value) {
+        $ch: string.slice($value, $i, $i);
+        @if $ch == '-' {
+            //- 负数符号仅允许在第 1 位，且只能有 1 个
+            @if $i != 1 or $minus == true {
+                @return false;
+            } @else {
+                $minus: true;
+            }
+        } @else if $ch == '.' {
+            //只允许 1 个小数点
+            @if $dot == true {
+                @return false;
+            } @else {
+                $dot: true;
+            }
+        } @else if list.index($nl, $ch) == null {
+            @return false;
+        }
+    }
+    @return true;
+}
+//is-numeric 判断一个值是否是数值形式（纯数字、带单位数字、字符串）  <返回：bool|number>
+@function is-numeric($value, $conv: false) {
+    //is-numer --> true
+    @if is-number($value) {@return true;}
+    //非 string 空 string --> false
+    @if not is-string($value) or is-empty($value) {@return false;}
+    $len: str-len($value);
+    $num-str: '';
+    $unit: '';
+    $minus: false;
+    $dot: false;
+    @for $i from 1 through $len {
+        $ch: string.slice($value, $i, $i);
+        @if $ch == '-' or $ch == '.' or is-digit($ch) {
+            @if $ch == '-' {
+                @if $i != 1 or $minus == true {
+                    //负号只能在首位，且只能有 1 个
+                    @return false;
+                } @else {
+                    $minus: true;
+                }
+            } @else if $ch == '.' {
+                @if $dot == true {
+                    //只允许有 1 个 .
+                    @return false;
+                } @else {
+                    $dot: true;
+                }
+            } @else {
+                @if $unit != '' {
+                    //在 单位后 还有数字，返回 false
+                    @return false;
+                }
+            }
+            $num-str: $num-str + $ch;
+        } @else {
+            @if $num-str == '' {
+                //字符串首位 非数字，返回 false
+                @return false;
+            }
+            $unit: $unit + $ch;
+        }
+    }
+    @if $conv == debug {
+        @return ($num-str, $unit);
+    }
+    //不包含任何数字
+    @if $num-str == '' {@return false;}
+    //将数字字符串转为 number
+    $num: to-digit($num-str);
+    @if not is-number($num) {@return false;}
+    //$conv = true 返回转换后的 number
+    @if $conv == true {
+        @if $unit == '' {@return $num;}
+        //合并 unit 返回 number
+        @return set-unit($num, $unit);
+    } @else {
+        @return true;
+    }
+}
+//to-digit 将 is-digit 字符串转为 number  <返回：number|null>
+@function to-digit($value) {
+    @if not is-digit($value) {@return null;}
+    //number 直接返回
+    @if is-number($value) {@return $value;}
+    $nl: ('0','1','2','3','4','5','6','7','8','9');
+    $vl: (0,1,2,3,4,5,6,7,8,9);
+    $len: str-len($value);
+    @if $len == 1 {
+        @return nth($vl, list.index($nl, $value));
+    }
+    //标记 - 负数
+    $is-minus: string.slice($value, 1, 1) == '-';
+    @if $is-minus {
+        $value: string.slice($value, 2, $len);
+    }
+    //.3 --> 0.3
+    @if string.slice($value, 1, 1) == '.' {
+        $value: '0' + $value;
+    }
+    //3. --> 3.0
+    @if string.slice($value, $len, $len) == '.' {
+        $value: $value + '0';
+    }
+    $len: str-len($value);
+
+    //不含 . 
+    @if string.index($value, '.') == null {
+        $num: 0;
+        @for $i from 1 through $len {
+            $dig: to-digit(string.slice($value, $i, $i));
+            // 105 = 1 * pow(10, 2) + 0 * pow(10, 1) + 5 * pow(10, 0)
+            $num: $num + $dig * math.pow(10, $len - $i);
+        }
+        @return if($is-minus, $num * -1, $num);
+    }
+
+    //包含 . 数字字符串拆为 整数部分 和 小数部分
+    $nstrs: string.split($value, '.');
+    $nsl: len($nstrs);
+    @if $nsl > 2 or $nsl < 1 {@return null;}
+    $int: to-digit(nth($nstrs, 1));
+    @if not is-number($int) {@return null;}
+    @if $nsl == 1 {@return if($is-minus, $int * -1, $int);}
+    $flo-str: nth($nstrs, 2);
+    $flo-int: to-digit($flo-str);
+    @if not is-number($flo-int) {@return null;}
+    $flo: math.div($flo-int, math.pow(10, str-len($flo-str)));
+    $num: $int + $flo;
+    @return if($is-minus, $num * -1, $num);
+}
+//to-string 任意值转为 string  <返回：string|null>
+@function to-string($value, $escape: auto) {
+    @if is-null($value) {@return null;}
+    @if is-string($value) {@return $value;}
+    @return '#{$value}';
+}
+//to-number 任意值转为 number  <返回：number|null>
+@function to-number($value) {
+    @if is-null($value) {@return null;}
+    $tp: meta.type-of($value);
+    @if $tp == 'number' {@return $value;}
+    @if $tp == 'bool' {@return if($value == true, 1, 0);}
+    @if $tp != 'string' {@return null;}
+    $num: is-numeric($value, true);
+    @if not is-number($num) {@return null;}
+    @return $num;
+}
+//to-strings 将任意多个值 转为 string 只要有一个失败 则返回 null 全部成功则返回 顺序一致的 list  <返回：list|null>
+@function to-strings($values...) {
+    @if len($values) <= 0 {@return ();}
+    $strs: ();
+    @each $i in $values {
+        $ni: to-string($i);
+        @if not is-string($ni) {@return null;}
+        $strs: list.append($strs, $ni);
+    }
+    @return $strs;
+}
+//to-numbers 将任意多个值 转为 number 只要有一个失败 则返回 null 全部成功则返回 顺序一致的 list  <返回：list|null>
+@function to-numbers($values...) {
+    @if len($values) <= 0 {@return ();}
+    $nums: ();
+    @each $i in $values {
+        $ni: to-number($i);
+        @if is-null($ni) {@return null;}
+        $nums: push($nums, $ni);
+    }
+    @return $nums;
+}
+//to-compatible-numbers 转换任意多个值为 number 且必须 compatible 成功返回 list 否则返回 null  <返回：list|null>
+@function to-compatible-numbers($values...) {
+    $nums: to-numbers($values...);
+    @if is-null($nums) {@return null;}
+    @if all-compatible($nums...) != true {@return null;}
+    @return $nums;
+}
+//to-unitless-numbers 转换任意多个值为 纯数字 number 成功返回 list 否则返回 null  <返回：list|null>
+@function to-unitless-numbers($values...) {
+    $nums: to-numbers($values...);
+    @if is-null($nums) {@return null;}
+    $ns: ();
+    @each $i in $nums {
+        $ns: push($ns, strip-unit($i));
+    }
+    @return $ns;
+}
+//to-dec 十六进制字符(ff) 转 十进制 number(255) 仅支持正整数 自动转换类型  <返回：number|null>
+@function to-dec($hex) {
+    @if is-digit($hex) {$hex: to-string($hex);}
+    @if not is-nemstr($hex) {@return null;}
+    $hex: str-lower($hex);
+    $ls: '0123456789abcdef';
+    $nl: (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+    $len: str-len($hex);
+    @if $len == 1 {
+        @return nth($nl, str-idx($ls, $hex));
+    }
+
+    $num: 0;
+    @for $i from 1 through $len {
+        $dig: to-dec(str-sub($hex, $i, $i));
+        // ff = 15 * pow(16, 1) + 15 * pow(16, 0)
+        $num: $num + $dig * pow(16, $len - $i);
+    }
+    @return $num;
+
+}
+//to-hex 十进制数(255) 转 十六进制字符串(ff) 仅支持正整数 自动类型转换  <返回：string|null>
+@function to-hex($dec) {
+    @if not is-digit($dec) {@return null;}
+    $dec-str: to-string($dec);
+    @if str-has($dec-str, '.') or str-has($dec-str, '-') {@return null;}
+    $dec: to-number($dec);
+    @if $dec == 0 {@return '0';}
+
+    $ls: '0123456789abcdef';
+    $nl: (0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+
+    //确定位数，支持 8 位十六进制数
+    $digs: 0;
+    @for $i from 1 through 8 {
+        @if $digs == 0 and pow(16, $i) > $dec {
+            $digs: $i;
+        }
+    }
+    @if $digs == 0 {
+        //超过支持位数
+        @return null;
+    }
+
+    //1 位
+    @if $digs == 1 {
+        $idx: idx($nl, $dec);
+        @if is-null($idx) {
+            @return null;
+        } @else {
+            $hexi: str-sub($ls, $idx, $idx);
+            @return $hexi;
+        }
+    }
+
+    //循环除以 16 直到 商 < 16
+    //商
+    $left: $dec;
+    //余数  --> 当前位的数值 0~15
+    $quos: ();
+    @for $i from 1 through $digs {
+        $quo: $left % 16;
+        $left: floor(div($left, 16));
+        $quos: push($quos, $quo);
+    }
+    
+    //依次将每一位的数值 转为 十六进制字符
+    $ts: '';
+    @each $i in $quos {
+        $idx: idx($nl, $i);
+        @if is-null($idx) or (is-number($idx) and $idx > 16) {
+            @return null;
+        } @else {
+            $hexi: str-sub($ls, $idx, $idx);
+            $ts: $ts + $hexi;
+        }
+    }
+    @return $ts;
+}
+
+/** string patch **/
+//根据传入的不定参数创建字符串  <返回：string>
+@function str($pieces...) {
+    $ts: '';
+    @each $i in $pieces {
+        $si: to-string($i);
+        @if is-string($si) {
+            $ts: $ts + $si;
+        }
+    }
+    @return $ts;
+}
+//str-len 增强 string.length 自动转换类型  <返回：number>
+@function str-len($string) {
+    $string: to-string($string);
+    @if not is-string($string) {@return 0;}
+    @return string.length($string);
+}
+//str-sub 增强 string.slice 自动类型转换  <返回：string>
+@function str-sub($string, $start-at, $end-at: -1) {
+    $str: to-string($string);
+    @if not is-string($str) or is-empty($str) {@return $string;}
+    @return string.slice($string, $start-at, $end-at);
+}
+//str-idx 增强 string.index 自动类型转换  <返回：string>
+@function str-idx($string, $substring) {
+    $strs: to-strings($string, $substring);
+    @if is-null($strs) {@return $string;}
+    @return string.index($strs...);
+}
+//str-includes 自动类型转换  <返回：bool>
+@function str-includes($string, $search) {
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return false;}
+    @return not is-null(string.index($strs...));
+}
+//str-has 简写 str-includes  <返回：bool>
+@function str-has($args...) {@return str-includes($args...);}
+//str-join 使用连接符 连接 pieces  <返回：string>
+@function str-join($glue: '-', $pieces...) {
+    $list: ();
+    @each $i in $pieces {
+        $si: to-string($i);
+        @if is-string($si) {
+            $list: push($list, $si);
+        }
+    }
+    @return list-join($list, $glue);
+}
+//str-starts-with 自动类型转换  <返回：bool>
+@function str-starts-with($string, $search) {
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return false;}
+    $idx: string.index($strs...);
+    @return is-number($idx) and $idx == 1;
+}
+//str-ends-with 自动类型转换  <返回：bool>
+@function str-ends-with($string, $search) {
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return false;}
+    @if not str-includes($strs...) {@return false;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $len: str-len($string);
+    $slen: str-len($search);
+    @return string.slice($string, $len - $slen + 1, $len) == $search;
+}
+//str-replace 替换字符串 递归替换所有找到的 search 自动转换类型  <返回：string>
+@function str-replace($string, $search, $replace) {
+    $strs: to-strings($string, $search, $replace);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $replace: nth($strs, 3);
+    $len: str-len($string);
+    $slen: str-len($search);
+    @if $len < $slen {@return $string;}
+    $idx: string.index($string, $search);
+    @if is-null($idx) {@return $string;}
+    $nstr-a: if($idx == 1, '', string.slice($string, 1, $idx - 1));
+    $nstr-b: '';
+    @if $len - $idx - $slen + 1 >= $slen {
+        //剩余字符串长度 >= search 字符串长度，递归调用
+        $nstr-b: str-replace(string.slice($string, $idx + $slen, $len), $search, $replace);
+    } @else {
+        //剩余字符串长度 < search 字符串长度，直接截取剩余的部分
+        $nstr-b: if($idx + $slen == $len + 1, '', string.slice($string, $idx + $slen, $len));
+    }
+    @return $nstr-a + $replace + $nstr-b + '';
+}
+//trim|trim-start|trim-end 去除字符串首尾的 空格 或 $search 自动类型转换  <返回：string>
+@function trim-start($string, $search: ' ') {
+    @if not str-includes($string, $search) or  not str-starts-with($string, $search) {@return to-string($string);}
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $len: str-len($string);
+    $slen: str-len($search);
+    $slice-n: math.ceil(math.div($len, $slen));
+    $ts: $string;
+    @for $i from 1 through $slice-n {
+        $ch: string.slice($ts, 1, $slen);
+        @if $ch == $search {
+            $ts: string.slice($ts, $slen + 1, str-len($ts));
+        } @else {
+            @return $ts;
+        }
+    }
+    @return '';
+}
+@function trim-end($string, $search: ' ') {
+    @if not str-includes($string, $search) or  not str-ends-with($string, $search) {@return to-string($string);}
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $len: str-len($string);
+    $slen: str-len($search);
+    $slice-n: math.ceil(math.div($len, $slen));
+    $ts: $string;
+    @for $i from 1 through $slice-n {
+        $tlen: str-len($ts);
+        $si: $tlen - $slen + 1;
+        @if $si < 1 {$si: 1;}
+        $ch: string.slice($ts, $si, $tlen);
+        @if $ch == $search {
+            $ts: string.slice($ts, 1, $si - 1);
+        } @else {
+            @return $ts;
+        }
+    }
+    @return '';
+}
+@function trim($string, $search: ' ') {
+    @return trim-start(trim-end($string, $search), $search);
+}
+//str-upper|str-lower|str-ucfirst|str-lcfirst|str-camel|str-kebab 自动转换类型  <返回：string>
+@function str-upper($string) {
+    $str: to-string($string);
+    @return if(not is-string($str), $string, string.to-upper-case($str));
+}
+@function str-lower($string) {
+    $str: to-string($string);
+    @return if(not is-string($str), $string, string.to-lower-case($str));
+}
+@function str-ucfirst($string) {
+    $str: to-string($string);
+    @if not is-string($str) or is-empty($str) {@return $string;}
+    $fs: string.slice($str, 1, 1);
+    $len: str-len($str);
+    $rs: if($len <= 1, '', string.slice($str, 2, $len));
+    $ufs: str-upper($fs);
+    @return $ufs + $rs;
+}
+@function str-lcfirst($string) {
+    $str: to-string($string);
+    @if not is-string($str) or is-empty($str) {@return $string;}
+    $fs: string.slice($str, 1, 1);
+    $len: str-len($str);
+    $rs: if($len <= 1, '', string.slice($str, 2, $len));
+    $lfs: str-lower($fs);
+    @return $lfs + $rs;
+}
+@function str-camel($string, $separator: '-') {
+    $strs: to-strings($string, $separator);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $separator: nth($strs, 2);
+    $pieces: string.split($string, $separator);
+    @if not is-list($pieces) or is-empty($pieces) {@return $string;}
+    $ts: '';
+    @each $i in $pieces {
+        $ui: str-ucfirst(str-lower($i));
+        $ts: $ts + $ui;
+    }
+    @return $ts;
+}
+@function str-kebab($string, $separator: '-') {
+    $strs: to-strings($string, $separator);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $separator: nth($strs, 2);
+    $str: str-lcfirst($string);
+    $us: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $ts: '';
+    @for $i from 1 through str-len($str) {
+        $ch: string.slice($str, $i, $i);
+        @if str-includes($us, $ch) {
+            $ts: $ts + $separator + $ch;
+        } @else {
+            $ts: $ts + $ch;
+        }
+    }
+    @return str-lower($ts);
+}
+
+/** number|math patch **/
+//unit 简写  <返回：string|null> 
+@function unit($number) {
+    $num: to-number($number);
+    @if not is-number($num) {@return null;}
+    @return math.unit($number);
+}
+//strip-unit 将 100px 形式数值 去除单位 自动转换类型  <返回：number 无单位>
+@function strip-unit($number) {
+    $num: to-number($number);
+    @if not is-number($num) {@return $number;}
+    $number: $num;
+    @if math.is-unitless($number) {@return $number;}
+    $u: unit($number);
+    $num-str: $number + '';
+    $num-str: str-replace($num-str, $u, '');
+    @return to-digit($num-str);
+}
+//set-unit 替换传入的 number 的 unit 单位 自动转换类型   <返回：number 带单位>
+@function set-unit($number, $unit) {
+    $num: to-number($number);
+    $unit: to-string($unit);
+    @if not is-number($num) or not is-string($unit) {@return $number;}
+    $number: $num;
+
+    //!! % 在 $unitMap 中的键名为 pec
+    @if $unit == '%' {$unit: pec;}
+
+    //传入 空 unit 则 strip-unit
+    @if $unit == '' {@return strip-unit($num);}
+
+    $du: map.get($dartScssUnitMap, $unit);
+    @if is-null($du) {@return $number;}
+    @if unit($number) == $unit {@return $number;}
+    $number: strip-unit($number);
+    @if $unit == '' {@return $number;}
+    @return $number * $du;
+}
+//all-compatible 扩展到多个 numbers 判断 compatible  <返回：bool>
+@function all-compatible($numbers...) {
+    $numbers: to-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return false;}
+    $len: len($numbers);
+    @if $len == 1 {@return true;}
+    @for $i from 1 to $len - 1 {
+        $n1: nth($numbers, $i);
+        $n2: nth($numbers, $i + 1);
+        @if math.compatible($n1, $n2) != true {
+            @return false;
+        }
+    }
+    @return true;
+}
+//num-clamp 确保输入的 number 在 min|max 范围内 自动转换类型  <返回：number|null>
+@function n-clamp($min, $number, $max) {
+    $nums: to-compatible-numbers($min, $number, $max);
+    @if is-null($nums) {@return null;}
+    @return math.clamp($nums...);
+}
+//min 最小值 自动转换类型  <返回：number|null>
+@function min($numbers...) {
+    //type-of($numbers) == arglist 可用 nth|length|@each
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    @return math.min($numbers...);
+}
+//max 最大值 自动转换类型  <返回：number|null>
+@function max($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    @return math.max($numbers...);
+}
+//扩展 加减乘除方法 add|sub|mul|div 自动转换类型  <返回：number|null>
+@function add($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    $sum: 0;
+    @each $i in $numbers {
+        $sum: $sum + $i;
+    }
+    @return $sum;
+}
+@function sub($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    @if length($numbers) == 1 {@return nth($numbers, 1);}
+    $diff: nth($numbers, 1);
+    @for $i from 2 through length($numbers) {
+        $n: nth($numbers, $i);
+        $diff: $diff - $n;
+    }
+    @return $diff;
+}
+//!! 乘法|除法 会自动统一单位，使用 第一个存在的单位 作为最终结果的 单位
+@function mul($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    $len: len($numbers);
+    @if $len == 1 {@return nth($numbers, 1);}
+    //统一单位，只保留第一个单位
+    $unit: '';
+    @each $i in $numbers {
+        @if $unit == '' {
+            $ui: unit($i);
+            @if $ui != '' {
+                $unit: $ui;
+            }
+        }
+    }
+    $prod: 1;
+    @each $i in $numbers {
+        $ni: strip-unit($i);
+        $prod: $prod * $i;
+    }
+    @return if($unit != '', set-unit($prod, $unit), $prod);
+}
+@function div($numbers...) {
+    $numbers: to-compatible-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    $len: len($numbers);
+    @if $len == 1 {@return nth($numbers, 1);}
+    //统一单位，只保留第一个单位
+    $unit: '';
+    @each $i in $numbers {
+        @if $unit == '' {
+            $ui: unit($i);
+            @if $ui != '' {
+                $unit: $ui;
+            }
+        }
+    }
+    $quo: strip-unit(nth($numbers, 1));
+    @for $i from 2 through $len {
+        $ni: strip-unit(nth($numbers, $i));
+        $quo: math.div($quo, $ni);
+    }
+    @return if($unit != '', set-unit($quo, $unit), $quo);
+}
+//扩展 round|ceil|floor|abs 方法 增加自动类型转换功能  <返回：number>
+@function round($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.round($n);
+}
+@function ceil($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.ceil($n);
+}
+@function floor($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.floor($n);
+}
+@function abs($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.abs($n);
+}
+
+/** list patch **/
+//mk 根据不定参数 创建 list  <返回：list>
+@function mk($values...) {
+    @return push((), $values...);
+}
+//len  <返回：number|null>
+@function len($list) {
+    @if is-any($list, list, arglist, map) {@return list.length($list);}
+    @return null;
+}
+//idx 自动处理 quote  <返回：number|null>
+@function idx($list, $value, $quote: false) {
+    @if not is-list($list) {@return null;}
+    $idx: list.index($list, $value);
+    @if is-number($idx) {@return $idx;}
+    @if is-string($value) and $quote == true {
+        //quote 后再尝试一遍
+        $idx: list.index(list-quote($list), $value);
+        @if is-number($idx) {@return $idx;}
+    }
+    @return null;
+}
+//includes  <返回：bool>
+@function includes($list, $value, $quote: false) {
+    @return idx($list, $value, $quote) != null;
+}
+//has includes 简写  <返回：bool>
+@function has($args...) {@return includes($args...);}
+//将 list 中所有 is-string 元素执行 quote  <返回：list>
+@function list-quote($list) {
+    @if not is-list($list) {@return $list;}
+    $rtn: ();
+    @each $i in $list {
+        @if is-string($i) {
+            $rtn: list.append($rtn, string.quote($i));
+        } @else {
+            $rtn: list.append($rtn, $i);
+        }
+    }
+    @return $rtn;
+}
+//push   <返回：list>
+@function push($list, $values...) {
+    @if not is-list($list) {@return $list;}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    @return list.join($list, $values, $sep, $bra);
+}
+//unshift  <返回：list>
+@function unshift($list, $values...) {
+    @if not is-list($list) {@return $list;}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    //$values: list-args($values...);
+    @return list.join($values, $list, $sep, $bra);
+}
+//first|last  <返回：any>
+@function first($list) {
+    @if not is-list($list) or is-empty($list) {@return null;}
+    @return nth($list, 1);
+}
+@function last($list) {
+    @if not is-list($list) or is-empty($list) {@return null;}
+    @return nth($list, len($list));
+}
+//slice 切片 list 支持负 index  <返回：list>
+@function slice($list, $start, $end: 0) {
+    @if not is-list($list) or is-empty($list) {@return $list;}
+    @if not is-number($start) or not is-number($end) {@return $list;}
+    $len: len($list);
+    $sep: list.separator($list);
+    $bra: list.is-bracketed($list);
+    @if $start == 0 and $end == 0 {@return ();}
+    @if $end == 0 {
+        @if $start < 0 {$start: $start + $len + 1;}
+        $end: $len;
+    } @else if $start >= 0 {
+        @if $end < 0 {$end: $end + $len;}
+        @if $start == 0 {$start: 1;}
+    } @else if $start < 0 {
+        @if $end < 0 {$end: $end + $len + 1;}
+        $start: $start + $len + 1;
+    }
+    //@if $start <= 0 {$start: $start + $len + 1;}
+    //@if $end <= 0 {$end: $end + $len + 1;}
+    $start: n-clamp(1, $start, $len);
+    $end: n-clamp(1, $end, $len);
+    @if $start > $end {
+        $t: $end;
+        $end: $start;
+        $start: $t;
+    }
+    $rtn: ();
+    @for $i from $start through $end {
+        $ch: nth($list, $i);
+        $rtn: list.append($rtn, $ch, $sep);
+    }
+    @return $rtn;
+}
+//splice 插入  支持负 index  <返回：list>
+@function splice($list, $index, $length: 0, $values...) {
+    @if not is-list($list) {@return $list;}
+    @if not is-number($index) or not is-number($length) {@return $list;}
+    $len: len($list);
+    $sep: list.separator($list);
+    $bra: list.is-bracketed($list);
+    $length: n-clamp(0, $length, $len);
+    //待拼接的 list 片段
+    $l-s: ();
+    $l-i: $values;  //list-args($values...);
+    $l-e: ();
+    @if $length == 0 {
+        //不删除元素
+        @if $index == 0 {
+            $index: 1;
+        } @else if $index < 0 {
+            $index: $index + $len + 2;
+        }
+        $index: n-clamp(1, $index, $len + 1);
+        $l-s: if($index == 1, (), slice($list, 1, $index - 1));
+        $l-e: if($index == $len + 1, (), slice($list, $index, $len));
+    } @else {
+        //需要删除长度为 length 的 元素
+        @if $index == 0 {$index: 1;}
+        $start: $index;
+        $end: $index + $length - 1;
+        //调用 slice 的逻辑 取得要截取的 起止 index
+        @if $end == 0 {
+            @if $start < 0 {$start: $start + $len + 1;}
+            $end: $len;
+        } @else if $start >= 0 {
+            @if $end < 0 {$end: $end + $len;}
+            @if $start == 0 {$start: 1;}
+        } @else if $start < 0 {
+            @if $end < 0 {$end: $end + $len + 1;}
+            $start: $start + $len + 1;
+        }
+        $start: n-clamp(1, $start, $len);
+        $end: n-clamp(1, $end, $len);
+        @if $start > $end {
+            $t: $end;
+            $end: $start;
+            $start: $t;
+        }
+        
+        $l-s: if($start == 1, (), slice($list, 1, $start - 1));
+        $l-e: if($end == $len, (), slice($list, $end + 1, $len));
+    }
+    //拼接 list
+    $rtn: list.join($l-s, $l-i, $sep, $bra);
+    @return list.join($rtn, $l-e, $sep, $bra);
+}
+//list-insert 使用 scss 的参数风格执行 splice  <返回：list>
+@function list-insert($list, $insert, $index, $length: 0) {
+    @if is-list($insert) {
+        @return splice($list, $index, $length, $insert...);
+    }
+    @return splice($list, $index, $length, $insert);
+}
+//nth 简写  <返回：any>
+@function nth($list, $n) {
+    @if not is-nemlist($list) {@return null;}
+    @return list.nth($list, $n);
+}
+//set-nth 简写  <返回：list>
+@function set-nth($list, $n, $value) {
+    @if not is-list($list) {@return $list;}
+    @return list.set-nth($list, $n, $value);
+}
+//del-nth 从 list 删除某个 index 支持负 index  <返回：list>
+@function del-nth($list, $index) {
+    @if not is-list($list) or is-empty($list) or not is-number($index) or $index == 0 {@return $list;}
+    $len: len($list);
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    @if $index == 0 {$index: 1;}
+    @if $index < 0 {$index: $index + $len + 1;}
+    $i: n-clamp(1, $index, $len);
+    $la: if($index == 1, (), slice($list, 1, $index - 1));
+    $lb: if($index == $len, (), slice($list, $index + 1, $len));
+    @return list.join($la, $lb, $sep, $bra);
+
+}
+//remove 从 list 中删除元素 支持传入多个要删除的元素组成的 list  <返回：list>
+@function remove($list, $removes...) {
+    @if not is-list($list) {@return $list;}
+    $len: length($list);
+    @if $len <= 0 {@return $list;}
+    @each $i in $removes {
+        $index: idx($list, $i, true);
+        @if not is-null($index) {
+            $list: del-nth($list, $index);
+        }
+    }
+    @return $list;
+}
+//inter 计算多个 list 的交集  <返回：list|null>
+@function inter($list, $lists...) {
+    @if not is-list($list) or not is-list($lists...) {@return null;}
+    @if len($lists) <= 0 {@return ();}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    //计算交集
+    @if len($lists) == 1 {
+        $list-i: nth($lists, 1);
+        $union: unique(list.join($list, $list-i));
+        $rtn: ();
+        @each $i in $union {
+            @if has($list, $i) and has($list-i, $i) {
+                $rtn: list.join($rtn, ($i), $sep, $bra);
+            }
+        }
+        @return $rtn;
+    }
+    //连续计算交集
+    $rtn: mk($list...);
+    @each $list-i in $lists {
+        $rtn: inter($rtn, $list-i);
+        @if len($rtn) <= 0 {@return ();}
+    }
+    @return $rtn;
+}
+//unique 去重  <返回：list>
+@function unique($list) {
+    @if not is-nemlist($list) {@return ();}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    $rtn: ();
+    @each $i in $list {
+        @if not has($rtn, $i) {
+            $rtn: list.join($rtn, ($i), $sep, $bra);
+        }
+    }
+    @return $rtn;
+}
+//list-join  <返回：string|null>
+@function list-join($list, $glue: '-') {
+    @if not is-list($list) {@return null;}
+    @if is-empty($list) {@return '';}
+    $ts: '';
+    @each $i in $list {
+        $si: to-string($i);
+        @if not is-string($si) {
+            $si: 'null';
+        }
+        @if $ts == '' {
+            $ts: $si;
+        } @else {
+            $ts: $ts + $glue + $si;
+        }
+    }
+    @return $ts;
+}
+//根据输入的 $p 解析得到 left,right,top,bottom 列表  <返回：list|null>
+@function trbl($p: all) {
+    $p: to-string($p);
+    @if not is-nemstr($p) {@return null;}
+    @if not has($trblQueue, $p, true) {@return null;}
+    @if $p == all or $p == xy {
+        @return mk(top,right,bottom,left);
+    } @else if $p == x {
+        @return mk(null,right,null,left);
+    } @else if $p == y {
+        @return mk(top,null,bottom,null);
+    } @else {
+        $cp: mk(null,null,null,null);
+        @if str-has($p, t) { $cp: set-nth($cp, 1, top); }
+        @if str-has($p, r) { $cp: set-nth($cp, 2, right); }
+        @if str-has($p, b) { $cp: set-nth($cp, 3, bottom); }
+        @if str-has($p, l) { $cp: set-nth($cp, 4, left); }
+        @return $cp;
+    }
+}
+//将 trbl 解析得到的 list 填充为 0 10px 10px 0 形式的 css 属性值  <返回：list(separator: space)|null>
+@function set-trbl($trbl, $size) {
+    @if not is-nemlist($trbl) or not is-number($size) {@return null;}
+    $rtn: ();
+    @each $i in $trbl {
+        @if is-null($i) {
+            $rtn: push($rtn, 0);
+        } @else {
+            $rtn: push($rtn, $size);
+        }
+    }
+    //设置 separator|bracketed
+    @return list.join((), $rtn, space, false);
+}
+//根据输入的 $r 解析得到 top-left,top-right,bottom-left,bottom-right 列表  <返回：list|null>
+@function corner($r: all) {
+    $r: to-string($r);
+    @if not is-nemstr($r) {@return null;}
+    @if not has($cornerQueue, $r, true) {@return null;}
+    $rlen: str-len($r);
+    //完整的角标 list 顺序
+    $full: mk(top-left,top-right,bottom-right,bottom-left);
+    @if $rlen >= 4 or $r == 'all' or $r == 'tb' or $r == 'rl' or $r == 'trbl' {
+        @return $full;
+    } @else if $rlen == 3 {
+        //3 个字符 tbl|tbr|btl|btr|rtl|rbl|ltr|lbr 同时设置 3 个角 
+        //第一个字符 等同于 corner(t|b|r|l)
+        $f: str-sub($r, 1,1);
+        $cor-a: corner($f);
+        //后两个字符，表示某一个角
+        $b: str-sub($r, 2,3);
+        $cor-b: corner($b);
+        $rtn: ();
+        @each $i in $full {
+            @if has($cor-a, $i) or has($cor-b, $i) {
+                $rtn: push($rtn, $i);
+            } @else {
+                $rtn: push($rtn, null);
+            }
+        }
+        @return $rtn;
+    } @else if $rlen == 2 {
+        //2 个字符 tl|tr|bl|br 设置 1 个角
+        $cor: mk(top,left);
+        @if str-has($r, t) { $cor: set-nth($cor, 1, top); }
+        @if str-has($r, b) { $cor: set-nth($cor, 1, bottom); }
+        @if str-has($r, l) { $cor: set-nth($cor, 2, left); }
+        @if str-has($r, r) { $cor: set-nth($cor, 2, right); }
+        $corstr: list-join($cor, '-');
+        $rtn: ();
+        @each $i in $full {
+            @if $corstr == $i {
+                $rtn: push($rtn, $corstr);
+            } @else {
+                $rtn: push($rtn, null);
+            }
+        }
+        @return $rtn;
+    } @else if $rlen == 1 {
+        //1 个字符 t|b|r|l 同时设置 2 个角
+        @if $r == t {
+            @return mk(top-left,top-right,null,null);
+        } @else if $r == b {
+            @return mk(null,null,bottom-right,bottom-left);
+        } @else if $r == l {
+            @return mk(top-left,null,null,bottom-left);
+        } @else if $r == r {
+            @return mk(null,top-right,bottom-right,null);
+        }
+    }
+    @return null;
+}
+//将 corner 解析得到的角标 list 填充为 0 10px 10px 0 形式的 css 属性值  <返回：list(separator: space)|null>
+@function set-corner($corner, $size) {
+    @return set-trbl($corner, $size);
+}
+//根据传入的 list-filter-fn-* 函数 筛选 list 返回符合条件的 新 list(separator,bracketed保持，顺序将重置)  <返回：list>
+@function filter($list, $fn, $args...) {
+    @if not is-nemlist($list) or not is-string($fn) {@return ();}
+    $fn: 'list-filter-fn-' + $fn;
+    @if not meta.function-exists($fn) {@return $list;}
+    $fn: meta.get-function($fn);
+    @if not is-function($fn) {@return $list;}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    //list-filter-fn-* 函数接受至少 2 个参数：value,i  返回：bool
+    $rtn: ();
+    @for $i from 1 through len($list) {
+        $v: nth($list, $i);
+        @if meta.call($fn, $v, $i, $args...) == true {
+            $rtn: join($rtn, ($v), $sep, $bra);
+        }
+    }
+    @return $rtn;
+}
+//list-filter-fn-keys 根据 传入的 values 元素(前缀) list 筛选 list  <返回：bool>
+@function list-filter-fn-keys($value, $i, $values...) {
+    @if not is-nemlist($values) or not is-string($values...) {@return false;}
+    @each $vi in $values {
+        @if $value == $vi or str-starts-with($value, $vi + '-') {
+            @return true;
+        }
+    }
+    @return false;
+}
+
+/** map patch **/
+//根据传入的 map-filter-fn-* 函数 筛选 map 返回符合条件的 新 map  <返回：map>
+@function map-filter($map, $fn, $args...) {
+    @if not is-nemmap($map) or not is-string($fn) {@return ();}
+    $fn: 'map-filter-fn-' + $fn;
+    @if not meta.function-exists($fn) {@return $map;}
+    $fn: meta.get-function($fn);
+    @if not is-function($fn) {@return $map;}
+    //map-filter-fn-* 函数接受至少 2 个参数：key,value  返回：bool
+    $rtn: ();
+    @each $k, $v in $map {
+        @if meta.call($fn, $k, $v, $args...) == true {
+            $rtn: map.set($rtn, $k, $v);
+        }
+    }
+    @return $rtn;
+}
+//map-filter-fn-keys 根据 传入的 keys 键名(前缀) list 筛选 map  <返回：bool>
+@function map-filter-fn-keys($key, $value, $keys...) {
+    @if not is-nemlist($keys) {@return false;}
+    @each $ki in $keys {
+        $ki: to-string($ki);
+        @if $key == $ki or str-starts-with($key, $ki + '-') {
+            @return true;
+        }
+    }
+    @return false;
+}
+//快捷调用 map-filter($map, map-filter-fn-keys, ...)  <返回：map>
+@function map-filter-keys($map, $keys...) {
+    @if not is-nemmap($map) or len($keys) <= 0 {@return ();}
+    @return map-filter($map, keys, $keys...);
+}
+//map-find 根据 value 在 map 中寻找 key 返回第一个 key  <返回：string|null>
+@function map-get-key($map, $value) {
+    @if not is-nemmap($map) {@return null;}
+    @each $k, $v in $map {
+        @if $v == $value {
+            @return $k;
+        }
+    }
+    @return null;
+}
+//theme-map-get 从主题默认的 参数 map 中读取值  <返回：null|color|number|list>
+$themeMapTypes: color,size;
+@function theme-map-get($map-type, $key, $suffix: null, $map: null) {
+    @if not is-map($map) {
+        @if not is-nemstr($map-type) or not has($themeMapTypes, $map-type) {@return null;}
+        @if meta.variable-exists(#{$map-type}Map) {
+            @if $map-type == color {$map: $colorMap;}
+            @if $map-type == size {$map: $sizeMap;}
+            //可扩展...
+        } @else {
+            @return null;
+        }
+    }
+    @if not is-nemmap($map) {@return null;}
+
+    //直接输入了 color|number 原值
+    @if $map-type == color and is-color($key) {
+        @return $key;
+    }
+    @if $map-type == size and is-number($key) {
+        @return $key;
+    }
+
+    @if is-string($key) {
+        //传入了单个 key 例如：btn-xxl|red-l2
+        @if is-empty($key) {@return null;}
+        @if is-nemstr($suffix) {
+            @if $map-type == color  {$key: color-key-shift($key, $suffix);}
+            @if $map-type == size  {$key: size-key-shift($key, $suffix);}
+            //可扩展...
+        }
+        @if not is-nemstr($key) {@return null;}
+        @return map.get($map, $key);
+    }
+    @if is-list($key) {
+        //传入了 key list 例如：pd-s pd-m
+        @if is-empty($key) {@return ();}
+        $rtn: ();
+        $sep: list.separator($key);
+        $bra: list.is-bracketed($key);
+        @each $i in $key {
+            $v: theme-map-get($map-type, $i, $suffix, $map);
+            @if is-null($v) {@return null;}
+            $rtn: list.join($rtn, ($v), $sep, $bra);
+        }
+        @return $rtn;
+    }
+    @return null;
+}
+//color-get|size-get... 快捷调用 theme-map-get  <返回：null|color|number|list>
+@function color-get($key, $suffix: null, $map: null) {
+    @return theme-map-get(color, $key, $suffix, $map);
+}
+@function size-get($key, $suffix: null, $map: null) {
+    @return theme-map-get(size, $key, $suffix, $map);
+}
+/**
+    key-shift 通过给 map 键名(如：btn-d1) 增加调整后缀 l*|d*|s* 来生成新的键名  <返回：string>
+    key-shift(btn-l2, d1)           --> btn-l1
+    key-shift(btn-l1, d1)           --> btn-m
+    key-shift(btn[-m], d1)          --> btn-d1
+    key-shift(btn-d1, l3)           --> btn-l2
+    key-shift(btn-xxl, s3, true)    --> btn-m
+    key-shift(btn-xxs, l1, true)    --> btn-xs
+**/
+@function key-shift($key, $suffix, $size: false, $glue: '-') {
+    $strs: to-strings($key, $suffix, $glue);
+    @if is-null($strs) {@return $key;}
+    $key: nth($strs, 1);
+    $suffix: nth($strs, 2);
+    $glue: nth($strs, 3);
+    @if not is-bool($size) {$size: false;}
+
+    //解析调整后缀 suffix
+    $shift: key-suffix($suffix, $size);
+    @if not is-list($shift) {@return $key;}
+    $shift-tp: nth($shift, 2);
+    $shift-lvl: nth($shift, 3);
+    @if $shift-lvl == 0 {
+        //无调整，返回原值
+        @return $key;
+    }
+
+    //解析 key
+    $kps: key-parse($key, $size, $glue);
+    @if not is-list($kps) {@return $key;}
+    $pre: nth($kps, 2);
+    $key-tp: nth($kps, 4);
+    $key-lvl: nth($kps, 5);
+    
+    //调整
+    $ntp: '';
+    $nlvl: 0;
+    @if $shift-tp == $key-tp {
+        $ntp: $key-tp;
+        $nlvl: add($shift-lvl, $key-lvl);
+    } @else {
+        @if $key-tp == m {
+            $ntp: $shift-tp;
+            $nlvl: $shift-lvl;
+        } @else {
+            $d: sub($key-lvl, $shift-lvl);
+            @if $d == 0 {
+                $ntp: m;
+                $nlvl: 0;
+            } @else if $d > 0 {
+                $ntp: $key-tp;
+                $nlvl: $d;
+            } @else {
+                $ntp: $shift-tp;
+                $nlvl: abs($d);
+            }
+        }
+    }
+
+    //生成新 suffix
+    $nsuf: '';
+    @if $ntp == m {
+        $nsuf: m;
+    } @else {
+        @if $size == true {
+            //size map-key 后缀为 xx* 形式
+            $nsuf: $ntp;
+            @if $nlvl > 1 {
+                @for $i from 1 to $nlvl {
+                    $nsuf: 'x' + $nsuf;
+                }
+            }
+        } @else {
+            //其他 map-key 后缀 为 l*|d* 形式
+            $nsuf: $ntp + $nlvl;
+        }
+    }
+    //返回新键名
+    @return $pre + $glue + $nsuf;
+}
+//size-key-shift|color-key-shift 快捷方法
+@function size-key-shift($key, $suffix, $glue: '-') {
+    @if $key == transparent {@return transparent;}
+    @return key-shift($key, $suffix, true, $glue);
+}
+@function color-key-shift($key, $suffix, $glue: '-') {@return key-shift($key, $suffix, false, $glue);}
+/**
+    key-parse 解析 map 键名 返回：list (键名，键名前缀，键名后缀，shift 方向，shift level，键名类型)|null
+    key-parse(btn-xxs, true)     --> (btn-xxl, btn, s, 3, size)
+    key-parse(btn-d3)            --> (btn-d3, btn, d, 3, color)
+    key-parse(btn)               --> (btn, btn, m, 0, color)
+    key-parse(btn, true)         --> (btn, btn, m, 0, size)
+**/
+@function key-parse($key, $size: false, $glue: '-') {
+    $strs: to-strings($key, $glue);
+    @if is-null($strs) {@return null;}
+    $key: nth($strs, 1);
+    $glue: nth($strs, 2);
+    @if not is-bool($size) {$size: false;}
+    //$key-tp: if($size, size, color);
+    //key 拆分为 list
+    $kl: string.split($key, $glue);
+    $len: len($kl);
+    //key 不含有效后缀
+    @if $len < 2 or key-suffix(nth($kl, $len), $size) == null {
+        $kl: push($kl, m);
+        $len: $len + 1;
+    }
+    //key 前缀
+    $pre: list-join(slice($kl, 1, -1), $glue);
+    //key 后缀解析
+    $suf: key-suffix(nth($kl, $len), $size);
+    @if not is-list($suf) {@return null;}
+    //合并返回
+    @return push((), $key, $pre, $suf...);
+}
+/**
+    key-suffix 解析 map 键名后缀 返回：list (后缀，shift 方向，shift level，后缀类型)|null
+    key-suffix(d3)              --> (d3, d, 3, color)
+    key-suffix(s2, true)        --> (s2, s, 2, size)
+    key-suffix(xxl, true)       --> (xxl, l, 3, size)
+    key-suffix(l, true)         --> (l, l, 1, size)
+    key-suffix(m)               --> (m, m, 0, color)
+    key-suffix(m, true)         --> (m, m, 0, size)
+**/
+@function key-suffix($suffix, $size: false) {
+    $str: to-string($suffix);
+    @if not is-string($str) or $str == '' {@return null;}
+    $suffix: $str;
+    @if not is-bool($size) {$size: false;}
+    $suf-tp: if($size, size, color);
+    $len: str-len($suffix);
+    //是否以数字结尾
+    $num-end: is-digit(string.slice($suffix, $len, $len));
+
+    //解析 l1|d2|s3 形式
+    @if $num-end == true {
+        //字符长度必须 >= 2
+        @if $len < 2 {@return null;}
+        $stp: string.slice($suffix, 1,1);
+        //shift 方向可选 lds
+        @if not str-includes('lds', $stp) {@return null;}
+        $lvl: strip-unit(string.slice($suffix, 2, $len));
+        @return push((), $suffix, $stp, $lvl, $suf-tp);
+    }
+
+    //解析 l|s|m
+    @if $len == 1 {
+        @if not str-includes('lsm', $suffix) {@return null;}
+        @if $suffix != 'm' and $size != true {@return null;}
+        @return push((), $suffix, $suffix, if($suffix == 'm', 0, 1), $suf-tp);
+    }
+
+    //解析 xxl|xs
+    //这种形式一定是 size map-key
+    @if $size != true {@return null;}
+    //最后一个字符可选 ls
+    $stp: string.slice($suffix, $len, $len);
+    @if not str-includes('ls', $stp) {@return null;}
+    //之前的字符一定是一个或多个 x
+    $lss: str-replace(string.slice($suffix, 1, $len - 1), x, '');
+    @if $lss != '' {@return null;}
+    //shift level == $len
+    @return push((), $suffix, $stp, $len, size);
+}
+
+/** color patch **/
+//is-transparent 判断 color 是否完全透明  <返回：bool>
+@function is-transparent($color) {
+    @if not is-color($color) {@return false;}
+    @if $color == transparent {@return true;}
+    @return channel($color, a) == 0;
+}
+//has-alpha 判断 color 的 alpha 通道是否 < 1  <返回：bool>
+@function has-alpha($color) {
+    @if not is-color($color) {@return false;}
+    $a: channel($color, a);
+    @return is-number($a) and $a < 1;
+}
+// #ff112233 形式字符串 转为 color  <返回：color>
+@function hex-to-color($hex) {
+
+}
+//channel 获取 color 颜色的 rgbhsla 7个通道值  <返回：单通道 number | list | null>
+@function channel($color, $key: rgb) {
+    @if not is-color($color) {@return null;}
+    //$space 仅支持 rgb|hsl
+    $dftSpace: rgb;
+    $len: str-len($key);
+    @if $len == 1 {
+        $channels: (
+            r: 'red',   g: 'green',         b: 'blue',
+            h: 'hue',   s: 'saturation',    l: 'lightness',
+            a: 'alpha'
+        );
+        @if map.has-key($channels, $key) != true {@return null;}
+        $space: if(str-has(hsl, $key), hsl, rgb);
+        @return color.channel($color, map.get($channels, $key), $space);
+    }
+    $rtn: ();
+    @for $i from 1 through $len {
+        $k: str-sub($key, $i, $i);
+        $v: channel($color, $k);
+        @if not is-number($v) {@return null;}
+        $rtn: push($rtn, $v);
+    }
+    @return $rtn;
+}
+//set-rgb|set-hsl|set-alpha 快捷调用 color.change  <返回：color|null>
+@function set-rgb($color, $r: null, $g: null, $b: null) {
+    @if not is-color($color) {@return null;}
+    @if not is-null($r) {$color: color.change($color, $red: $r, $space: rgb);}
+    @if not is-null($g) {$color: color.change($color, $green: $g, $space: rgb);}
+    @if not is-null($b) {$color: color.change($color, $blue: $b, $space: rgb);}
+    @return $color;
+}
+@function set-hsl($color, $r: null, $g: null, $b: null) {
+    @if not is-color($color) {@return null;}
+    @if not is-null($h) {$color: color.change($color, $hue: $h, $space: hsl);}
+    @if not is-null($s) {$color: color.change($color, $saturation: $s, $space: hsl);}
+    @if not is-null($l) {$color: color.change($color, $lightness: $l, $space: hsl);}
+    @return $color;
+}
+@function set-alpha($color, $a: null) {
+    @if not is-color($color) {@return null;}
+    @if not is-null($a) {$color: color.change($color, $alpha: $a, $space: rgb);}
+    @return $color;
+}
+//scale-lightness|lighten|darken 通过 color.scale 加深|减淡  <返回：color|null>
+@function scale-lightness($color, $level: 0, $step: 10%) {
+    @if not is-color($color) {@return null;}
+    @if is-transparent($color) {@return $color;}
+    @if not is-number($level) {$level: to-number($level);}
+    @if not is-number($level) or strip-unit($level) == 0 {@return $color;}
+    $l: 0;
+    @if math.is-unitless($level) {
+        //无单位 level 表示 加深|减淡 级数 -10~0~10
+        //限制步长在 1%~50%
+        $step: n-clamp(1%, set-unit(abs($step), pec), 50%);
+        //根据 step 计算支持的 最大|最小 级数
+        $lmax: floor(strip-unit(div(100%, $step)));
+        $lmin: mul($lmax, -1);
+        //确保输入的 级数 在有效范围内
+        $level: n-clamp($lmin, $level, $lmax);
+        //级数转为实际的 lightness 参数值
+        $l: mul($level, $step);
+    } @else if unit($level) == '%' {
+        //% 单位表示 加深|减淡 百分比
+        $l: n-clamp(-100%, $level, 100%);
+    } @else{
+        //无效输入
+        @return $color;
+    }
+    //调用 color.scale 方法
+    @return color.scale($color, $lightness: $l);
+}
+@function lighten($color, $level: 0, $step: 10%) {@return scale-lightness($color, abs($level), $step);}
+@function darken($color, $level: 0, $step: 10%) {@return scale-lightness($color, mul(abs($level), -1), $step);}
+//scale-alpha 通过 set-alpha 为颜色增加 $level 级透明度  <返回：color|null>
+@function scale-alpha($color, $level: 0, $step: 0.1) {
+    @if not is-color($color) {@return null;}
+    @if is-transparent($color) {@return $color;}
+    //透明度级数无单位
+    $level: strip-unit($level);
+    //限制透明度步长 step 在 0.05~0.5
+    $step: n-clamp(0.05, strip-unit($step), 0.5);
+    //根据 step 确定透明度级数范围 0~$lmax
+    $lmax: div(1, $step);
+    $level: n-clamp(0, $level, $lmax);
+    //根据透明度级数计算实际透明度值 级数 0~max 表示 完全透明~完全不透明
+    $alpha: n-clamp(0, mul($level, $step), 1);
+    //设置透明度
+    @return set-alpha($color, $alpha);
+}
+//luma 计算颜色的视觉亮度  <返回：null|number 0~255 无单位>
+@function luma($color) {
+    @if not is-color($color) {@return null;}
+    $rgb: channel($color, rgb);
+    @if is-null($rgb) {@return null;}
+    //$luma: round(0.299*$r + 0.587*$g + 0.114*$b);
+    $r: mul(nth($rgb, 1), 0.299);
+    $g: mul(nth($rgb, 2), 0.587);
+    $b: mul(nth($rgb, 3), 0.114);
+    @return round(add($r, $g, $b));
+}
+//fore-color 自动计算前景色 保证对比度 返回：color
+@function fore-color($color, $alpha: 0.8, $dark: #000000, $light: #ffffff) {
+    @if not is-color($color) {@return null;}
+    @if is-transparent($color) {@return set-alpha($dark, $alpha);}
+    $luma: luma($color);
+    $fc: if($luma < 128, $light, $dark);
+    @return set-alpha($fc, $alpha);
+}
+
+/** selector patch **/
+/**
+ *  根据 $target 返回类名前缀 自动判断是否存在 &(父选择器)  <返回：string 类名前缀>
+ *  cls-pre(self, '')           --> [&]
+ *  cls-pre(self, '.')          --> [&].
+ *  cls-pre(self, '-')          --> [&]-
+ *  cls-pre(child, 'btn-')      --> [&] .btn-
+ *  cls-pre(self, 'btn', '_')   --> [&].btn_
+ *  cls-pre(self, '-', '_')     --> [&].-_
+ */
+@function cls-pre($target: self, $pre: '', $glue: '-') {
+    @if not is-string($target, $pre, $glue) or not has((self,child), $target) {@return null;}
+    @if not is-nemstr($glue) {$glue: '-';}
+    //自动补全 pre
+    @if is-nemstr($pre) and $pre != '.' and $pre != $glue {
+        @if not str-starts-with($pre, '.') {$pre: '.' + $pre;}
+        @if not str-ends-with($pre, $glue) {$pre: $pre + $glue;}
+    }
+    @if not & {
+        @return unquote("#{$pre}");
+    } @else {
+        @return if($target == self, unquote("&#{$pre}"), unquote("& #{$pre}"));
+    }
+}
+
+
+
+/** for debug **/
+@mixin dump($map) {
+    $cnt: '';
+    @each $key, $val in $map {
+        $cti: $key + ': ' + $val + ' (' + meta.type-of($val) + ');';
+        $cnt: if($cnt == '', $cti, $cnt + ' | ' + $cti);
+    }
+    content: $cnt;
+}
+
+.dart-scss-type-system {
+    $l: foo,bar,'jaz';
+    $k: string.slice('foobar', 4, 6);
+
+    $map: (
+        btn-m: 32px,
+        btn-l: 36px,
+        btn-xl: 42px,
+        btn-xxl: 48px,
+        pd-m: 16px,
+        pd-s: 12px,
+        pd-xs: 8px,
+        pd-xxs: 4px,
+        rd-m: 12px,
+        rd-s: 8px,
+        rd-xs: 6px,
+    );
+
+    $map-a: map-filter-keys($map, btn);
+    $map-b: map-filter-keys($map, btn, pd);
+
+    $c: #fb7a7a;
+
+    $pre: btn-;
+    $glue: '-';
+
+    $la: (1,2,3,4,5,6);
+    $lb: (2,3,5,7);
+    $lc: (3,4,5,6);;
+
+    @include dump((
+
+        clr-a: red(#fb7a7a),
+        clr-b: channel($c, rgba),
+        clr-c: channel($c, hsla),
+        clr-d: lighten($c, 2),
+        clr-e: darken($c, 1),
+        clr-f: scale-alpha($c, 3),
+        clr-g: fore-color($c),
+
+        trbl: trbl(trb),
+        corner: corner(tbl),
+
+        mf-a: map.keys($map-a),
+        mf-b: map.keys($map-b),   //meta.type-of($map-b),
+
+        hex-a: to-dec(ef),
+        hex-b: to-hex(200),
+
+        clp-a: cls-pre(child, btn-),
+        clp-b: cls-pre(child, btn),
+        clp-c: cls-pre(child, '.btn'),
+        clp-d: cls-pre(child, '.'),
+        clp-e: cls-pre(child, ''),
+
+        clp-f: str-starts-with($pre, '.'),
+        clp-g: str-ends-with($pre, '-'),
+        clp-h: is-nemstr($pre) and $pre != '.' and $pre != $glue,
+
+        it-a: inter($la, $lb),
+        it-b: inter($la, $lc),
+        it-c: inter($la, $lb, $lc),
+
+
+        /*typeof-unit-num: meta.type-of(10px),
+        list-index: list.index($l, bar),
+        list-index-quote: list.index($l, $k),
+        list-index-noquote: list.index($l, jaz),
+        isa: isa(foo-bar, list),
+        noa: not isa(foo-bar, list),
+        is-string: is-string(foo-bar),
+        no-null: not is-null(null),
+        is-null: is-null(null),
+
+        is-calc: is-calculation(100px * 2),
+        is-calc-a: is-calculation(calc(100px + 1em)),
+
+        empty-string: is-empty(''),
+        empty-list: is-empty(btn-m btn-xs),
+        empty-map: is-empty((foo: 123, bar: 456)),
+        empty-map2: is-empty(()),
+        empty-null: is-empty(null),
+
+        dig: is-digit(-.3),
+        dig-a: is-digit('23.56'),
+        dig-b: is-digit(35.62px),
+        dig-c: is-digit(33.22.11),
+
+        tdig: to-digit(-.3),
+        tdig-a: to-digit('23.56'),
+        tdig-b: to-digit(35.62px),
+        tdig-c: to-digit(33.22.11),
+
+        stripu: strip-unit(100px),
+        stripu-a: strip-unit('25.6478px'),
+        setu: set-unit('72.63em', '%'),
+
+        rpl: str-replace(foobar, 'ob', bo),
+        sw: str-starts-with(foobar, fo),
+        ew: str-ends-with(foobar, ba),
+        trs: trim-start(fffff, f),
+        trs-a: trim-start('    foo bar   ', ' '),
+        tre: trim-end(fofofofofo, fo),
+        tre-a: trim-end('    foo bar   ', ' '),
+        tr-a: trim('    foo bar   ', ' '),
+
+        spl: string.split(foobar, ''),
+
+        uper: str-upper(foobar),
+        loer: str-lower(Foobar),
+        ucf: str-ucfirst(fooBar),
+        lcf: str-lcfirst(FooBar),
+        cam: str-camel(foo-bar),
+        keb: str-kebab(FooBar),
+
+        //rpl: string.replace(foobar, o, x),
+        rpl-a: str-replace(foobar, o, x),
+
+        ssl: 'abcdefg',
+        ssl-a: string.slice('abcdefg', -1),
+        ssl-b: string.slice('abcdefg', -2, -1),
+        ssl-c: string.slice('abcdefg', 2,5),
+        ssl-d: string.insert('abcdefg', xx, -2),
+        ssl-e: string.insert('abcdefg', xx, 2),
+
+        lsl-a: slice((a,b,c,d,e,f,g), -1),
+        lsl-b: slice((a,b,c,d,e,f,g), -2, -1),
+        lsl-d: slice((a,b,c,d,e,f,g), -2, -2),
+        lsl-c: slice((a,b,c,d,e,f,g), 2,5),
+        lsl-e: slice((a,b,c,d,e,f,g), 2,2),
+
+        lsp-a: splice((a,b,c,d,e,f,g), -1, 0, xx, yy),
+        lsp-b: splice((a,b,c,d,e,f,g), -2, 0, xx, yy),
+        lsp-c: splice((a,b,c,d,e,f,g), 1, 0, xx, yy),
+        lsp-d: splice((a,b,c,d,e,f,g), 2, 0, xx, yy),
+        lsp-e: splice((a,b,c,d,e,f,g), -2, 2, xx, yy),
+        lsp-f: splice((a,b,c,d,e,f,g), 1, 2, xx, yy),
+        lsp-g: splice((a,b,c,d,e,f,g), 3, 2, xx, yy),
+
+        lis-a: list-insert((a,b,c,d,e,f,g), (xx, yy), -1, 0),
+        lis-b: list-insert((a,b,c,d,e,f,g), (xx, yy), -2, 0),
+        lis-c: list-insert((a,b,c,d,e,f,g), (xx, yy), 1, 0),
+        lis-d: list-insert((a,b,c,d,e,f,g), (xx, yy), 2, 0),
+        lis-e: list-insert((a,b,c,d,e,f,g), (xx, yy), -2, 2),
+        lis-f: list-insert((a,b,c,d,e,f,g), (xx, yy), 1, 2),
+        lis-g: list-insert((a,b,c,d,e,f,g), (xx, yy), 3, 2),
+
+        ld-a: del-nth((a,b,c,d,e,f,g), -2),
+        ld-b: del-nth((a,b,c,d,e,f,g), -1),
+        ld-c: del-nth((a,b,c,d,e,f,g), 1),
+        ld-d: del-nth((a,b,c,d,e,f,g), 2),
+
+        lr-a: remove((a,b,c,d,e,f,g), f),
+        lr-b: remove((a,b,c,d,e,f,g), c,e,g),
+
+        key-suf-a: key-suffix(l3),
+        key-suf-b: key-suffix(d3),
+        key-suf-c: key-suffix(m, true),
+        key-suf-d: key-suffix(xxxs, true),
+        key-suf-e: key-suffix(l, true),
+
+        key-ps-a: key-parse(btn-xxxl, true),
+        key-ps-b: key-parse(btn-d1),
+        key-ps-c: key-parse(btn-m),
+        key-ps-d: key-parse(btn-fs),
+
+        key-shf-a: key-shift(btn-l3, l1),
+        key-shf-b: color-key-shift(btn-l3, d3),
+        key-shf-c: key-shift(btn-xxs, l2, true),
+        key-shf-d: size-key-shift(btn-xxxl, s4),
+
+        min-a: math.min(100px, 20px, 75px),
+        //min-b: math.min(100px, '20px', 75px),
+        min-b: min(100px, '20px', 75px),
+
+        clamp: n-clamp(100px, 20px, 75px),
+        clamp-a: n-clamp(100px, '20px', 75px),
+
+        str: str(foo, bar, jaz),
+        str-j: str-join('-', foo, bar, jaz),
+
+        map-l: len((foo:123, bar:456)),*/
+    ));
+}
+
+
+
+
+
+
+
+
+/**
+ * 主题模块 color 生成语句
+ * 不要手动修改
+ */
+
+$colorListBase: red,orange,yellow,green,cyan,blue,purple,gray,danger,warn,success,primary,info,bz;
+$colorListSpecific: fc,bgc,bdc;
+$colorListStatic:   white,black,shadow;
+$colorListAll:  red,orange,yellow,green,cyan,blue,purple,gray,danger,warn,success,primary,info,bz,fc,bgc,bdc,white,black,shadow;
+$colorShiftQueue:   l3,l2,l1,m,d1,d2,d3;
+
+$colorListAlias:    danger,warn,success,primary,info;
+$colorAliasMap: (
+danger: 'red',
+warn:   'yellow',
+success:    'green',
+primary:    'blue',
+info:   'gray',
+);
+
+$typeList:  primary,danger,warn,success,info;
+$effectList:    normal,fill,plain,popout;
+
+$color-red-m:   #fa5151;
+$color-red-d3:  #782626;
+$color-red-d2:  #a23434;
+$color-red-d1:  #cf4343;
+$color-red-l1:  #fb7a7a;
+$color-red-l2:  #fca4a4;
+$color-red-l3:  #fdcece;
+$color-orange-m:    #ff8600;
+$color-orange-d3:   #7a4000;
+$color-orange-d2:   #a55700;
+$color-orange-d1:   #d36f00;
+$color-orange-l1:   #ffa33d;
+$color-orange-l2:   #ffc07a;
+$color-orange-l3:   #ffddb7;
+$color-yellow-m:    #fa9d3b;
+$color-yellow-d3:   #784b1c;
+$color-yellow-d2:   #a26626;
+$color-yellow-d1:   #cf8230;
+$color-yellow-l1:   #fbb46a;
+$color-yellow-l2:   #fccc99;
+$color-yellow-l3:   #fde3c8;
+$color-green-m: #07c160;
+$color-green-d3:    #035c2e;
+$color-green-d2:    #047d3e;
+$color-green-d1:    #05a04f;
+$color-green-l1:    #42cf86;
+$color-green-l2:    #7edeac;
+$color-green-l3:    #b9edd2;
+$color-cyan-m:  #01c4b3;
+$color-cyan-d3: #005e55;
+$color-cyan-d2: #007f74;
+$color-cyan-d1: #00a294;
+$color-cyan-l1: #3dd2c5;
+$color-cyan-l2: #7ae0d7;
+$color-cyan-l3: #b7eee9;
+$color-blue-m:  #1485ee;
+$color-blue-d3: #093f72;
+$color-blue-d2: #0d569a;
+$color-blue-d1: #106ec5;
+$color-blue-l1: #4ca2f2;
+$color-blue-l2: #84bff6;
+$color-blue-l3: #bddcfa;
+$color-purple-m:    #ea6e9c;
+$color-purple-d3:   #70344a;
+$color-purple-d2:   #984765;
+$color-purple-d1:   #c25b81;
+$color-purple-l1:   #ef90b3;
+$color-purple-l2:   #f4b3cb;
+$color-purple-l3:   #f9d6e3;
+$color-gray-m:  #888888;
+$color-gray-d3: #414141;
+$color-gray-d2: #585858;
+$color-gray-d1: #707070;
+$color-gray-l1: #a4a4a4;
+$color-gray-l2: #c1c1c1;
+$color-gray-l3: #dddddd;
+$color-danger-m:    #fa5151;
+$color-danger-d3:   #782626;
+$color-danger-d2:   #a23434;
+$color-danger-d1:   #cf4343;
+$color-danger-l1:   #fb7a7a;
+$color-danger-l2:   #fca4a4;
+$color-danger-l3:   #fdcece;
+$color-warn-m:  #fa9d3b;
+$color-warn-d3: #784b1c;
+$color-warn-d2: #a26626;
+$color-warn-d1: #cf8230;
+$color-warn-l1: #fbb46a;
+$color-warn-l2: #fccc99;
+$color-warn-l3: #fde3c8;
+$color-success-m:   #07c160;
+$color-success-d3:  #035c2e;
+$color-success-d2:  #047d3e;
+$color-success-d1:  #05a04f;
+$color-success-l1:  #42cf86;
+$color-success-l2:  #7edeac;
+$color-success-l3:  #b9edd2;
+$color-primary-m:   #1485ee;
+$color-primary-d3:  #093f72;
+$color-primary-d2:  #0d569a;
+$color-primary-d1:  #106ec5;
+$color-primary-l1:  #4ca2f2;
+$color-primary-l2:  #84bff6;
+$color-primary-l3:  #bddcfa;
+$color-info-m:  #888888;
+$color-info-d3: #414141;
+$color-info-d2: #585858;
+$color-info-d1: #707070;
+$color-info-l1: #a4a4a4;
+$color-info-l2: #c1c1c1;
+$color-info-l3: #dddddd;
+$color-bz-m:    #ff8600;
+$color-bz-d3:   #7a4000;
+$color-bz-d2:   #a55700;
+$color-bz-d1:   #d36f00;
+$color-bz-l1:   #ffa33d;
+$color-bz-l2:   #ffc07a;
+$color-bz-l3:   #ffddb7;
+$color-fc-m:    #555555;
+$color-fc-d3:   #282828;
+$color-fc-d2:   #373737;
+$color-fc-d1:   #464646;
+$color-fc-l1:   #7d7d7d;
+$color-fc-l2:   #a6a6a6;
+$color-fc-l3:   #cfcfcf;
+$color-bgc-m:   #f3f3f3;
+$color-bgc-d3:  #919191;
+$color-bgc-d2:  #b1b1b1;
+$color-bgc-d1:  #d3d3d3;
+$color-bgc-l1:  #f6f6f6;
+$color-bgc-l2:  #fbfbfb;
+$color-bgc-l3:  #ffffff;
+$color-bdc-m:   #dfdfdf;
+$color-bdc-d3:  #787878;
+$color-bdc-d2:  #999999;
+$color-bdc-d1:  #bdbdbd;
+$color-bdc-l1:  #e5e5e5;
+$color-bdc-l2:  #ececec;
+$color-bdc-l3:  #f3f3f3;
+$color-white-m: #ffffff;
+$color-black-m: #000000;
+$color-shadow-m:    #000000;
+
+$colorMap: (
+red-m:  #fa5151,
+red-d3: #782626,
+red-d2: #a23434,
+red-d1: #cf4343,
+red-l1: #fb7a7a,
+red-l2: #fca4a4,
+red-l3: #fdcece,
+orange-m:   #ff8600,
+orange-d3:  #7a4000,
+orange-d2:  #a55700,
+orange-d1:  #d36f00,
+orange-l1:  #ffa33d,
+orange-l2:  #ffc07a,
+orange-l3:  #ffddb7,
+yellow-m:   #fa9d3b,
+yellow-d3:  #784b1c,
+yellow-d2:  #a26626,
+yellow-d1:  #cf8230,
+yellow-l1:  #fbb46a,
+yellow-l2:  #fccc99,
+yellow-l3:  #fde3c8,
+green-m:    #07c160,
+green-d3:   #035c2e,
+green-d2:   #047d3e,
+green-d1:   #05a04f,
+green-l1:   #42cf86,
+green-l2:   #7edeac,
+green-l3:   #b9edd2,
+cyan-m: #01c4b3,
+cyan-d3:    #005e55,
+cyan-d2:    #007f74,
+cyan-d1:    #00a294,
+cyan-l1:    #3dd2c5,
+cyan-l2:    #7ae0d7,
+cyan-l3:    #b7eee9,
+blue-m: #1485ee,
+blue-d3:    #093f72,
+blue-d2:    #0d569a,
+blue-d1:    #106ec5,
+blue-l1:    #4ca2f2,
+blue-l2:    #84bff6,
+blue-l3:    #bddcfa,
+purple-m:   #ea6e9c,
+purple-d3:  #70344a,
+purple-d2:  #984765,
+purple-d1:  #c25b81,
+purple-l1:  #ef90b3,
+purple-l2:  #f4b3cb,
+purple-l3:  #f9d6e3,
+gray-m: #888888,
+gray-d3:    #414141,
+gray-d2:    #585858,
+gray-d1:    #707070,
+gray-l1:    #a4a4a4,
+gray-l2:    #c1c1c1,
+gray-l3:    #dddddd,
+danger-m:   #fa5151,
+danger-d3:  #782626,
+danger-d2:  #a23434,
+danger-d1:  #cf4343,
+danger-l1:  #fb7a7a,
+danger-l2:  #fca4a4,
+danger-l3:  #fdcece,
+warn-m: #fa9d3b,
+warn-d3:    #784b1c,
+warn-d2:    #a26626,
+warn-d1:    #cf8230,
+warn-l1:    #fbb46a,
+warn-l2:    #fccc99,
+warn-l3:    #fde3c8,
+success-m:  #07c160,
+success-d3: #035c2e,
+success-d2: #047d3e,
+success-d1: #05a04f,
+success-l1: #42cf86,
+success-l2: #7edeac,
+success-l3: #b9edd2,
+primary-m:  #1485ee,
+primary-d3: #093f72,
+primary-d2: #0d569a,
+primary-d1: #106ec5,
+primary-l1: #4ca2f2,
+primary-l2: #84bff6,
+primary-l3: #bddcfa,
+info-m: #888888,
+info-d3:    #414141,
+info-d2:    #585858,
+info-d1:    #707070,
+info-l1:    #a4a4a4,
+info-l2:    #c1c1c1,
+info-l3:    #dddddd,
+bz-m:   #ff8600,
+bz-d3:  #7a4000,
+bz-d2:  #a55700,
+bz-d1:  #d36f00,
+bz-l1:  #ffa33d,
+bz-l2:  #ffc07a,
+bz-l3:  #ffddb7,
+fc-m:   #555555,
+fc-d3:  #282828,
+fc-d2:  #373737,
+fc-d1:  #464646,
+fc-l1:  #7d7d7d,
+fc-l2:  #a6a6a6,
+fc-l3:  #cfcfcf,
+bgc-m:  #f3f3f3,
+bgc-d3: #919191,
+bgc-d2: #b1b1b1,
+bgc-d1: #d3d3d3,
+bgc-l1: #f6f6f6,
+bgc-l2: #fbfbfb,
+bgc-l3: #ffffff,
+bdc-m:  #dfdfdf,
+bdc-d3: #787878,
+bdc-d2: #999999,
+bdc-d1: #bdbdbd,
+bdc-l1: #e5e5e5,
+bdc-l2: #ececec,
+bdc-l3: #f3f3f3,
+white-m:    #ffffff,
+black-m:    #000000,
+shadow-m:   #000000,
+);
+
+:root {
+--color-red-m:  #fa5151;
+--color-red-d3: #782626;
+--color-red-d2: #a23434;
+--color-red-d1: #cf4343;
+--color-red-l1: #fb7a7a;
+--color-red-l2: #fca4a4;
+--color-red-l3: #fdcece;
+--color-orange-m:   #ff8600;
+--color-orange-d3:  #7a4000;
+--color-orange-d2:  #a55700;
+--color-orange-d1:  #d36f00;
+--color-orange-l1:  #ffa33d;
+--color-orange-l2:  #ffc07a;
+--color-orange-l3:  #ffddb7;
+--color-yellow-m:   #fa9d3b;
+--color-yellow-d3:  #784b1c;
+--color-yellow-d2:  #a26626;
+--color-yellow-d1:  #cf8230;
+--color-yellow-l1:  #fbb46a;
+--color-yellow-l2:  #fccc99;
+--color-yellow-l3:  #fde3c8;
+--color-green-m:    #07c160;
+--color-green-d3:   #035c2e;
+--color-green-d2:   #047d3e;
+--color-green-d1:   #05a04f;
+--color-green-l1:   #42cf86;
+--color-green-l2:   #7edeac;
+--color-green-l3:   #b9edd2;
+--color-cyan-m: #01c4b3;
+--color-cyan-d3:    #005e55;
+--color-cyan-d2:    #007f74;
+--color-cyan-d1:    #00a294;
+--color-cyan-l1:    #3dd2c5;
+--color-cyan-l2:    #7ae0d7;
+--color-cyan-l3:    #b7eee9;
+--color-blue-m: #1485ee;
+--color-blue-d3:    #093f72;
+--color-blue-d2:    #0d569a;
+--color-blue-d1:    #106ec5;
+--color-blue-l1:    #4ca2f2;
+--color-blue-l2:    #84bff6;
+--color-blue-l3:    #bddcfa;
+--color-purple-m:   #ea6e9c;
+--color-purple-d3:  #70344a;
+--color-purple-d2:  #984765;
+--color-purple-d1:  #c25b81;
+--color-purple-l1:  #ef90b3;
+--color-purple-l2:  #f4b3cb;
+--color-purple-l3:  #f9d6e3;
+--color-gray-m: #888888;
+--color-gray-d3:    #414141;
+--color-gray-d2:    #585858;
+--color-gray-d1:    #707070;
+--color-gray-l1:    #a4a4a4;
+--color-gray-l2:    #c1c1c1;
+--color-gray-l3:    #dddddd;
+--color-danger-m:   #fa5151;
+--color-danger-d3:  #782626;
+--color-danger-d2:  #a23434;
+--color-danger-d1:  #cf4343;
+--color-danger-l1:  #fb7a7a;
+--color-danger-l2:  #fca4a4;
+--color-danger-l3:  #fdcece;
+--color-warn-m: #fa9d3b;
+--color-warn-d3:    #784b1c;
+--color-warn-d2:    #a26626;
+--color-warn-d1:    #cf8230;
+--color-warn-l1:    #fbb46a;
+--color-warn-l2:    #fccc99;
+--color-warn-l3:    #fde3c8;
+--color-success-m:  #07c160;
+--color-success-d3: #035c2e;
+--color-success-d2: #047d3e;
+--color-success-d1: #05a04f;
+--color-success-l1: #42cf86;
+--color-success-l2: #7edeac;
+--color-success-l3: #b9edd2;
+--color-primary-m:  #1485ee;
+--color-primary-d3: #093f72;
+--color-primary-d2: #0d569a;
+--color-primary-d1: #106ec5;
+--color-primary-l1: #4ca2f2;
+--color-primary-l2: #84bff6;
+--color-primary-l3: #bddcfa;
+--color-info-m: #888888;
+--color-info-d3:    #414141;
+--color-info-d2:    #585858;
+--color-info-d1:    #707070;
+--color-info-l1:    #a4a4a4;
+--color-info-l2:    #c1c1c1;
+--color-info-l3:    #dddddd;
+--color-bz-m:   #ff8600;
+--color-bz-d3:  #7a4000;
+--color-bz-d2:  #a55700;
+--color-bz-d1:  #d36f00;
+--color-bz-l1:  #ffa33d;
+--color-bz-l2:  #ffc07a;
+--color-bz-l3:  #ffddb7;
+--color-fc-m:   #555555;
+--color-fc-d3:  #282828;
+--color-fc-d2:  #373737;
+--color-fc-d1:  #464646;
+--color-fc-l1:  #7d7d7d;
+--color-fc-l2:  #a6a6a6;
+--color-fc-l3:  #cfcfcf;
+--color-bgc-m:  #f3f3f3;
+--color-bgc-d3: #919191;
+--color-bgc-d2: #b1b1b1;
+--color-bgc-d1: #d3d3d3;
+--color-bgc-l1: #f6f6f6;
+--color-bgc-l2: #fbfbfb;
+--color-bgc-l3: #ffffff;
+--color-bdc-m:  #dfdfdf;
+--color-bdc-d3: #787878;
+--color-bdc-d2: #999999;
+--color-bdc-d1: #bdbdbd;
+--color-bdc-l1: #e5e5e5;
+--color-bdc-l2: #ececec;
+--color-bdc-l3: #f3f3f3;
+--color-white-m:    #ffffff;
+--color-black-m:    #000000;
+--color-shadow-m:   #000000;
+}
+
+
+/**
+ * 主题模块 size 生成语句
+ * 不要手动修改
+ */
+
+$sizeShiftQueue:    xxxs,xxs,xs,s,m,l,xl,xxl,xxxl;
+
+$size-fs-m: 14px;
+$size-fs-l: 16px;
+$size-fs-s: 12px;
+$size-fs-xl:    18px;
+$size-fs-xs:    10px;
+$size-fs-xxl:   20px;
+$size-fs-xxs:   9px;
+$size-fs-xxxl:  24px;
+$size-fs-xxxs:  8px;
+$size-fw-m: 400;
+$size-fw-l: 500;
+$size-fw-s: 300;
+$size-fw-xl:    700;
+$size-fw-xs:    200;
+$size-fw-xxl:   900;
+$size-fw-xxs:   100;
+$size-mg-m: 20px;
+$size-mg-l: 24px;
+$size-mg-s: 16px;
+$size-mg-xl:    20px;
+$size-mg-xs:    12px;
+$size-mg-xxl:   24px;
+$size-mg-xxs:   8px;
+$size-pd-m: 16px;
+$size-pd-l: 20px;
+$size-pd-s: 12px;
+$size-pd-xl:    24px;
+$size-pd-xs:    8px;
+$size-pd-xxl:   32px;
+$size-pd-xxs:   4px;
+$size-rd-m: 12px;
+$size-rd-l: 16px;
+$size-rd-s: 8px;
+$size-rd-xl:    20px;
+$size-rd-xs:    6px;
+$size-rd-xxl:   24px;
+$size-rd-xxs:   4px;
+$size-icon-m:   24px;
+$size-icon-l:   28px;
+$size-icon-s:   20px;
+$size-icon-xl:  32px;
+$size-icon-xs:  16px;
+$size-icon-xxl: 36px;
+$size-icon-xxs: 14px;
+$size-btn-m:    32px;
+$size-btn-l:    36px;
+$size-btn-s:    28px;
+$size-btn-xl:   42px;
+$size-btn-xs:   24px;
+$size-btn-xxl:  48px;
+$size-btn-xxs:  20px;
+$size-btn-fs-m: 14px;
+$size-btn-fs-l: 14px;
+$size-btn-fs-s: 12px;
+$size-btn-fs-xl:    18px;
+$size-btn-fs-xs:    12px;
+$size-btn-fs-xxl:   18px;
+$size-btn-fs-xxs:   10px;
+$size-btn-pd-m: 12px;
+$size-btn-pd-l: 16px;
+$size-btn-pd-s: 8px;
+$size-btn-pd-xl:    20px;
+$size-btn-pd-xs:    6px;
+$size-btn-pd-xxl:   24px;
+$size-btn-pd-xxs:   4px;
+$size-btn-rd-m: 8px;
+$size-btn-rd-l: 9px;
+$size-btn-rd-s: 7px;
+$size-btn-rd-xl:    10px;
+$size-btn-rd-xs:    6px;
+$size-btn-rd-xxl:   12px;
+$size-btn-rd-xxs:   5px;
+$size-bar-m:    40px;
+$size-bar-l:    48px;
+$size-bar-s:    36px;
+$size-bar-xl:   54px;
+$size-bar-xs:   32px;
+$size-bar-xxl:  64px;
+$size-bar-xxs:  28px;
+$size-bar-pd-m: 16px;
+$size-bar-pd-l: 20px;
+$size-bar-pd-s: 12px;
+$size-bar-pd-xl:    24px;
+$size-bar-pd-xs:    8px;
+$size-bar-pd-xxl:   32px;
+$size-bar-pd-xxs:   6px;
+$size-bar-rd-m: 9px;
+$size-bar-rd-l: 10px;
+$size-bar-rd-s: 8px;
+$size-bar-rd-xl:    12px;
+$size-bar-rd-xs:    7px;
+$size-bar-rd-xxl:   14px;
+$size-bar-rd-xxs:   6px;
+$size-block-m:  68px;
+$size-block-l:  80px;
+$size-block-s:  56px;
+$size-block-xl: 96px;
+$size-block-xs: 44px;
+$size-block-xxl:    118px;
+$size-block-xxs:    36px;
+$size-shadow-m: 8px;
+$size-shadow-l: 12px;
+$size-shadow-s: 4px;
+$size-bd-m: 1px;
+$size-blur-m:   8px;
+$size-navbar-m: 48px;
+$size-menubar-max-m:    256px;
+$size-menubar-min-m:    36px;
+$size-taskbar-m:    36px;
+$size-taskitem-m:   192px;
+
+$sizeMap: (
+fs-m:   14px,
+fs-l:   16px,
+fs-s:   12px,
+fs-xl:  18px,
+fs-xs:  10px,
+fs-xxl: 20px,
+fs-xxs: 9px,
+fs-xxxl:    24px,
+fs-xxxs:    8px,
+fw-m:   400,
+fw-l:   500,
+fw-s:   300,
+fw-xl:  700,
+fw-xs:  200,
+fw-xxl: 900,
+fw-xxs: 100,
+mg-m:   20px,
+mg-l:   24px,
+mg-s:   16px,
+mg-xl:  20px,
+mg-xs:  12px,
+mg-xxl: 24px,
+mg-xxs: 8px,
+pd-m:   16px,
+pd-l:   20px,
+pd-s:   12px,
+pd-xl:  24px,
+pd-xs:  8px,
+pd-xxl: 32px,
+pd-xxs: 4px,
+rd-m:   12px,
+rd-l:   16px,
+rd-s:   8px,
+rd-xl:  20px,
+rd-xs:  6px,
+rd-xxl: 24px,
+rd-xxs: 4px,
+icon-m: 24px,
+icon-l: 28px,
+icon-s: 20px,
+icon-xl:    32px,
+icon-xs:    16px,
+icon-xxl:   36px,
+icon-xxs:   14px,
+btn-m:  32px,
+btn-l:  36px,
+btn-s:  28px,
+btn-xl: 42px,
+btn-xs: 24px,
+btn-xxl:    48px,
+btn-xxs:    20px,
+btn-fs-m:   14px,
+btn-fs-l:   14px,
+btn-fs-s:   12px,
+btn-fs-xl:  18px,
+btn-fs-xs:  12px,
+btn-fs-xxl: 18px,
+btn-fs-xxs: 10px,
+btn-pd-m:   12px,
+btn-pd-l:   16px,
+btn-pd-s:   8px,
+btn-pd-xl:  20px,
+btn-pd-xs:  6px,
+btn-pd-xxl: 24px,
+btn-pd-xxs: 4px,
+btn-rd-m:   8px,
+btn-rd-l:   9px,
+btn-rd-s:   7px,
+btn-rd-xl:  10px,
+btn-rd-xs:  6px,
+btn-rd-xxl: 12px,
+btn-rd-xxs: 5px,
+bar-m:  40px,
+bar-l:  48px,
+bar-s:  36px,
+bar-xl: 54px,
+bar-xs: 32px,
+bar-xxl:    64px,
+bar-xxs:    28px,
+bar-pd-m:   16px,
+bar-pd-l:   20px,
+bar-pd-s:   12px,
+bar-pd-xl:  24px,
+bar-pd-xs:  8px,
+bar-pd-xxl: 32px,
+bar-pd-xxs: 6px,
+bar-rd-m:   9px,
+bar-rd-l:   10px,
+bar-rd-s:   8px,
+bar-rd-xl:  12px,
+bar-rd-xs:  7px,
+bar-rd-xxl: 14px,
+bar-rd-xxs: 6px,
+block-m:    68px,
+block-l:    80px,
+block-s:    56px,
+block-xl:   96px,
+block-xs:   44px,
+block-xxl:  118px,
+block-xxs:  36px,
+shadow-m:   8px,
+shadow-l:   12px,
+shadow-s:   4px,
+bd-m:   1px,
+blur-m: 8px,
+navbar-m:   48px,
+menubar-max-m:  256px,
+menubar-min-m:  36px,
+taskbar-m:  36px,
+taskitem-m: 192px,
+);
+
+$sizeStrQueue:  huge,large,medium,normal,small,mini,tiny;
+$sizeStrMap: (
+huge:   'xxl',
+large:  'xl',
+medium: 'l',
+normal: 'm',
+small:  's',
+mini:   'xs',
+tiny:   'xxs',
+);
+$sizeKeyMap: (
+xxl:    'huge',
+xl: 'large',
+l:  'medium',
+m:  'normal',
+s:  'small',
+xs: 'mini',
+xxs:    'tiny',
+);
+
+$extraFsSizeQueue:  28,32,48,54,64,72;
+$extraIconSizeQueue:    48,54,64,72,88,96,128;
+$extraBarSizeQueue: 64,72,88,96;
+$extraBtnSizeQueue: 54,64,72,88,96,128;
+
+$shapeList: normal,pill,circle,sharp;
+$stretchList:   square,normal,grow,row;
+$tightnessList: loose,normal,tight;
+
+:root {
+--size-fs-m:    14px;
+--size-fs-l:    16px;
+--size-fs-s:    12px;
+--size-fs-xl:   18px;
+--size-fs-xs:   10px;
+--size-fs-xxl:  20px;
+--size-fs-xxs:  9px;
+--size-fs-xxxl: 24px;
+--size-fs-xxxs: 8px;
+--size-fw-m:    400;
+--size-fw-l:    500;
+--size-fw-s:    300;
+--size-fw-xl:   700;
+--size-fw-xs:   200;
+--size-fw-xxl:  900;
+--size-fw-xxs:  100;
+--size-mg-m:    20px;
+--size-mg-l:    24px;
+--size-mg-s:    16px;
+--size-mg-xl:   20px;
+--size-mg-xs:   12px;
+--size-mg-xxl:  24px;
+--size-mg-xxs:  8px;
+--size-pd-m:    16px;
+--size-pd-l:    20px;
+--size-pd-s:    12px;
+--size-pd-xl:   24px;
+--size-pd-xs:   8px;
+--size-pd-xxl:  32px;
+--size-pd-xxs:  4px;
+--size-rd-m:    12px;
+--size-rd-l:    16px;
+--size-rd-s:    8px;
+--size-rd-xl:   20px;
+--size-rd-xs:   6px;
+--size-rd-xxl:  24px;
+--size-rd-xxs:  4px;
+--size-icon-m:  24px;
+--size-icon-l:  28px;
+--size-icon-s:  20px;
+--size-icon-xl: 32px;
+--size-icon-xs: 16px;
+--size-icon-xxl:    36px;
+--size-icon-xxs:    14px;
+--size-btn-m:   32px;
+--size-btn-l:   36px;
+--size-btn-s:   28px;
+--size-btn-xl:  42px;
+--size-btn-xs:  24px;
+--size-btn-xxl: 48px;
+--size-btn-xxs: 20px;
+--size-btn-fs-m:    14px;
+--size-btn-fs-l:    14px;
+--size-btn-fs-s:    12px;
+--size-btn-fs-xl:   18px;
+--size-btn-fs-xs:   12px;
+--size-btn-fs-xxl:  18px;
+--size-btn-fs-xxs:  10px;
+--size-btn-pd-m:    12px;
+--size-btn-pd-l:    16px;
+--size-btn-pd-s:    8px;
+--size-btn-pd-xl:   20px;
+--size-btn-pd-xs:   6px;
+--size-btn-pd-xxl:  24px;
+--size-btn-pd-xxs:  4px;
+--size-btn-rd-m:    8px;
+--size-btn-rd-l:    9px;
+--size-btn-rd-s:    7px;
+--size-btn-rd-xl:   10px;
+--size-btn-rd-xs:   6px;
+--size-btn-rd-xxl:  12px;
+--size-btn-rd-xxs:  5px;
+--size-bar-m:   40px;
+--size-bar-l:   48px;
+--size-bar-s:   36px;
+--size-bar-xl:  54px;
+--size-bar-xs:  32px;
+--size-bar-xxl: 64px;
+--size-bar-xxs: 28px;
+--size-bar-pd-m:    16px;
+--size-bar-pd-l:    20px;
+--size-bar-pd-s:    12px;
+--size-bar-pd-xl:   24px;
+--size-bar-pd-xs:   8px;
+--size-bar-pd-xxl:  32px;
+--size-bar-pd-xxs:  6px;
+--size-bar-rd-m:    9px;
+--size-bar-rd-l:    10px;
+--size-bar-rd-s:    8px;
+--size-bar-rd-xl:   12px;
+--size-bar-rd-xs:   7px;
+--size-bar-rd-xxl:  14px;
+--size-bar-rd-xxs:  6px;
+--size-block-m: 68px;
+--size-block-l: 80px;
+--size-block-s: 56px;
+--size-block-xl:    96px;
+--size-block-xs:    44px;
+--size-block-xxl:   118px;
+--size-block-xxs:   36px;
+--size-shadow-m:    8px;
+--size-shadow-l:    12px;
+--size-shadow-s:    4px;
+--size-bd-m:    1px;
+--size-blur-m:  8px;
+--size-navbar-m:    48px;
+--size-menubar-max-m:   256px;
+--size-menubar-min-m:   36px;
+--size-taskbar-m:   36px;
+--size-taskitem-m:  192px;
+}
+
+
+/**
+ * 主题模块 vars 生成语句
+ * 不要手动修改
+ */
+
+$font-fml-default:  -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+$font-fml-code: 'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace;
+$font-fml-fangsong: 'Times New Roman', '仿宋';
+$font-fml-yahei:    '微软雅黑', 'Microsoft Yahei';
+$font-fml-songti:   'Times New Roman', '宋体';
+$ani-dura:  0.3s;
+
+$varsMap: (
+font-fml-default:   "-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji'",
+font-fml-code:  "'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace",
+font-fml-fangsong:  "'Times New Roman', '仿宋'",
+font-fml-yahei: "'微软雅黑', 'Microsoft Yahei'",
+font-fml-songti:    "'Times New Roman', '宋体'",
+ani-dura:   0.3s,
+);
+
+
+:root {
+--font-fml-default: -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+--font-fml-code:    'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace;
+--font-fml-fangsong:    'Times New Roman', '仿宋';
+--font-fml-yahei:   '微软雅黑', 'Microsoft Yahei';
+--font-fml-songti:  'Times New Roman', '宋体';
+--ani-dura: 0.3s;
+}
+
+
+
+
+
+/**
+ * 合并资源 base.scss
+ * !! 不要手动修改 !!
+ */
+
+/**
+ * SPF-Theme 主题系统配套 scss
+ * 此 SCSS 不处理 import 如需引入外部样式，应在 *.theme.json 中指定 styles.import 参数
+ * !! 不要手动修改 !!
+ * 
+ * SPF-Theme 主题系统变量：
+ *      $colorListAll                       全部颜色名称 list：red,orange,yellow,...,fc,bgc,bdc,...,primary,...
+ *      $colorListBase|Alias|Static...      不同类型的 颜色名称 list
+ *      $colorShiftQueue                    d3,d2,d1,m,l1,l2,l3
+ *      $colorMap                           包含所有颜色定义的 map
+ *      $colorAliasMap                      别面颜色 map (alias: 'color-key', ...)
+ *      $typeList                           primary,danger,warn,success,info
+ *      $effectList                         normal,fill,plain,popout
+ *      $sizeMap                            包含所有尺寸定义的 map
+ *      $sizeShiftQueue                     xxs,xs,s,m,l,xl,xxl
+ *      $sizeStrQueue                       huge,large,medium,normal,small,mini,tiny
+ *      $sizeStrMap                         尺寸字符串 与 m|xl 映射 map  huge --> xxl
+ *      $sizeKeyMap                         m|xl 与 尺寸字符串 映射 map  xxl --> huge
+ *      $extra[Icon|Btn]SizeQueue           icon|btn 额外的尺寸序列 48,54,64,...,128
+ *      $shapeList                          normal,pill,circle,sharp
+ *      $stretchList                        square,normal,grow,row
+ *      $tightnessList                      loose,normal,tight
+ *      $varsMap                            保存所有其他 css 变量的 map
+ */
+
+/**
+ * !! 检查是否存在 dart-scss-patch 文件内容
+ */
+$is-patched: variable-exists(dartScssTypeList);
+
+
+/** SPF-Theme 主题变量 **/
+//status 状态可选列表
+$spfStatusList: normal,hover,active;
+
+/** SPF-Theme 主题变量计算函数 **/
+//根据 effect 类型，status 状态以及 bgk|fk|bdk 初始值，计算 bgk|fk|bdk 在各状态下的值  <返回：map|null>
+@function spf-effect-calc($effect: normal, $status: normal, $bgk: unset, $fk: unset, $bdk: unset) {
+    @if not is-string($effect, $status) or not has($effectList, $effect) or not has($spfStatusList, $status) {
+        @return null;
+    }
+
+    //status == normal 默认初始状态，直接返回
+    @if $status == normal {
+        @return (
+            bgk: $bgk,
+            fk: $fk,
+            bdk: $bdk
+        );
+    }
+
+    //status == hover 状态，所有颜色减淡一级
+    @if $status == hover {
+        $h-bgk: unset;
+        $h-fk:  unset;
+        $h-bdk: if($bdk == unset, unset, color-key-shift($bdk, l1));
+        @if $effect == popout {
+            //popout effect 情况下 
+            @if $fk == unset {
+                $h-bgk: primary-m;  //fc-m;
+            } @else {
+                $h-bgk: $fk;
+            }
+        } @else {
+            //正常的背景翻转，前景跟随
+            $h-bgk: if($bgk == unset, unset, color-key-shift($bgk, l1));
+            $h-fk: if($fk == unset, unset, color-key-shift($fk, l1));
+        }
+        @return (
+            bgk: if(is-nemstr($h-bgk), $h-bgk, unset),
+            fk: if(is-nemstr($h-fk), $h-fk, unset),
+            bdk: if(is-nemstr($h-bdk), $h-bdk, unset),
+        );
+    }
+
+    //status == active 选中状态，所有颜色加深一级
+    @if $status == active {
+        $a-bgk: unset;
+        $a-fk:  unset;
+        $a-bdk: if($bdk == unset, unset, color-key-shift($bdk, d1));
+        @if $effect == popout {
+            //popout effect 情况下
+            @if $fk == unset {
+                $a-bgk: primary-d1; //fc-d1;
+            } @else {
+                $a-bgk: color-key-shift($fk, d1);
+            }
+        } @else {
+            //正常的背景翻转，前景跟随
+            $a-bgk: if($bgk == unset, unset, color-key-shift($bgk, d1));
+            $a-fk: if($fk == unset, unset, color-key-shift($fk, d1));
+        }
+        @return (
+            bgk: if(is-nemstr($a-bgk), $a-bgk, unset),
+            fk: if(is-nemstr($a-fk), $a-fk, unset),
+            bdk: if(is-nemstr($a-bdk), $a-bdk, unset),
+        );
+    }
+
+    @return null;
+}
+//根据传入的 size 尺寸键名，计算对应的 padding|radius|font-size 尺寸值  <返回：map(number)|null>
+@function spf-size-key-calc($skey: bar-m) {
+    //读取基础尺寸值
+    $sz: size-get($skey);
+    @if not is-number($sz) {@return null;}
+    $rtn: (
+        sz: $sz,
+        pd: null,
+        rd: null,
+        fs: null
+    );
+
+    //解析尺寸键名，按规则调用对应的 $sizeMap 值
+    //btn-xxl  -->  (btn-xxl, btn, xxl, l, 3, size)
+    $skl: key-parse($skey, true);
+    //尺寸类型 btn|bar..
+    $ztp: nth($skl, 2);
+    //传入尺寸的偏移形式 以及 偏移量
+    $sfx: nth($skl, 3);     // xxl|xs|m
+    $stp: nth($skl, 4);     // s|m|l
+    $lvl: nth($skl, 5);     // 0|1|2|3|4
+
+    //首先尝试读取 btn-[pd|rd|fs]-[m|xs|xxl]
+    $pd: size-get(#{$ztp}-pd-#{$sfx});
+    $rd: size-get(#{$ztp}-rd-#{$sfx});
+    $fs: size-get(#{$ztp}-fs-#{$sfx});
+    //未获取到则尝试使用 默认的 [pd|rd]-[m|xs|xxl]
+    @if not is-number($pd) {$pd: size-get(pd-#{$sfx});}
+    @if not is-number($rd) {$rd: size-get(rd-#{$sfx});}
+    //字号计算使用单独逻辑
+    @if not is-number($fs) {
+        //根据 传入尺寸偏移量 不同，额外计算 fs 字体尺寸的 尺寸偏移量
+        //0|1|2|3|4 --> 0|0|1|1|2
+        $nlvl: sub(ceil(div(add($lvl, 1), 2)), 1);
+        $nlvl: n-clamp(0, $nlvl, 5);
+        //0|1|2|3|4 --> 0|0|1|1|2 --> ''|''|l1|s1|l2
+        $nsfx: if($nlvl == 0, '', #{$stp}#{$nlvl});
+        //实际 fs 尺寸对应的 键名
+        $fsk: if($nsfx == '', fs-m, key-shift(fs-m, $nsfx, true));
+        $fs: size-get($fsk);
+    }
+    //!! 有任何一个不成功，输出 null
+    @if is-number($pd, $rd, $fs) {
+        $rtn: map.set($rtn, pd, $pd);
+        $rtn: map.set($rtn, rd, $rd);
+        $rtn: map.set($rtn, fs, $fs);
+        @return $rtn;
+    }
+    @return null;
+}
+//根据单行元素的 height 计算 padding|radius|font-size  <返回：map|null>
+@function spf-bar-size-calc($size: btn-m) {
+    $sz: size-get($size);
+    @if not is-number($sz) {@return null;}
+
+    //如果直接传入 number 尺寸值，直接返回自动计算结果
+    @if is-number($size) {
+        @return (
+            sz: $sz,
+            pd: round(div($sz, 2)),
+            rd: round(div($sz, 5)),
+            fs: round(div($sz, 2))
+        );
+    }
+
+    //如果传入了尺寸键名，则根据尺寸键名，解析最终尺寸值
+    @return spf-size-key-calc($size);
+}
+
+
+/** 通用样式注入 mixins **/
+
+/** 基础样式注入 position|width|padding|overflow ... **/
+@mixin spf-po($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $t: unset, $r: unset, $b: unset, $l: unset, $ov: unset) {
+    position: $po;
+    @if $w != unset { width: size-get($w); }
+    @if $h != unset { height: size-get($h); }
+    @if $mg != unset { margin: size-get($mg); }
+    @if $pd != unset { padding: size-get($pd); }
+    @if $l != unset { left: size-get($l); }
+    @if $r != unset { right: size-get($r); }
+    @if $t != unset { top: size-get($t); }
+    @if $b != unset { bottom: size-get($b); }
+    @if $ov != unset { overflow: $ov; }
+    box-sizing: border-box;
+}
+@mixin spf-po-ov($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $t: unset, $r: unset, $b: unset, $l: unset, $ov: hidden) {
+    @include spf-po($po, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
+}
+@mixin spf-po-abs($w: 100%, $h: unset, $mg: 0, $pd: 0, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
+    @include spf-po(absolute, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
+}
+@mixin spf-po-fix($w: 100%, $h: unset, $mg: 0, $pd: 0, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
+    @include spf-po(fixed, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
+}
+/** 基础样式注入 根据输入的 trbl 设置不同 position 位置的 padding/margin/border-width size **/
+/** $p 可选值：$trblQueue **/
+@mixin spf-size-po(
+    $size:      unset,              //要设置的尺寸 
+    $p:         '',                 //要设置尺寸值的 position 位置，可选值：$trblQueue，默认不指定，表示所有位置
+    $prop:      padding,            //要设置尺寸值的 css 属性，默认 padding，可选 padding/margin/border-width
+    $important: false               //是否增加 important
+) {
+    @if $p != '' {
+        $pa: trbl($p);
+        $pov: set-trbl($pa, $size);
+        @if is-nemlist($pov) {
+            @if $important == true {
+                #{$prop}: #{$pov} !important;
+            } @else {
+                #{$prop}: #{$pov};
+            }
+        }
+    } @else {
+        @if $important == true {
+            #{$prop}: $size !important;
+        } @else {
+            #{$prop}: $size;
+        }
+    }
+}
+/** 基础样式注入 根据输入的 corner 设置不同位置的 radius size **/
+/** $r 可选值：$cornerQueue **/
+@mixin spf-size-rd(
+    $size:      unset,              //要设置的尺寸 
+    $r:         '',                 //要设置尺寸值的 corner 位置，可选值：$cornerQueue，默认不指定，表示所有位置
+    $important: false               //是否增加 important
+) {
+    @if $r != '' {
+        $ra: corner($r);
+        $rav: set-corner($ra, $size);
+        @if is-nemlist($rav) {
+            @if $important == true {
+                border-radius: #{$rav} !important;
+            } @else {
+                border-radius: #{$rav};
+            }
+        }
+    } @else {
+        @if $important == true {
+            border-radius: $size !important;
+        } @else {
+            border-radius: $size;
+        }
+    }
+}
+/** 基础样式注入 flex 布局 **/
+@mixin spf-flex($dir: row, $x: flex-start, $y: center, $gap: unset, $inner: true) {
+    display: flex; flex-direction: $dir;
+    @if $dir == row {
+        align-items: $y; justify-content: $x;
+    } @else {
+        align-items: $x; justify-content: $y;
+    }
+
+    //自动生成内部子样式类
+    @if $inner == true {
+        @for $i from 1 through 8 {
+            &>.flex-#{$i} {
+                $wh: if($dir == column, height, width);
+                #{$wh}: unset;
+                flex: $i;
+            }
+        }
+    
+        &.flex-no-shrink {
+            &>*, &>view {
+                flex-shrink: 0;
+            }
+        }
+    
+        &.flex-with-gap {
+            $gap-side: if($dir == column, top, left);
+            @if $gap != unset {
+                $gap: size-get($gap);
+                @if is-number($gap) {
+                    &>*, &>view {
+                        &:not(:first-child) {
+                            margin-#{$gap-side}: $gap;
+                        }
+                    }
+                }
+            }
+            @each $qi in $sizeShiftQueue {
+                $gapi: size-get(mg-#{$qi});
+                @if is-number($gapi) {
+                    &.flex-gap-#{$qi} {
+                        &>*, &>view {
+                            &:not(:first-child) {
+                                margin-#{$gap-side}: $gapi;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    
+        &.flex-center {justify-content: center; align-items: center;}
+        &.flex-start {justify-content: flex-start; align-items: flex-start;}
+        &.flex-end {justify-content: flex-end; align-items: flex-end;}
+        &.flex-stretch {justify-content: stretch; align-items: stretch;}
+    
+        &[class*=flex-x-] {
+            $prop: if($dir == column, align-items, justify-content);
+            &[class*=x-center] {#{$prop}: center;}
+            &[class*=x-start] {#{$prop}: flex-start;}
+            &[class*=x-end] {#{$prop}: flex-end;}
+            &[class*=x-stretch] {#{$prop}: stretch;}
+        }
+        &[class*=flex-y-] {
+            $prop: if($dir == row, align-items, justify-content);
+            &[class*=y-center] {#{$prop}: center;}
+            &[class*=y-start] {#{$prop}: flex-start;}
+            &[class*=y-end] {#{$prop}: flex-end;}
+            &[class*=y-stretch] {#{$prop}: stretch;}
+        }
+    }
+}
+@mixin spf-flex-x($x: flex-start, $y: center, $gap: unset) {
+    @include spf-flex(row, $x, $y, $gap, true);
+}
+@mixin spf-flex-y($x: flex-start, $y: flex-start, $gap: unset) {
+    @include spf-flex(column, $x, $y, $gap, true);
+}
+@mixin spf-flex-x-noinner($x: flex-start, $y: center, $gap: unset) {
+    @include spf-flex(row, $x, $y, $gap, false);
+}
+@mixin spf-flex-y-noinner($x: flex-start, $y: flex-start, $gap: unset) {
+    @include spf-flex(column, $x, $y, $gap, false);
+}
+/** 基础样式注入 链接样式 **/
+@mixin spf-a($base: primary, $important: false) {
+    text-decoration: underline;
+    text-underline-offset: 0.3em;
+    transition: color $ani-dura,
+                text-underline-offset .1s;
+
+    &:hover {
+        text-underline-offset: 0.2em;
+    }
+
+    $bk: #{$base}-m;
+    $bc: color-get($bk);
+    $hc: color-get(color-key-shift($bk, l1));
+    $ac: color-get(color-key-shift($bk, d1));
+    @if is-color($bc, $hc, $ac) {
+        @if $important == true {
+            color: $bc !important;
+            &:hover {
+                color: $hc !important;
+            }
+            &:visited, &[class*=active] {
+                color: $ac !important;
+            }
+        } @else {
+            color: $bc;
+            &:hover {
+                color: $hc;
+            }
+            &:visited, &[class*=active] {
+                color: $ac;
+            }
+        }
+    }
+}
+/** 基础样式注入 text-ellipsis 样式 **/
+@mixin spf-text-ellipsis() {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+/** 基础样式注入 模拟移动端滚动条效果 **/
+@mixin spf-scroll(
+    $size:      6px,            //滚动条宽度
+    $fc:        bdc-d1,         //滚动条背景色，传入可通过 color-get 方法获取色值的 颜色键名|transparent
+    $fc-hover:  bdc-d2,         //滚动条悬停背景色，传入可通过 color-get 方法获取色值的 颜色键名|transparent
+    $bgc:       transparent,    //滚动轨道背景色，传入可通过 color-get 方法获取色值的 颜色键名|transparent
+    $ov:        hidden auto,    //垂直|水平 滚动条显示
+    $round:     false,          //滚动条是否圆角
+    $behavior:  smooth
+) {
+    $fcv: color-get($fc);
+    $fchv: color-get($fc-hover);
+    $bgcv: color-get($bgc);
+
+    overflow: $ov;
+    scroll-behavior: $behavior;
+    /* 滚动条占位宽度 = 0，内容区域 100 % */
+    scrollbar-gutter: stable;
+
+    &::-webkit-scrollbar {
+        width: $size; 
+        height: $size;
+    }
+    &::-webkit-scrollbar-track {background-color: $bgcv;}
+    &::-webkit-scrollbar-thumb  {
+        background-color: $fcv;
+        cursor: ns-resize;
+        transition: all .3s;
+
+        @if $round == true {
+            border-radius: $size / 2;
+        }
+
+        &:hover {background-color: $fchv;}
+    }
+    &::-webkit-scrollbar:horizontal {
+        cursor: ew-resize;
+    }
+
+    /* iOS 惯性回弹必备 */
+    //-webkit-overflow-scrolling: touch;
+    /* 可选：隐藏系统默认箭头按钮 */
+    //scrollbar-width: none;   /* Firefox 直接变窄，不占位 */
+}
+/** 复合样式注入 注入 effect 样式的实际 background-color|border-color|color 样式值 **/
+@mixin spf-set-effect(
+    $bgk:       unset,              //背景色 实际样式值  string 类型颜色键名 | unset
+    $fk:        unset,              //前景色 实际样式值  string 类型颜色键名 | unset
+    $bdk:       unset,              //边框色 实际样式值  string 类型颜色键名 | unset
+) {
+    $bgc: null;
+    $fc: null;
+    $bdc: null;
+    //background-color
+    @if $bgk != unset {
+        $tc: color-get($bgk);
+        @if is-color($tc) {$bgc: $tc;}
+    }
+    //color
+    @if $fk == unset {
+        $tc: null;
+        @if is-color($bgc) and $bgc != transparent {
+            $tc: fore-color($bgc, 0.8);
+        } @else {
+            $tc: color-get(fc-m);
+        }
+        @if is-color($tc) {$fc: $tc;}
+    } @else {
+        $tc: color-get($fk);
+        @if is-color($tc) {$fc: $tc;}
+    }
+    //border-color
+    @if $bdk != unset {
+        $tc: color-get($bdk);
+        @if is-color($tc) {$bdc: $tc;}
+    }
+    //设置样式
+    @if is-color($bgc) {background-color: $bgc;}
+    @if is-color($fc) {
+        color: $fc;
+        //后代样式
+        &>svg[class*=icon] {
+            color: $fc;
+        }
+    }
+    @if is-color($bdc) {
+        border: {
+            style: solid;
+            width: $size-bd-m;
+            color: $bdc;
+        }
+    } @else {
+        border: {
+            style: solid;
+            width: 0;
+            color: transparent;
+        }
+    }
+}
+/** 复合样式注入 注入 单行元素的 size 相关样式 **/
+@mixin spf-set-bar-size($pre: bar-, $sz, $pd, $rd, $fs) {
+    //pd 值作为间距
+    $pd-20x: round(mul($pd, 2));
+    $pd-05x: round(div($pd, 2));
+
+    //注入默认样式
+    height: $sz;
+    padding: 0 $pd;
+    font-size: $fs;
+    //默认 shape
+    border-radius: $rd;
+    //默认 stretch
+    min-width: $sz;
+
+    //默认后代元素
+    &>*:not(:first-child) {
+        //内部元素间距
+        margin-left: $pd-05x;
+    }
+    //内部图标
+    &>svg[class*=icon] {
+        font-size: round(mul($fs, 1.2));
+        //&:first-child {
+        //    margin-left: mul($pd-05x, -1);
+        //}
+        //&:last-child {
+        //    margin-right: mul($pd-05x, -1);
+        //}
+    }
+
+    //同级元素间距
+    &+*[class*=#{$pre}] {
+        margin-left: $pd-05x;
+    }
+}
+@mixin spf-set-bar-size-static($pre: bar-) {
+    width: unset;
+    //默认后代元素
+    &>*:first-child {
+        margin-left: 0;
+        margin-right: 0;
+    }
+    &>*:not(:first-child) {
+        margin-right: 0;
+    }
+
+    //同级元素间距
+    &+*[class*=#{$pre}] {
+        margin-right: 0;
+    }
+}
+/** 复合样式注入 注入 单行元素的 shape 相关样式 **/
+@mixin spf-set-bar-shape($pre: bar-, $sz, $pd, $rd, $fs) {
+    //尺寸计算
+    $sz-05x: round(div($sz, 2));
+
+    //构建当前 size 下的 border-radius 样式值
+    $rds: (
+        normal: $rd,
+        pill:   $sz-05x,
+        circle: $sz-05x,
+        sharp:  0,
+    );
+    //循环 shapeList
+    @each $spi in $shapeList {
+        $rdi: map.get($rds, $spi);
+        @if is-number($rdi) {
+            //定义 shape-* 类  覆盖 stretch-*
+            &.#{$pre}shape-#{$spi} {
+                border-radius: $rdi;
+                @if $spi == circle {
+                    &.#{$pre}stretch-normal, &.#{$pre}stretch-grow, &.#{$pre}stretch-row {
+                        width: $sz;
+                    }
+                }
+            }
+        }
+    }
+}
+@mixin spf-set-bar-shape-static($pre: bar-) {
+    &.#{$pre}shape-circle {
+        //覆盖 stretch-*
+        &.#{$pre}stretch-normal, &.#{$pre}stretch-grow, &.#{$pre}stretch-row {
+            padding: 0;
+            //水平|垂直 居中
+            align-items: center;
+            justify-content: center;
+            //内部
+            &>* {margin: 0;}
+        }
+        //覆盖 tightness-*
+        &.#{$pre}tightness-normal, &.#{$pre}tightness-loose, &.#{$pre}tightness-tight {
+            padding: 0;
+            //内部
+            &>* {margin: 0;}
+        }
+    }
+}
+/** 复合样式注入 注入 单行元素的 stretch 相关样式 **/
+@mixin spf-set-bar-stretch($pre: bar-, $sz, $pd, $rd, $fs) {
+    //stretch == normal
+    &.#{$pre}stretch-normal {
+        min-width: $sz;
+    }
+    //stretch == square
+    &.#{$pre}stretch-square {
+        width: $sz;
+    }
+}
+@mixin spf-set-bar-stretch-static($pre: bar-) {
+    //stretch == normal
+    &.#{$pre}stretch-normal {
+        width: unset;
+    }
+    //stretch == square
+    &.#{$pre}stretch-square {
+        padding: 0;
+        //水平|垂直 居中
+        align-items: center;
+        justify-content: center;
+        //内部
+        &>* {margin: 0;}
+    }
+    //stretch == grow 自动占满剩余空间
+    &.#{$pre}stretch-grow {
+        width: unset;
+        flex: 1;
+    }
+    //stretch == row 整行
+    &.#{$pre}stretch-row {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+/** 复合样式注入 注入 单行元素的 tightness 相关样式 **/
+@mixin spf-set-bar-tightness($pre: bar-, $sz, $pd, $rd, $fs) {
+    $pd-20x: round(mul($pd, 2));
+    $pd-05x: round(div($pd, 2));
+
+    //构建 tightness 与 padding值的 map 映射
+    $pds: (
+        loose: $pd-20x,
+        normal: $pd,
+        tight: $pd-05x,
+    );
+    //tightness 循环
+    @each $ti in $tightnessList {
+        $pdv: map.get($pds, $ti);
+        $pdv-05x: round(div($pdv, 2));
+        @if is-number($pdv) {
+            &.#{$pre}tightness-#{$ti} {
+                padding: 0 $pdv;
+                //内部元素间距
+                &>*:not(:first-child) {
+                    margin-left: $pdv-05x;
+                }
+                //外部同级元素间距
+                &+*[class*=#{$pre}] {
+                    &:not([class*=stretch-row]) {
+                        margin-left: $pdv-05x;
+                    }
+                }
+            }
+        }
+    }
+}
+@mixin spf-set-bar-tightness-static($pre: bar-) {
+
+}
+
+
+
+/** 批量注入样式 **/
+
+/** 根据 $list 颜色名称数组，为 当前类 或 后代类 指定颜色样式
+    例如：
+    .foo {
+        @include spf-color-shift(
+            $pre:       bg-,
+            $target:    child,
+            $prop:      background-color,
+            $ckey:      bg,
+            $opa:       true
+        );
+    }
+    编译后：
+    .foo * { background-color: color-bg; }  //如果存在 color-{ckey}
+    .foo .bg-l1 { background-color: color-bg-l1; }
+    .foo .bg-l2 { background-color: color-bg-l2; }
+    .foo .bg-l1-a1 { background-color: color-bg-l1-a1; }  //透明度循环
+    .foo .bg-l1-a2 { background-color: color-bg-l1-a2; }
+    .foo .bg-red { background-color: color-red; }
+    .foo .bg-red-hover { background-color: color-red; }
+    .foo .bg-red-hover:hover { background-color: color-red-l1; }
+    .foo .bg-red-l1 { background-color: color-red-l1; }
+    .foo .bg-red-l2 { background-color: color-red-l2; }
+    .foo .bg-red-l1-a1 { background-color: color-red-l1-a1; }  //透明度循环
+    .foo .bg-red-l1-a2 { background-color: color-red-l1-a2; }
+    .foo .bg-blue { background-color: color-blue; }
+    .foo .bg-blue-l1 { background-color: color-blue-l1; }
+    .foo .bg-blue-l2 { background-color: color-blue-l2; }
+    .foo .bg-blue-l1-a1 { background-color: color-blue-l1-a1; }  //透明度循环
+    .foo .bg-blue-l1-a2 { background-color: color-blue-l1-a2; }
+**/
+@mixin spf-color-shift(
+    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       fc-,                //新增颜色样式的类前缀，如：fc- 则 生成类：.foo.fc-red-m | .foo .fc-red-m
+    $prop:      color,              //要设置颜色的 css 属性，可选 color/border-color/background-color/... 默认 color
+                                    //!! 也可以传入自定义的 mixin 必须接受 3 个参数：
+                                    //!! pre 类名前缀，color 当前的颜色值，ckey 当前的颜色键名
+                                    //!! 自定义的 mixin 名称必须以 spf-color-shift-mix- 开头 只需要传入结尾部分字符串
+                                    //!! 例如：spf-color-shift-mix-foo-bar 只需传入 foo-bar
+    $ckey:      fc,                 //$prop 属性的默认颜色名，如：background-color 的默认颜色名为 bgc ($color-bgc-*)
+    $opa:       false,              //是否启用透明度，true 表示同时循环透明度
+    $filter:    null,               //是否在 colorMap 中筛选部分颜色值 作为循环数据源  颜色键名(前缀) list
+    $que:       null,               //可以手动指定 colorShiftQueue 只循环部分颜色
+) {
+    $cque:      $colorShiftQueue;   //储存所有颜色 shift 变化 lvl 的 list，如：l2,l1,d1,d2 默认 $colorShiftQueue
+    @if is-nemlist($que) {
+        $cque: inter($cque, $que);
+    }
+    $list:      $colorListBase;     //颜色名称 list 数组，默认 $colorListBase 基础通用色
+    //从 base 颜色中去除 alias 别名颜色后 作为颜色循环的数据源
+    $list: remove($list, $colorListAlias...);
+    //如果指定的 $ckey 键名不在 $list 中，则插入
+    @if is-nemstr($ckey) and not has($list, $ckey) {
+        $list: push($list, $ckey);
+    }
+    //筛选 $colorMap 加快 map.get 速度
+    @if not is-nemlist($filter) {
+        $filter: mk($list...);
+    } @else {
+        $filter: unique(push($filter, $list...));
+        $list: mk($filter...);
+    }
+    $cmap: if(not is-nemlist($filter), $colorMap, map-filter-keys($colorMap, $filter...));
+
+    //样式类前缀
+    //$clspre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
+    $clspre: cls-pre($target, $pre);
+    //可能存在的 传入 mixin 名称
+    $mixn: 'spf-color-shift-mix-' + $prop;
+
+    @each $c in $list {
+        //获取当前颜色 key 可能存在的别名  blue --> primary
+        $alia: map-get-key($colorAliasMap, quote(to-string($c)));
+        @each $cq in $cque {
+            //针对 $pre 与 颜色名称相同的 情况
+            //例如 $pre = fc- 颜色列表中又包含了 fc-m 颜色，则会生成 .fc-fc-m 颜色类
+            //此处解决这个问题
+            $ck: '';
+            $ci: null;
+            //$clsn: '';
+            $clsns: ();
+            @if $ckey == $c {
+                $ck: #{$cq};
+                $ci: color-get(#{$c}-#{$cq}, null, $cmap);
+                //m 级别颜色生成 2 个类名 .pre, .pre-m
+                @if $cq == m {
+                    $clsns: push($clsns, str-sub($clspre, 1, -2));
+                }
+            } @else {
+                $ck: #{$c}-#{$cq};
+                $ci: color-get($ck, null, $cmap);
+                //m 级别颜色生成 2 个类名 .pre-red, .pre-red-m
+                @if $cq == m {
+                    $clsns: push($clsns, #{$clspre}#{$c});
+                }
+            }
+            $clsns: push($clsns, #{$clspre}#{$ck});
+            //如果存在 alia 别名，则增加别名类名 .pre-red, .pre-red-m  -->  .pre-red, .pre-red-m, .pre-danger, .pre-danger-m
+            @if is-nemstr($alia) {
+                @if $cq == m {
+                    $clsns: push($clsns, #{$clspre}#{$alia});
+                }
+                $clsns: push($clsns, #{$clspre}#{$alia}-#{$cq});
+            }
+            @if is-color($ci) {
+                #{$clsns} {
+                    @if meta.mixin-exists($mixn) {
+                        //传入了 mixin 则应用此 mixin 并传入 参数
+                        @include meta.apply(meta.get-mixin($mixn), $pre, $ci, #{$c}-#{$cq});
+                    } @else {
+                        #{$prop}: #{$ci} !important;
+
+                        // 针对 color-m 级别的颜色 
+                        @if $cq == 'm' {
+                            //自动通过 pre-hoverable 增加悬停翻转颜色样式
+                            // hover 默认使用 color-l1 级颜色
+                            $ci-hov: color-get(#{$c}-l1, null, $cmap);
+                            // visited 默认使用 color-d1 级颜色
+                            $ci-act: color-get(#{$c}-d1, null, $cmap);
+                            @if is-color($ci-hov, $ci-act) {
+                                &.#{$pre}hoverable {
+                                    &:hover {
+                                        #{$prop}: #{$ci-hov} !important; 
+                                    }
+                                    &:visited {
+                                        #{$prop}: #{$ci-act} !important; 
+                                    }
+                                }
+                            }
+
+                            //颜色透明度循环，自带透明度的颜色不执行透明度循环
+                            @if $opa == true and not has-alpha($ci) {
+                                //从 0.1~0.9 循环生成透明度颜色值
+                                @for $i from 1 through 9 {
+                                    $alpha: mul($i, 0.1);
+                                    //$alhex: to-hex(round(mul($alpha, 255)));
+                                    //$alhex: if(str-len($alhex) == 1, '0' + $alhex, $alhex);
+                                    //新颜色
+                                    $nci: set-alpha($ci, $alpha);
+
+                                    &.#{$pre}a#{$i} {
+                                        #{$prop}: #{$nci} !important;
+                                    }
+                                }
+                            }
+                        }
+                        
+                    }
+                }
+            }
+        }
+    }
+}
+/** size-shift **/
+/** 根据 $list 可选尺寸数组(如：xs,s,m,l,xl)，为 当前类 或 后代类 指定尺寸样式 **/
+@mixin spf-size-shift(
+    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       pd-,                //样式类前缀，如：pd- 则生成类：.foo.pd-xxl | .foo .pd-xs
+    $prop:      padding,            //要设置尺寸的 css 属性，可选 padding/margin/font-size/border-width/border-radius... 默认 padding
+                                    //!! 也可以传入自定义的 mixin 必须接受 3 个参数：
+                                    //!! pre 类名前缀，size 尺寸值，skey 尺寸键名(btn-xxl)
+                                    //!! 自定义的 mixin 名称必须以 spf-size-shift-mix- 开头 只需要传入结尾部分字符串
+                                    //!! 例如：spf-size-shift-mix-foo-bar 只需传入 foo-bar
+    $skey:      pd,                 //在尺寸 map 中的键名前缀，如 fs|pd|mg|rd|btn...
+    $manual:    null,               //手动通过数值指定尺寸 list 如：24,32,48,54
+    $trbl:      true,               //是否自动循环输出 trbl position 参数
+    //$filter:    null,               //!! 自动根据 $skey 筛选 不需要手动提供
+    $que:       null,               //可以手动指定 sizeShiftQueue 只循环部分尺寸
+) {
+    //需要执行 位置循环的 $prop list
+    $props: padding,margin,border-width,border-radius;
+    //$sizeShiftQueue
+    $sque: mk($sizeShiftQueue...);
+    @if is-nemlist($que) {$sque: inter($sque, $que);}
+    //根据 $skey 筛选 $sizeMap
+    $smap: map-filter-keys($sizeMap, $skey);
+    //类名前缀
+    //$clspre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
+    $clspre: cls-pre($target, $pre);
+    //可能存在的 传入 mixin 名称
+    $mixn: 'spf-size-shift-mix-' + $prop;
+
+    @each $sz in $sque {
+        //类名 .pre-xxl
+        $clsns: mk(#{$clspre}#{$sz});
+        //在 $sizeKeyMap 中  xxl: huge
+        $ski: map.get($sizeKeyMap, $sz);
+        //增加语义类名 .pre-xxl  -->  .pre-xxl, .pre-huge
+        @if is-nemstr($ski) {
+            $clsns: push($clsns, #{$clspre}#{$ski});
+        }
+        $si: size-get(#{$skey}-#{$sz}, null, $smap);
+        @if is-number($si) {
+            #{$clsns} {
+                @if meta.mixin-exists($mixn) {
+                    //如果传入 mixin 则应用此 mixin 并传入参数
+                    @include meta.apply(meta.get-mixin($mixn), $pre, $si, #{$skey}-#{$sz});
+                } @else {
+                    #{$prop}: $si !important;
+                    
+                    // 对于某些 prop 还需要执行 位置循环
+                    @if $trbl == true and has($props, $prop, true) {
+                        @if $prop == border-radius {
+                            // 针对 radius 执行特殊循环
+                            @each $ri in $cornerQueue {
+                                // .pre-rd-trbl
+                                $rdclsn: if($pre == rd-, #{$pre}po-#{$ri}, #{$pre}rd-#{$ri});
+                                &.#{$rdclsn} {
+                                    //#{$prop}: 0 !important;
+                                    @include spf-size-rd($si, $ri, true);
+                                }
+                            }
+                        } @else {
+                            // 正常的 trbl 循环
+                            @each $pi in $trblQueue {
+                                // .pre-po-trbl
+                                &.#{$pre}po-#{$pi} {
+                                    //#{$prop}: 0 !important;
+                                    @include spf-size-po($si, $pi, $prop, true);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    //通过手动传入尺寸值，来设置尺寸样式
+
+    //主题系统生成的 sizeMap 一定包含 -m 原始尺寸
+    $msz: size-get(#{$skey}-m, null, $smap);
+    //获取当前尺寸值序列的单位 如：px 主题系统生成的 sizeMap 相同键名一定拥有相同单位
+    $mu: if(is-number($msz), unit($msz), '');
+
+    @if is-nemlist($manual) {
+        @each $sz in $manual {
+            @if is-number($sz) {
+                $sz: set-unit($sz, $mu);
+                // .pre-10px
+                #{$clspre}#{$sz} {
+                    @if meta.mixin-exists($mixn) {
+                        //如果传入 mixin 则应用此 mixin 并传入参数
+                        @include meta.apply(meta.get-mixin($mixn), $pre, $sz, manual);
+                    } @else {
+                        #{$prop}: $sz !important;
+    
+                        // 对于某些 prop 还需要执行 位置循环
+                        @if $trbl == true and has($props, $prop, true) {
+                            @if $prop == border-radius {
+                                // 针对 radius 执行特殊循环
+                                @each $ri in $cornerQueue {
+                                    // .pre-rd-trbl
+                                    $rdclsn: if($pre == rd-, #{$pre}po-#{$ri}, #{$pre}rd-#{$ri});
+                                    &.#{$rdclsn} {
+                                        @include spf-size-rd($sz, $ri, true);
+                                    }
+                                }
+                            } @else {
+                                // 正常的 trbl 循环
+                                @each $pi in $trblQueue {
+                                    // .pre-po-trbl
+                                    &.#{$pre}po-#{$pi} {
+                                        @include spf-size-po($sz, $pi, $prop, true);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+/** 批量引用 color-shift 生成的样式类，减少代码量 **/
+@mixin spf-color-extend(
+    $target:    self,               //要将颜色样式引用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       icon-,              //样式类前缀，如：icon- 则生成类：.foo.icon-red | .foo .icon-red-l
+    $extend:    fc-,                //要引用的 颜色样式类前缀 fc- 表示将引用 .fc-red|.fc-red-l2...
+    $ckey:      fc,                 //默认颜色键名，如：background-color 的默认颜色名为 bgc ($color-bgc-*)
+    $filter:    null,               //是否在 colorMap 中筛选部分颜色值 作为循环数据源  颜色键名(前缀) list
+    $que:       null,               //可以手动指定要引用的 颜色 shiftQueue 例如：(l3,m,d3)
+) {
+    $cque:      $colorShiftQueue;   //储存所有颜色 shift 变化 lvl 的 list，如：l2,l1,d1,d2 默认 $colorShiftQueue
+    @if is-nemlist($que) {
+        $cque: inter($cque, $que);
+    }
+    $list:      $colorListBase;     //颜色名称 list 数组，默认 $colorListBase 基础通用色
+    //从 base 颜色中去除 alias 别名颜色后 作为颜色循环的数据源
+    $list: remove($list, $colorListAlias...);
+    //如果指定的 $ckey 键名不在 $list 中，则插入
+    @if is-nemstr($ckey) and not has($list, $ckey) {
+        $list: push($list, $ckey);
+    }
+    //筛选 $colorMap 加快 map.get 速度
+    @if is-nemlist($filter) {
+        $list: unique(push($list, $filter...));
+    }
+    //样式类前缀
+    $clspre: cls-pre($target, $pre);
+
+    @each $c in $list {
+        //获取当前颜色 key 可能存在的别名  blue --> primary
+        $alia: map-get-key($colorAliasMap, quote(to-string($c)));
+        @each $cq in $cque {
+            $ck: '';
+            //$clsn: '';
+            $clsns: ();
+            @if $ckey == $c {
+                $ck: #{$cq};
+                //m 级别颜色生成 2 个类名 .pre, .pre-m
+                @if $cq == m {
+                    $clsns: push($clsns, str-sub($clspre, 1, -2));
+                }
+            } @else {
+                $ck: #{$c}-#{$cq};
+                //m 级别颜色生成 2 个类名 .pre-red, .pre-red-m
+                @if $cq == m {
+                    $clsns: push($clsns, #{$clspre}#{$c});
+                }
+            }
+            $clsns: push($clsns, #{$clspre}#{$ck});
+            //如果存在 alia 别名，则增加别名类名 .pre-red, .pre-red-m  -->  .pre-red, .pre-red-m, .pre-danger, .pre-danger-m
+            @if is-nemstr($alia) {
+                @if $cq == m {
+                    $clsns: push($clsns, #{$clspre}#{$alia});
+                }
+                $clsns: push($clsns, #{$clspre}#{$alia}-#{$cq});
+            }
+            //执行 extend 
+            #{$clsns} {
+                //!! optional 必须
+                @extend .#{$extend}#{$ck} !optional;
+            }
+        }
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的 effect 样式 **/
+@mixin spf-effect-shift(
+    $target:    self,               //此 effect 样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       bar-,               //样式类前缀，如：bar- 则生成类：.bar-red.bar-effect-normal|fill|plain|popout
+    $mixin:     null,               //!! 可以传入自定义的 mixin 必须接受 5 个参数： 
+                                    //!! pre 类名前缀，effect 类型，bgk 背景色键，fk 前景色键，bdk 边框色键
+                                    //!! 自定义的 mixin 名称必须以 spf-effect-shift-mix- 开头 只需要传入结尾部分字符串
+                                    //!! 例如：spf-effect-shift-mix-foo-bar 只需传入 foo-bar
+                                    //!! 默认 spf-effect-shift-mix-default
+) {
+    $list:      $colorListBase;     //颜色名称 list 数组，默认 $colorListBase 基础通用色
+    //从 base 颜色中去除 alias 别名颜色后 作为颜色循环的数据源
+    $list: remove($list, $colorListAlias...);
+    //将 no-color 添加到颜色 list 头部(无法查询到颜色)，作为默认 effect 基础色
+    $list: unshift($list, 'no-color');
+
+    //当前类|后代类 的 类名前缀
+    $clspre: cls-pre($target, $pre);
+
+    //mixin 名称
+    $mixn: if(is-nemstr($mixin), $mixin, 'default');
+    $mixn: spf-effect-shift-mix-#{$mixn};
+    //mixin 必须存在
+    @if meta.mixin-exists($mixn) {
+        //获取 mixin
+        $mix: meta.get-mixin($mixn);
+
+        //颜色循环
+        @each $base in $list {
+            //颜色值
+            $ci: null;
+            //颜色别名
+            $alias: null;
+            @if $base != 'no-color' {
+                $ci: color-get(#{$base}-m);
+                $alias: map-get-key($colorAliasMap, quote(to-string($base)));
+            }
+
+            //根据 base 基础颜色 以及 effect 类型，确定 bgk|fk|bdk 的初始状态值
+            $normal-ks: null;
+            $fill-ks:   null;
+            $plain-ks:  null;
+            $popout-ks: null;
+            @if is-null($ci) {
+                //未指定 base 基础颜色键名  使用默认颜色
+                $normal-ks: (   bgk: bgc-m,     fk: fc-m,   bdk: bdc-m  );
+                $fill-ks:   (   bgk: gray-m,    fk: unset,  bdk: unset  );
+                $plain-ks:  (   bgk: white-m,   fk: fc-m,   bdk: bdc-m  );
+                $popout-ks: (   bgk: transparent,   fk: unset,   bdk: unset  );
+            } @else {
+                $bk: #{$base}-m;
+                $normal-ks: (   bgk: #{$base}-l2,   fk: unset,  bdk: #{$base}-l1    );
+                $fill-ks:   (   bgk: $bk,           fk: unset,  bdk: unset  );
+                $plain-ks:  (   bgk: white-m,       fk: $bk,    bdk: $bk    );
+                $popout-ks: (   bgk: transparent,   fk: $bk,    bdk: unset  );
+            }
+            //构建 不同 effect 类型下的 颜色键名 map
+            $ks: (
+                normal: $normal-ks,
+                fill:   $fill-ks,
+                plain:  $plain-ks,
+                popout: $popout-ks,
+            );
+
+            //类名序列
+            $clsns: ();
+            @if is-null($ci) {
+                //$base == null 默认 effect 效果
+                @if not & {
+                    $clsns: push($clsns, str-sub($clspre, 1, -2));
+                } @else {
+                    $clsns: push($clsns, cls-pre($target, ''));
+                }
+            } @else {
+                //指定了 $base 基本色
+                $clsns: push($clsns, #{$clspre}#{$base}-m);
+                @if is-nemstr($alias) {
+                    //基本色存在 别名
+                    $clsns: push($clsns, #{$clspre}#{$alias}-m);
+                }
+            }
+
+            #{$clsns} {
+                //effect 循环
+                @each $efi in $effectList {
+                    $ksmap: map.get($ks, $efi);
+                    @if is-nemmap($ksmap) {
+                        $bgk:   map.get($ksmap, bgk);
+                        $fk:    map.get($ksmap, fk);
+                        $bdk:   map.get($ksmap, bdk);
+
+                        &.#{$pre}effect-#{$efi} {
+                            //应用 mixin
+                            @include meta.apply($mix, $pre, $efi, $bgk, $fk, $bdk);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的字体样式 **/
+@mixin spf-fo-shift($target: self, $manual: $extraFsSizeQueue) {
+    //$prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    $prop-pre: cls-pre($target, '.');
+    //颜色循环 .fc-red-m .fc-primary-d3  额外增加 黑白色
+    @include spf-color-shift($target, 'fc-', color, fc, false, (white, black));
+    //尺寸循环 .fs-m .fs-xl .fs-32px 
+    @include spf-size-shift($target, 'fs-', font-size, fs, $manual, false);
+    //字重循环 .fw-xl .fw-m
+    @include spf-size-shift($target, 'fw-', font-weight, fw, (100,200,300,400,500,600,700,800,900), false);
+    //字重快捷类 .fw-normal|bold|thin
+    #{$prop-pre}fw-normal { font-weight: $size-fw-m !important; }
+    #{$prop-pre}fw-bold { font-weight: $size-fw-xl !important; }
+    #{$prop-pre}fw-thin { font-weight: $size-fw-xs !important; }
+    //字体族 .fml-default|code...
+    $fmls: map-filter-keys($varsMap, font-fml);
+    $fmlks: map.keys($fmls);
+    @each $k in $fmlks {
+        //font-fml-foobar --> fml-foobar
+        $ki: str-sub($k, 6);
+        $kv: map.get($fmls, $k);
+        #{$prop-pre}#{$ki} {font-family: unquote($kv) !important;}
+    }
+
+    //其他通用字体样式
+    //链接字体样式 .f-a
+    #{$prop-pre}f-a {
+        @include spf-a(primary);
+    }
+    //高亮字体 .f-highlight
+    #{$prop-pre}f-highlight {
+        box-sizing: border-box;
+        padding: .2em .3em !important;
+        margin: 0 .3em !important;
+        border: {
+            radius: .2em !important;
+            width: 0 !important;
+        }
+        background-color: $color-warn-l3 !important;
+        color: fore-color($color-warn-l3, 0.8) !important;
+        &.hl-border {
+            border: {
+                width: 1px !important;
+                color: $color-warn-l2 !important;
+            }
+        }
+        @each $hc in $typeList {
+            $hcv: color-get(#{$hc}-l3);
+            $hfcv: fore-color(color-get(#{$hc}-l3), 0.8);
+            $hbcv: color-get(#{$hc}-l2);
+            @if $hcv != null {
+                &.hl-#{$hc} {
+                    background-color: $hcv !important;
+                    color: $hfcv !important;
+                    &.hl-border {
+                        border-color: $hbcv !important;
+                    }
+                }
+            }
+        }
+    }
+    //codex 代码字体
+    #{$prop-pre}f-code {
+        padding: .2em .3em !important;
+        margin: 0 .3em !important;
+        border: {
+            radius: .2em !important;
+            width: 0 !important;
+        }
+        background-color: $color-gray-l3 !important;
+        color: $color-primary-d3 !important;
+        font-family: $font-fml-code;
+    }
+    //.f-ellipsis
+    #{$prop-pre}f-ellipsis {
+        @include spf-text-ellipsis;
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的边框样式 可手动指定 border-width|radius 尺寸 list **/
+@mixin spf-bd-shift($target: self, $width: null, $radius: null) {
+    //$prop-pre: if($target == self, unquote("&"), unquote("& "));
+    $prop-pre: cls-pre($target);
+    //颜色循环 .bdc-red-d2 .bdc-m 额外增加 黑白色
+    @include spf-color-shift($target, 'bdc-', border-color, bdc, false, (white, black));
+    #{$prop-pre}[class*=bdc-] {
+        border: {
+            style: solid;
+            width: $size-bd-m;
+        }
+    }
+    //尺寸循环|位置循环 .bd-m .bd-m.bd-rl .bd-m.bd-xy
+    @include spf-size-shift($target, 'bd-', border-width, bd, $width);
+    #{$prop-pre}[class*=bd-] {
+        border: {
+            style: solid;
+            color: $color-bdc-m;
+        }
+    }
+    //圆角循环 .rd-m|xl..
+    @include spf-size-shift($target, 'rd-', border-radius, rd, $radius);
+}
+/** 为 当前类 或 后代类 指定 通用的 padding 样式 **/
+@mixin spf-pd-shift($target: self, $manual: null) {
+    //尺寸循环|位置循环 .pd-m .pd-s.pd-rl .pd-xl.pd-xy
+    @include spf-size-shift($target, 'pd-', padding, pd, $manual);
+}
+/** 为 当前类 或 后代类 指定 通用的 margin 样式 **/
+@mixin spf-mg-shift($target: self, $manual: null) {
+    //尺寸循环|位置循环 .mg-m .mg-s.mg-rl .mg-xl.mg-xy
+    @include spf-size-shift($target, 'mg-', margin, mg, $manual);
+}
+/** 为 当前类 或 后代类 指定 通用的 background 样式 **/
+@mixin spf-bg-shift($target: self, $blur: null) {
+    //$prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    $prop-pre: cls-pre($target, '.');
+    //颜色循环|透明度循环 .bgc-red-d2 .bgc-m .bgc-primary-l1.bgc-a6
+    @include spf-color-shift($target, 'bgc-', background-color, bgc, true, (white, black));
+    //backdrop-filter: blur()
+    @if $blur == null {$blur: size-get(blur-m);}
+    //.bg-blur
+    #{$prop-pre}bg-blur {
+        backdrop-filter: blur($blur);
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的 opacity 样式 **/
+@mixin spf-opa-shift($target: self) {
+    //$prop-pre: if($target == self, unquote("&."), unquote("& ."));
+    $prop-pre: cls-pre($target, '.');
+    @for $opi from 1 through 10 {
+        $opik: $opi * 10;
+        $opiv: $opi / 10;
+        //.opa-10|20|100...
+        #{$prop-pre}opa-#{$opik} {
+            opacity: $opiv !important;
+        }
+    }
+}
+/** 为 当前类 或 后代类 指定 通用的 shadow 样式 **/
+@mixin spf-shadow-shift($target: self, $pre: shadow-, $prop: box-shadow, $color: null) {
+    //$prop-pre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
+    $prop-pre: cls-pre($target, $pre);
+    //阴影颜色固定 可手动通过 color 参数指定
+    $oc: if(is-color($color), $color, $color-shadow-m);
+    //阴影浓度由 alpha 决定，范围 0.15~0.6 间隔 0.15
+    $step: 0.15;
+
+    //循环生成 阴影尺寸|浓度
+    @each $qi in $sizeShiftQueue {
+        //xl --> 16px
+        $sz: size-get(shadow-#{$qi});
+        @if is-number($sz) {
+            $x: div($sz, 2);
+            $y: $sz;
+            $blur: add($sz, set-unit(8, unit($sz)));
+
+            //浓度循环
+            @for $i from 1 through 4 {
+                $alpha: mul($i, $step);
+                $nc: set-alpha($oc, $alpha);
+                //样式子类 .pre-[xxl~m~xxs]-[a1~a4]
+                $clsns: mk(#{$prop-pre}#{$qi}-a#{$i});
+
+                //默认阴影样式 size = m  alpha = 0.3
+                @if $qi == m and $i == 2 {
+                    //默认样式类 .pre
+                    $clsns: push($clsns, str-sub($prop-pre, 1, -2));
+                }
+
+                #{$clsns} {
+                    #{$prop}: #{$x} #{$y} #{$blur} #{$nc};
+                }
+            }
+        }
+    }
+}
+
+
+
+/** 在 *-shift mixin 中应用的 *-shift-mix-* mixins **/
+
+/** 批量设置 单行组件 size **/
+@mixin spf-size-shift-mix-bar-size($pre: bar-, $size: 0, $skey: manual) {
+    //计算单行元素 size 尺寸值
+    $szmap: null;
+    @if $skey == manual {
+        //手动指定的 尺寸值
+        $szmap: spf-bar-size-calc($size);
+    } @else {
+        //从 sizeMap 读取的尺寸值
+        $szmap: spf-bar-size-calc($skey);
+    }
+    //必须得到正确的尺寸值
+    @if is-nemmap($szmap) {
+        //读取计算得到的实际尺寸值
+        $sz: map.get($szmap, sz);
+        $pd: map.get($szmap, pd);
+        $rd: map.get($szmap, rd);
+        $fs: map.get($szmap, fs);
+        @if is-number($sz, $pd, $rd, $fs) {
+            //注入实际尺寸样式
+            @include spf-set-bar-size($pre, $sz, $pd, $rd, $fs);
+            @include spf-set-bar-shape($pre, $sz, $pd, $rd, $fs);
+            @include spf-set-bar-stretch($pre, $sz, $pd, $rd, $fs);
+            @include spf-set-bar-tightness($pre, $sz, $pd, $rd, $fs);
+        }
+    }
+}
+/** 批量设置各 status 下的 effect 样式值 **/
+@mixin spf-effect-shift-mix-default($pre: bar-, $effect: normal, $bgk: unset, $fk: unset, $bdk: unset) {
+    //缓存 normal|active 状态下的 值 map
+    $n-map: null;
+    $a-map: null;
+
+    //status 状态循环
+    @each $status in $spfStatusList {
+        //计算 $status 状态下的 bgk|fk|bdk 值
+        $kmap: spf-effect-calc($effect, $status, $bgk, $fk, $bdk);
+        @if is-nemmap($kmap) {
+            //读取
+            $s-bgk: map.get($kmap, bgk);
+            $s-fk: map.get($kmap, fk);
+            $s-bdk: map.get($kmap, bdk);
+
+            //应用样式
+            @if $status == normal {
+                //缓存
+                $n-map: map.merge((), $kmap);
+                //普通状态 直接写样式
+                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+            } @else if $status == hover {
+                //hover 状态要增加子样式类
+                &.#{$pre}hoverable:hover {
+                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                }
+            } @else if $status == active {
+                //缓存
+                $a-map: map.merge((), $kmap);
+                //active 状态要增加子样式类
+                &.#{$pre}active {
+                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                    //active 状态下需要覆盖 hover 翻转
+                    &.#{$pre}hoverable:hover {
+                        @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                    }
+                }
+            }
+        }
+    }
+
+    //disabled 情况下的 status
+    &.#{$pre}disabled {
+        //强制 opacity 0.3
+        opacity: 0.3 !important;
+        cursor: not-allowed;
+        & * {cursor: not-allowed;}
+
+        //覆盖 normal|hover 状态
+        @if is-nemmap($n-map) {
+            //读取
+            $s-bgk: map.get($n-map, bgk);
+            $s-fk: map.get($n-map, fk);
+            $s-bdk: map.get($n-map, bdk);
+            //覆盖普通状态
+            @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+            //覆盖 hover 状态
+            &.#{$pre}hoverable:hover {
+                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+            }
+        }
+        //覆盖 active 状态
+        @if is-nemmap($a-map) {
+            //读取
+            $s-bgk: map.get($a-map, bgk);
+            $s-fk: map.get($a-map, fk);
+            $s-bdk: map.get($a-map, bdk);
+            //覆盖 active 状态
+            &.#{$pre}active {
+                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                &.#{$pre}hoverable:hover {
+                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                }
+            }
+        }
+    }
+}
+
+
+
+
+/** 初始化 body 样式 **/
+body, view, .page {
+    margin: 0; padding: 0;
+
+    //默认字体
+    font: {
+        size: $size-fs-m;
+        weight: $size-fw-m;
+        family: $font-fml-default;
+    }
+    color: $color-fc-m;
+
+    //默认背景
+    background-color: $color-bgc-m;
+}
+
+//通用字体样式 .fc-*|.fs-*|.fw-*|.fml-*|.f-a|.f-highlight|.f-code|.f-ellipsis
+@include spf-fo-shift(self);
+//通用 padding|margin 样式 .pd-*|.mg-*
+@include spf-mg-shift(self);
+@include spf-pd-shift(self);
+//通用背景样式 .bgc-*
+@include spf-bg-shift(self);
+//通用带 backdrop-filter-blur 的背景样式
+.bg-backdrop-blur {
+    background-color: set-alpha($color-bgc-m, 0.8);
+    @extend .bg-blur;
+}
+//通用边框样式 .bd-*|.bdc-*|.rd-*
+@include spf-bd-shift(self);
+//通用 border 初始样式
+.bd-default {
+    border: {
+        style: solid;
+        width: 0;
+        color: $color-bdc-m;
+        radius: 0;
+    }
+}
+//通用透明度样式 .opa-10~100
+@include spf-opa-shift(self);
+//通用 text|box-shadow 样式 .text-shadow-*|.shadow-*
+@include spf-shadow-shift(self, text-shadow-, text-shadow);
+@include spf-shadow-shift(self, shadow-, box-shadow);
+
+
+//通用 flex 样式
+.flex-x {@include spf-flex-x($gap: $size-mg-m);}
+.flex-y {@include spf-flex-y($gap: $size-mg-m);}
+
+
+//自定义 scroll-bar 样式
+.scroll, .scroll-y {
+    @include spf-scroll;
+    .scroll-thin {@include spf-scroll($size: 4px);}
+    .scroll-bold {@include spf-scroll($size: 8px);}
+}
+.scroll-x {
+    @include spf-scroll($ov: auto hidden);
+    .scroll-thin {@include spf-scroll($size: 4px, $ov: auto hidden);}
+    .scroll-bold {@include spf-scroll($size: 8px, $ov: auto hidden);}
+}
+
+
+
+/**
+ * 合并资源 temp_spf_0qkfkB.scss
+ * !! 不要手动修改 !!
+ */
+
+
+
+
+/**
+ * 合并资源 base.scss
+ * !! 不要手动修改 !!
+ */
+
+/**
+ * SPF-Vcom vue2.x 组件库 基础样式 scss
+ * vcom/spf/1.0.0/common/base.scss
+ * !! 不要手动修改 !!
+ * 
+ */
+
+//tab 标签行样式
+@mixin spf-tab-row($pre: tab-, $h: $size-bar-m) {
+
+}
+
+
+
+
+/**
+ * 合并资源 icon.scss
+ * !! 不要手动修改 !!
+ */
+
+// spf-icon|icon-logo 组件公用样式
+.spf-icon, .spf-icon-logo {
+    width: 1em; height: 1em;
+    //vertical-align: -0.15em;
+    //margin-top: 0.05em;
+    fill: currentColor;
+    overflow: hidden;
+    transition: all $ani-dura;
+
+    //默认 size
+    font-size: $size-icon-m;
+
+    //尺寸循环 
+    @include spf-size-shift(self, 'icon-', font-size, icon, $extraIconSizeQueue, false);
+}
+
+// spf-icon 组件样式
+.spf-icon {
+    //默认 color
+    color: $color-fc-m;
+
+    //颜色循环 引用 .fc-*
+    @include spf-color-extend(self, icon-, fc-, fc, (white,black), (l1,m,d1));
+}
+
+// spf-icon-logo 组件样式
+.spf-icon-logo {
+    //默认 长方形 logo
+    width: auto; 
+
+    //正方形
+    &.icon-square {
+        width: 1em;
+    }
+
+    //单色 logo
+    &.icon-single-color {
+        //& * {
+            //让填充色继承外部的 color 值
+            fill: currentColor !important;
+            //让描边色也继承（如果 SVG 有描边）
+            stroke: currentColor !important;
+            //清除所有内部的颜色相关属性
+            stroke-color: unset !important;
+            fill-opacity: 1 !important;
+            stroke-opacity: 1 !important;
+        //}
+
+        //颜色循环 引用 .fc-*
+        @include spf-color-extend(self, icon-, fc-, fc, (white,black), (l1,m,d1));
+    }
+}
+
+
+
+
+
+/**
+ * 合并资源 group.scss
+ * !! 不要手动修改 !!
+ */
+
+
+
+
+/**
+ * 合并资源 button.scss
+ * !! 不要手动修改 !!
+ */
+
+.spf-btn {
+    @include spf-po-ov($w: unset, $h: $size-btn-m, $pd: 0 $size-btn-pd-m, $mg: 0);
+    @include spf-flex-x($x: center, $y: center);
+    min-width: $size-btn-m;
+    font-size: $size-btn-fs-m;
+    font-family: $font-fml-default;
+    border: {
+        style: solid;
+        width: 1px;
+    }
+    cursor: pointer;
+    transition: background-color $ani-dura,
+                border-color $ani-dura,
+                transform .1s;
+
+    //icon 图标默认样式
+    &>svg[class*=icon] {
+        cursor: pointer;
+        transition: color .1s;
+        &:first-child {
+            &:last-child {
+                font-size: 1.6em;
+            }
+        }
+        &:not(:last-child):first-child {
+            margin-left: -0.2em;
+        }
+        &:not(:first-child):last-child {
+            margin-right: -0.2em;
+        }
+    }
+
+    &>label {
+        margin-top: -0.1em;
+        //@include spf-text-ellipsis;
+        @extend .f-ellipsis;
+        overflow: unset;
+        cursor: pointer;
+        transition: color .1s,
+                    text-underline-offset .1s;
+    }
+    //在 表格单元格中
+    &.btn-incell>label {
+        width: 0; text-align: center;
+    }
+    //当作页面标题
+    &.btn-astitle>label {
+        font-weight: bold;
+        font-size: 1.4em;
+    }
+
+    //mouse-down 按下效果
+    &.btn-mouse-down {
+        transform: scale(0.9);
+        //active|disabled 状态覆盖
+        &.btn-active, &.btn-disabled {
+            transform: none;
+        }
+    }
+    
+    //尺寸循环
+    @include spf-size-shift(self, btn-, bar-size, btn, $extraBtnSizeQueue, true);
+    //与尺寸值无关的 静态样式
+    @include spf-set-bar-size-static(btn-);
+    @include spf-set-bar-shape-static(btn-);
+    @include spf-set-bar-stretch-static(btn-);
+    @include spf-set-bar-tightness-static(btn-);
+
+    //effect
+    @include spf-effect-shift(self, btn-);
+}
+
+
+
+/**
+ * 合并资源 layout.scss
+ * !! 不要手动修改 !!
+ */
+
+.spf-layout {
+    @include spf-po-ov($w: 100%, $h: 100vh, $pd: 0, $mg: 0);
+    @include spf-flex-y;
+    background-color: $color-bgc-m;
+
+    &>.layout-navbar-container {
+        @include spf-po-fix($w: 100%, $h: navbar-m, $pd: 0, $mg: 0, $l: 0, $t: 0);
+        @include spf-flex-x-noinner($y: center);
+        border: {
+            style: solid;
+            width: 0 0 $size-bd-m 0;
+            color: $color-bdc-d1;
+        }
+
+        &>svg[class*=logo], &>.layout-usrbar {
+            width: $size-menubar-max-m;
+        }
+
+        &>.layout-navbar {
+            @include spf-po-ov($w: unset, $h: navbar-m, $pd: 0 bar-pd-xxl, $mg: 0);
+            @include spf-flex-x($y: center);
+            flex: 1;
+
+            &>.navbar-item {
+
+            }
+        }
+
+        &>.layout-usrbar {
+            @include spf-po-ov($w: menubar-max-m, $h: navbar-m, $pd: 0 bar-pd-m, $mg: 0);
+            @include spf-flex-x($x: flex-end);
+
+        }
+    }
+
+    &>.layout-mainbody {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include spf-flex-x-noinner($y: stretch);
+        flex: 1;
+        border: none;
+
+        &>.layout-menubar-container {
+            @include spf-po-ov($w: menubar-max-m, $h: unset, $pd: 0, $mg: 0);
+            @include spf-flex-y-noinner($x: center);
+
+            &>.menubar-navholder, &>.menubar-taskholder {width: 100%;}
+            &>.menubar-navholder {height: $size-navbar-m;}
+            &>.menubar-taskholder {height: $size-taskbar-m;}
+
+            &>.layout-menubar {
+                @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+                @include spf-flex-y($x: center);
+                flex: 1;
+                border: {
+                    style: solid;
+                    width: 0 $size-bd-m 0 0;
+                    color: $color-bdc-d1;
+                }
+            }
+        }
+
+        &>.layout-content {
+            @include spf-po($w: unset, $h: unset, $pd: navbar-m 0 taskbar-m 0, $mg: 0, $ov: hidden auto);
+            @include spf-flex-y;
+            @extend .scroll;
+            flex: 1;
+            &>* {flex-shrink: 0;}
+        }
+    }
+
+    &>.layout-taskbar-container {
+        @include spf-po-fix($w: 100%, $h: taskbar-m, $pd: 0, $mg: 0, $l: 0, $t: unset, $b: 0, $r: unset);
+        @include spf-flex-x-noinner($y: stretch);
+        border: {
+            style: solid;
+            width: $size-bd-m 0 0 0;
+            color: $color-bdc-d1;
+        }
+
+        &>.taskbar-ctrlbox {
+            @include spf-po-ov($w: unset, $h: taskbar-m, $pd: 0 pd-s, $mg: 0);
+            min-width: $size-btn-m;
+            @include spf-flex-x-noinner;
+            border: {
+                style: solid;
+                width: 0 $size-bd-m 0 0;
+                color: $color-bdc-d1;
+            }
+        }
+
+        &>.layout-taskbar {
+            @include spf-po($w: unset, $h: taskbar-m, $pd: 0, $mg: 0, $ov: auto hidden);
+            @include spf-flex-x-noinner($x: flex-end, $y: stretch);
+            flex: 1;
+
+            &>.taskbar-item {
+                @include spf-po-ov($w: taskitem-m, $h: taskbar-m, $pd: 0 pd-xxs 0 pd-s, $mg: 0);
+                @include spf-flex-x-noinner;
+                flex-shrink: 0;
+                border: {
+                    style: solid;
+                    width: 0 0 0 $size-bd-m;
+                    color: $color-bdc-d1;
+                }
+                cursor: pointer;
+                transition: all $ani-dura;
+                &>.taskitem-label {
+                    width: unset; flex: 1; margin: 0 $size-pd-xs;
+                    font-size: $size-fs-s;
+                    @include spf-text-ellipsis;
+                    cursor: pointer;
+                }
+
+                &:hover {
+                    background-color: set-alpha($color-bgc-l2, 0.8);
+                    color: $color-fc-d2;
+                    &>svg[class*=icon] {color: $color-fc-d2;}
+                }
+
+                &.taskitem-active, &.taskitem-active:hover {
+                    background-color: $color-bgc-l3;
+                    color: $color-fc-d3;
+                    &>svg[class*=icon] {color: $color-fc-d3;}
+                }
+            }
+
+
+        }
+    }
+
+    &>.layout-navbar-container, &>.layout-taskbar-container {
+        //background-color: set-alpha($color-bgc-m, 0.8);
+        //backdrop-filter: blur($size-blur-m);
+        @extend .bg-backdrop-blur;
+        z-index: 1;
+    }
+}
+
+
+
+/**
+ * 合并资源 win.scss
+ * !! 不要手动修改 !!
+ */
+
+//根据传入的 block-[m|xs|xxl] 计算对应的 win 窗口相关尺寸  <返回：map>
+@function win-size-key-calc($skey: block-m) {
+    //读取基础尺寸值
+    $sz: size-get($skey);
+    @if not is-string($skey) or not is-number($sz) {@return null;}
+    //block-xxl  -->  (block-xxl, block, xxl, l, 3, size)
+    $skl: key-parse($skey, true);
+    //尺寸类型 block..
+    $ztp: nth($skl, 2);
+    //传入尺寸的偏移形式 以及 偏移量
+    $sfx: nth($skl, 3);     // xxl|xs|m
+    $stp: nth($skl, 4);     // s|m|l
+    $lvl: nth($skl, 5);     // 0|1|2|3|4
+
+    //计算
+    //按钮使用默认尺寸
+    $btn: $size-btn-m;
+    //窗口的最小宽度
+    $min-w: n-clamp(256px, round(mul($sz, 8)), 1280px);
+    //窗口 padding
+    $pd: size-get(bar-pd-#{$sfx});
+    //窗口 radius
+    $rd: size-get(bar-rd-#{$sfx});
+    //窗口 titbar 高度
+    $tit-h: size-get(bar-#{$sfx});
+    //窗口 titbar 右侧 最小化|最大化|关闭 按钮到右边的 gap
+    $tit-gap: round(div(sub($tit-h, $btn), 2));
+    //窗口 titbar 右侧 最小化|最大化|关闭 按钮与 窗口 radius 匹配的 btn-radius
+    $tit-btn-rd: sub($rd, $tit-gap);
+    //窗口 ctrlbar 高度
+    $ctrl-h: add($btn, mul($pd, 2));
+
+    //输出
+    @return (
+        min-h:      $sz,    //基础尺寸作为窗口的 min-height
+        min-w:      $min-w,
+        pd:         $pd,
+        rd:         $rd,
+        tit-h:      $tit-h,
+        tit-gap:    $tit-gap,
+        tit-btn-rd: $tit-btn-rd,
+        ctrl-h:     $ctrl-h,
+    );
+}
+//根据传入的 block-[m|xs|xxl] 设置对应的 尺寸样式
+@mixin win-set-size($pre: win-, $size: block-m) {
+    $smap: win-size-key-calc($size);
+    @if is-nemmap($smap) {
+        $min-w:         map.get($smap, min-w);
+        $min-h:         map.get($smap, min-h);
+        $pd:            map.get($smap, pd);
+        $rd:            map.get($smap, rd);
+        $tit-h:         map.get($smap, tit-h);
+        $tit-gap:       map.get($smap, tit-gap);
+        $tit-btn-rd:    map.get($smap, tit-btn-rd);
+        $ctrl-h:        map.get($smap, ctrl-h);
+        @if is-number($min-w, $min-h, $pd, $rd, $tit-h, $tit-gap, $tit-btn-rd, $ctrl-h) {
+            //窗口样式
+            min-width: $min-w;
+            min-height: $min-h;
+            border-radius: $rd;
+            //titbar
+            &>.#{$pre}titbar {
+                height: $tit-h;
+                padding: 0 0 0 $pd;
+                &>*[class*=btn]:last-child {
+                    margin-right: $tit-gap;
+                    border-radius: 0 $tit-btn-rd 0 0 !important;
+                }
+                &>.#{$pre}title {
+                    padding: 0 $pd;
+                }
+                &>.#{$pre}titctrl {
+                    padding: 0 $pd 0 0;
+                }
+            }
+            //tabbar
+            &>.#{$pre}tabbar {
+                height: $tit-h;
+            }
+            //body
+            &>.#{$pre}body {
+                min-height: $min-h;
+                padding: $pd 0;
+                .#{$pre}row {
+                    padding: 0 $pd;
+                    //默认 min-height
+                    min-height: $tit-h;
+                }
+            }
+            //ctrlbar
+            &>.#{$pre}ctrlbar {
+                padding: 0 $pd;
+                height: $ctrl-h;
+            }
+        }
+    }
+}
+
+
+.spf-win {
+    @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+    @include spf-flex-y-noinner($x: stretch);
+    //默认自带 backdrop-blur 效果
+    @extend .bg-backdrop-blur;
+    @extend .bd-default;
+    transition: all $ani-dura;
+
+    //titbar
+    &>.win-titbar {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include spf-flex-x-noinner;
+        &>* {flex-shrink: 0;}
+        &>.win-title {
+            @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+            @include spf-flex-x-noinner;
+            flex: 1;
+            font-weight: $size-fw-xl;
+        }
+        &>.win-titctrl {
+            @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+            @include spf-flex-x-noinner($x: flex-end);
+        }
+    }
+
+    //tabbar
+    &>.win-tabbar {
+        @include spf-po($w: 100%, $h: unset, $pd: 0, $mg: 0, $ov: auto hidden);
+        @include spf-flex-x-noinner($x: center);
+        @extend .scroll-x;
+        
+        &>* {flex-shrink: 0;}
+        &>.tabbar-start, &>.tabbar-end {
+            @include spf-po-ov($w: unset, $h: bar-m, $pd: 0, $mg: 0);
+            min-width: $size-bar-m;
+            flex: 1;
+            border: {
+                style: solid;
+                width: 0 0 $size-bd-m 0;
+                color: $color-bdc-d1;
+            }
+        }
+        &>.tabbar-item {
+            @include spf-po-ov($w: unset, $h: bar-xs, $pd: 0 bar-pd-s, $mg: sub($size-bar-m, $size-bar-xs) 0 0 0);
+            min-width: $size-bar-m;
+            @include spf-flex-x-noinner($x: center);
+            border: {
+                style: solid;
+                width: 0 0 $size-bd-m 0;
+                color: $color-bdc-d1;
+                radius: $size-bar-rd-xs $size-bar-rd-xs 0 0;
+            }
+            cursor: pointer;
+
+            &>label {
+                color: $color-fc-m;
+                cursor: pointer;
+            }
+            &>*[class*=btn]:last-child {
+                margin-left: $size-bar-pd-xs;
+                margin-right: round(mul($size-bar-pd-s, -0.8));
+            }
+
+            &:hover {
+                &>label {
+                    color: $color-fc-d1;
+                }
+            }
+
+            &.tabitem-active {
+                border-width: $size-bd-m $size-bd-m 0 $size-bd-m;
+                &>label, &:hover>label {
+                    color: $color-fc-d3;
+                }
+            }
+        }
+    }
+
+    //body
+    &>.win-body {
+        @include spf-po($w: 100%, $h: unset, $pd: 0, $mg: 0, $ov: hidden auto);
+        flex: 1;
+        @include spf-flex-y;
+        @extend .scroll;
+        .win-row {
+            @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+            min-height: $size-bar-m;
+            @include spf-flex-x($x: flex-start);
+
+            //row 尺寸循环 .win-row.row-xxl 控制 min-height
+            @include spf-size-shift(self, row-, min-height, bar, $extraBarSizeQueue, false);
+        }
+    }
+
+    //ctrlbar
+    &>.win-ctrlbar {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        @include spf-flex-x-noinner($x: flex-end);
+        @extend .bd-default;
+    }
+
+    //默认窗口尺寸
+    @include win-set-size(win-, block-m);
+
+    //border
+    &.win-border {
+        border-width: $size-bd-m;
+        &>.win-ctrlbar {
+            border-width: $size-bd-m 0 0 0;
+        }
+    }
+
+    //sharp
+    &.win-sharp, &.win-type-inside {
+        border-radius: 0;
+        &>.win-titbar {
+            &>*[class*=btn]:last-child {
+                border-radius: 0 !important;
+            }
+        }
+    }
+
+    //shadow
+    &.win-shadow {
+        &, &.win-shadow-normal {
+            @extend .shadow-m-a1;
+        }
+        &.win-shadow-thin {@extend .shadow-s-a1;}
+        &.win-shadow-bold {
+            border-color: $color-bdc-d1;
+            @extend .shadow-l-a2;
+        }
+    }
+
+    //inside
+    &.win-type-inside {
+        width: 100%; height: unset; 
+        min-width: unset; min-height: unset;
+        flex: 1;
+    }
+
+    //tightness
+    &.win-tightness-loose {
+        @include win-set-size(win-, block-xxl);
+    }
+    &.win-tightness-tight {
+        @include win-set-size(win-, block-xs);
+    }
+
+
+}
+
+
+
+
+
+
+/**
+ * 合并资源 temp.scss
+ * !! 不要手动修改 !!
+ */
+
+
+
+
+/**
+ * 合并资源 base.scss
+ * !! 不要手动修改 !!
+ */
+
+.spf-pms-pms-index {
+    @include spf-po-ov($w: 100vw, $h: 100vh, $pd: 0, $mg: 0);
+}
+
+
+
+
+
+
+
+

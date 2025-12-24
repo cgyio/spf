@@ -95,6 +95,20 @@ export default {
         elm.resizer = undefined;
         return elm;
     },
+    //为 $el 元素添加 style
+    async $elStyle(style={}) {
+        let is = this.$is,
+            el = this.$el;
+        if (!is.elm(el)) return false;
+        //设置 el 样式
+        if (is.plainObject(style) && !is.empty(style)) {
+            this.$each(style, (v,k) => {
+                el.style[k] = v;
+            });
+            await this.$wait(10);
+        }
+        return true;
+    },
     
 
 
@@ -109,14 +123,15 @@ export default {
      * @return Vue Component instance 组件实例
      */
     async $invoke(compName, propsData = {}) {
-        return await Vue.$invokeComp.call(this, compName, propsData);
+        //return await Vue.$invokeComp.call(this, compName, propsData);
+        return await this.$dc.invoke(compName, propsData, this);
     },
     /**
      * 销毁 dynamic component 实例
      */
-    $destroyInvoke(compIns) {
-        return Vue.$destroyInvoke(compIns);
-    },
+    //$destroyInvoke(compIns) {
+    //    return Vue.$destroyInvoke(compIns);
+    //},
 
     
 

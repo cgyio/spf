@@ -3,7 +3,9 @@
  * Vue.service.ui
  */
 
+import baseService from 'base.js';
 export default {
+    mixins: [baseService],
     props: {
         
     },
@@ -39,41 +41,44 @@ export default {
 
             //自动明暗切换 事件监听对象
             autoDarkModeShifter: null,
-
-            /**
-             * theme options
-             */
-            /*theme: 'base',
-            themeInfo: {
-                name: 'base',
-                version: '',
-                desc: '',
-                hasDarkMode: true
-            },
-            //使用的组件库 
-            compPackage: [],
-            //使用的 图标包
-            iconPackage: ['vant','md-sharp','spiner'],
-            //暗黑模式开关，如需修改初始值，应在 Vue.theme.use() 方法前设置
-            darkMode: false,
-            //cssvar
-            cssvar: {
-                color: {},
-                size: {}
-            },
-            //使用的 vue ui 库
-            vueui: [],
-            //vue ui 库使用的 样式主题，用于加载对应的 vueui css
-            vueuiThemes: {},*/
             
             //是否开启动画
             animated: true,
 
+            //iconset 此组件库使用的 图标库
+            iconset: {
+                //是否启用
+                enable: true,
+                /*
+                'md-round': ['close', 'check', ...],
+                ...
+                */
+            },
 
-            //mask
-            mask: null,
+            //mask 全局遮罩层系统
+            mask: {
+                //layout-mask 组件 props 可通过 Vue.service.options.ui.mask.props 外部指定
+                props: {
+                    type: 'black',
+                    alpha: 'normal',
+                    blur: false,
+                    loading: false,
+                    clickOff: true,
+                    animateType: 'fadeIn',
+
+                    //事件处理
+                    on: {
+                        'mask-on': () => this.whenMaskOn(),
+                        'mask-off': () => this.whenMaskOff(),
+                    },
+                },
+                //layout-mask 组件实例
+                ins: null,
+            },
+
             //全局弹出层统一从 $ui 取得 z-index
-            zIndex: 1000, //从 1000 开始增加 
+            zIndex: 1000,       //当前系统级 zIndex
+            zIndexOrigin: 1000, //从 1000 开始增加，可通过 Vue.service.options.ui.zIndexOrigin 外部修改
 
             //request status
             request: {
@@ -82,8 +87,31 @@ export default {
                 error: false
             },
 
-            //初始化完成标记
-            inited: false,
+
+
+            /**
+             * !! for Dev
+             */
+            testTabList: [
+                {
+                    key: 'index',
+                    label: '首页',
+                },
+                {
+                    key: 'foo',
+                    icon: 'content-paste-off',
+                    label: '页面测试'
+                },
+                {
+                    key: 'bar',
+                    label: '更多页面'
+                },
+                {
+                    key: 'jaz',
+                    label: '<span class="fc-red">红字</span>标题'
+                }
+            ],
+            testTabActive: 'index',
         }
     },
     computed: {
@@ -208,22 +236,7 @@ export default {
             }
 
             //其他参数
-            if (is.plainObject(options) && !is.empty(options)) {
-                this.$cgy.each(options, (v,k) => {
-                    //必须是预定义的 data 项目
-                    if (is.undefined(this[k])) return true;
-                    if (is.plainObject(v)) {
-                        this[k] = Object.assign(this[k], v);
-                    } else if (is.array(v)) {
-                        //数组使用 整体替换的方式
-                        this[k].splice(0);
-                        this[k].push(...v);
-                    } else if (is(v, 'string,number,boolean')) {
-                        //其他标量形式，直接替换
-                        this[k] = v;
-                    }
-                });
-            }
+            this.combineOptions(options);
 
             
             
@@ -235,6 +248,19 @@ export default {
             }*/
 
             this.inited = true;
+            return true;
+        },
+
+        /**
+         * !! Vue.service.* 可实现的 afterRootCreated 方法，必须 async
+         * !! 将在 Vue.$root 根组件实例创建后自动执行
+         * @param {Vue} root 当前应用的 根组件实例，== Vue.$root
+         * @return {Boolean} 必须返回 true|false 表示初始化 成功|失败
+         */
+        async afterRootCreated(root) {
+            //创建 mask 组件实例
+            await this.initMask();
+
             return true;
         },
 
@@ -426,11 +452,185 @@ export default {
 
 
 
+        /**
+         * iconset 相关
+         */
+        //判断给定的 icon 图标名属于哪一个图标库 找到则返回相应的图表数据 未找到则返回 null
+        iconInSet(icon, defaultIconset = null) {
+            let is = this.$is,
+                isets = this.iconset,
+                icns = Object.keys(isets).filter(i=>i!=='enable'),
+                //返回值
+                rtn = {
+                    //所在图标库名称
+                    iconset: null,
+                    //完整图标名
+                    full: null,
+                    //去除图标库前缀的短图标名
+                    short: null
+                };
+                
+            this.$each(icns, (icos, icn) => {
+                if (icon.startsWith(icn)) {
+                    rtn.iconset = icn;
+                    rtn.full = icon;
+                    rtn.short = icon.replace(`${icn}-`, '');
+                    return false;
+                }
+            });
+            //找到则返回
+            if (!is.null(rtn.iconset)) return rtn;
+
+            //在默认的 iconset 中查找
+            if (is.string(defaultIconset) && is.defined(isets[defaultIconset])) {
+                let dft = isets[defaultIconset];
+                if (dft.includes(icon)) {
+                    rtn.iconset = defaultIconset;
+                    rtn.full = `${defaultIconset}-${icon}`;
+                    rtn.short = icon;
+                    return rtn;
+                }
+            }
+
+            //未找到
+            return null;
+        },
+
+
+
+        /**
+         * mask 全局遮罩层
+         */
+        //创建全局遮罩层实例，应在 Vue.$root 创建后执行，其父组件为 Vue.$root
+        async initMask() {
+            let mask = await this.$dc.invoke('base-layout-mask', this.mask.props);
+            this.mask.ins = mask;
+        },
+        //
+        /**
+         * 显示遮罩层，同时指定 zIndex
+         * 可以通过 maskProps 修改 mask 组件样式，例如：
+         *  {
+         *      blur: true,
+         *      type: 'primary',
+         *      # 额外的事件处理 都会被作为 once 一次性事件
+         *      on: {
+         *          'mask-on': function() { ... },
+         *          'mask-off': function() { ... },
+         *      }
+         *  }
+         */
+        async maskOn(maskProps={}, zIndex=null) {
+            let is = this.$is,
+                mask = this.mask.ins;
+            if (is.vue(mask)) {
+                //设置 zIndex
+                if (is.elm(mask.$el)) mask.setZindex(zIndex);
+                //将 maskProps 写入 mask 组件实例
+                if (is.plainObject(maskProps) && !is.empty(maskProps)) {
+                    //!! 自动处理 maskProps 中的 on 事件参数，强制注册为 once
+                    await mask.dcSet(maskProps, true);  
+                }
+
+                //如果 mask 已隐藏
+                if (mask.isDcShow !== true) {
+                    //调用 dcShow 显示动画
+                    await mask.dcShow();
+                    //触发 mask-on 事件
+                    mask.$emit('mask-on');
+                }
+                return true;
+            }
+            return false;
+        },
+        /**
+         * 隐藏遮罩层
+         * 可以自定义一个 mask-off once 事件处理方法
+         * !! 不推荐在此处定义事件，建议在 maskOn 方法中统一传入自定义事件
+         * @param {Function} callback 
+         * @return {Boolean}
+         */
+        async maskOff(callback=null) {
+            let is = this.$is,
+                mask = this.mask.ins;
+            //如果指定了 callback 则注册到 once 事件
+            if (is(callback, 'function,asyncfunction')) {
+                await this.$dc.on(mask, {
+                    'mask-off': callback
+                }, true);
+            }
+            if (is.vue(mask)) {
+                if (mask.isDcShow !== false) {
+                    //调用 dcHide 隐藏动画
+                    await mask.dcHide();
+                    //触发 mask-off 事件
+                    mask.$emit('mask-off');
+                }
+                return true;
+            }
+            return false;
+        },
+        /**
+         * 显示遮罩层，指向某个 win 窗口实例，表示当前 mask 作为此窗口的遮罩层
+         * 可以通过 maskProps 修改 mask 组件样式，与 maskOn 方法参数一致
+         */
+        async maskFor(win=null, maskProps={}) {
+            let is = this.$is;
+            //如果指定了 win 组件
+            if (is.vue(win) && is.elm(win.$el)) {
+                //先显示并设置 mask 的 zIndex
+                await this.maskOn(maskProps);
+                //设置当前窗口的 zIndex
+                win.setZindex();
+                //win.$el.style.zIndex = this.getZindex();
+                return true;
+            }
+            //未指定 win 组件，直接返回
+            return false;
+        },
+        //mask-on|off 默认事件 每次 on|off 都会执行
+        whenMaskOn() {
+            this.$log.success('mask-on ok');
+        },
+        whenMaskOff() {
+            let is = this.$is,
+                mask = this.mask.ins,
+                oprops = Object.assign({}, this.mask.props);
+            if (!is.vue(mask)) return;
+
+            //将 mask 组件实例的 props 恢复为默认值
+            if (is.defined(oprops.on)) Reflect.deleteProperty(oprops, 'on');
+            mask.dcSet(oprops);
+
+            //log
+            this.$log.success('mask-off ok');
+        },
+
+
+
+        /**
+         * 全局 zIndex
+         */
         //获取 zindex 并自增
-        getZIndex() {
+        getZindex() {
+            //首先尝试 restore
+            this.restoreZindex();
             this.zIndex += 1;
             return this.zIndex;
         },
+        //每次获取 系统级 zindex 时，检查是否存在浮动层，如果不存在任何浮动层，则恢复 ui.zindex 到初始值 1000
+        restoreZindex() {
+            let is = this.$is,
+                wl = this.$win.list || [],
+                mask = this.mask.ins;
+            if (wl.length<=0 && (!is.vue(mask) || mask.isDcShow!==true)) {
+                //窗口系统中没有已开启的窗口实例，且 mask 未显示，表示当前没有任何浮动层
+                this.zIndex = this.zIndexOrigin;
+            }
+        },
+        //获取某个 组件实例的 zIndex
+
+
 
         //修改 request 状态指示
         setRequestStatus(status = 'success') {
@@ -443,6 +643,235 @@ export default {
                     this.request[sts[i]] = false;
                 }
             }
+        },
+
+
+
+        /**
+         * UI 工具方法
+         */
+        
+        /**
+         * size 尺寸系统工具
+         */
+
+        /**
+         * 判断传入的 size 参数的形式，可以有 5 中参数形式
+         *      medium|normal       str     尺寸字符形式，在 sizeMap 中定义了键名的
+         *      m|s|xl              key     尺寸键形式，在 sizeMap 中定义了键值的
+         *      fs.m|btn.xl         csv     在 $ui.cssvar.size 中定义了项目的
+         *      32px|100vw|75%      css     可直接在 css 中使用的 尺寸值字符串
+         *      72|128              num     纯数字，自动增加 px 单位
+         * @param {String|Number} size
+         * @return {String|null} 返回尺寸值类型 str|key|csv|css|num 
+         */
+        sizeType(size=null) {
+            let is = this.$is,
+                isd = is.defined,
+                csv = this.cssvar.size,
+                szs = this.cssvar.extra.size.sizeStrMap,
+                sz = (is.null(size) || (!is.string(size) && !is.realNumber(size))) ? null : size;
+            if (is.null(sz)) return null;
+            //在 sizeMap 中定义了键的  --> str
+            if (isd(szs[sz])) return 'str';
+            //在 sizeMap 中定义了值的  --> key
+            if (Object.values(szs).includes(sz)) return 'key';
+            //在 $ui.cssvar.size 中定义了项目值的
+            if (!is.undefined(this.$cgy.loget(csv, sz))) return 'csv';
+            //纯数字
+            if (is.realNumber(sz)) return 'num';
+            //32px|100vw|75% 形式
+            if (is.numeric(sz)) return 'css';
+            //其他的默认作为 css 尺寸值字符串，calc(var(--size-btn-s) * 2) ...
+            return 'css';
+        },
+
+        //判断是否合法的 size key  m|s|l|xxs|xl 形式
+        isSizeKey(skey) {
+            let is = this.$is,
+                sks = 's,m,l'.split(',');
+            if (!is.string(skey) || skey==='') return false;
+            let len = skey.length,
+                fs = skey.substring(0,1),
+                ls = skey.substring(len-1);
+            if (len===1 && sks.includes(skey)!==true) return false;
+            if (len>1 && (fs!=='x' || sks.includes(ls)!==true)) return false;
+            return true;
+        },
+        /**
+         * 尺寸 key 解析为数组
+         * xxl  --> ['xxl', 'l', 3]
+         * m    --> ['m', 'm', 0]
+         * s    --> ['s', 's', 1]
+         */
+        sizeKeyParse(skey) {
+            if (!this.isSizeKey(skey)) return null;
+            let len = skey.length;
+            return [skey, skey.substring(len-1), len];
+        },
+        /**
+         * 将 str|key 形式的 size 值，缩放指定的级数
+         * l1-->放大1级  s2-->缩小2级
+         *      sizeKeyShiftTo('xxl', 's1')     --> xl
+         *      sizeKeyShiftTo('xxl', 's3')     --> m
+         *      sizeKeyShiftTo('xxl', 's5')     --> xs
+         *      sizeKeyShiftTo('m', 's3')       --> xxs
+         *      sizeKeyShiftTo('m', 's9')       --> xxs
+         * @param {String|Number} size 只能传入 str|key 形式的尺寸值
+         * @param {String} shift 缩放级数 l1|s2...
+         * @return {String} 缩放后的尺寸 key  m|s|xxl 形式 可作为 size 参数传递到组件内部的其他组件上
+         */
+        sizeKeyShiftTo(size, shift) {
+            let is = this.$is,
+                sztp = this.sizeType(size);
+            //必须传入 str|key 形式的 size 值
+            if (['str','key'].includes(sztp)!==true) return null;
+            let skey = sztp==='str' ? this.sizeStrToKey(size) : size;
+            if (!this.isSizeKey(skey)) return null;
+            if (!is.string(shift) || shift.length!==2) return null;
+            let skl = this.sizeKeyParse(skey);
+            if (is.empty(skl)) return null;
+            let otp = skl[1],           // xxl --> l
+                olvl = skl[2] * 1,      // xxl --> 3
+                sfl = shift.split(''),  // l2 --> [l, 2]
+                sftp = sfl[0],          // l
+                slvl = sfl[1] * 1,      // 2
+                ntp = '',
+                nlvl = 0;
+
+            if (otp === sftp) {
+                ntp = otp;
+                nlvl = olvl + slvl;
+            } else {
+                if (otp === 'm') {
+                    ntp = sftp;
+                    nlvl = slvl;
+                } else {
+                    nlvl = olvl - slvl;
+                    if (nlvl === 0) {
+                        ntp = 'm';
+                    } else {
+                        ntp = otp==='s' ? 'l' : 's';
+                        nlvl = Math.abs(nlvl);
+                    }
+                }
+            }
+            //级数范围 0-3
+            nlvl = nlvl>3 ? 3 : (nlvl<0 ? 0 : nlvl);
+            //输出
+            if (nlvl<=1) return ntp;
+            let kl = [ntp];
+            for (let i=0;i<nlvl-1;i++) {
+                kl.unshift('x');
+            }
+            return kl.join('');
+        },
+
+        //判断传入的 size 是否合法的 css 尺寸值 100px 数字+单位 形式
+        isSizeVal(size) {
+            let is = this.$is;
+            if (!is.numeric(size)) return false;
+            return true;
+        },
+        /**
+         * 根据传入的 size 参数，以及可能存在的 size 用途(btn|bar...) 获取对应的 size 值
+         * @param {String|Number} size
+         * @param {String} csvKey size 用途，在 cssvar.size 中定义的键名
+         * @return {String|null} 返回的是 带有单位的 css 尺寸字符串 如：100px|50%|100vw ...
+         */
+        sizeVal(size, csvKey=null) {
+            let is = this.$is,
+                lgt = this.$cgy.loget,
+                sztp = this.sizeType(size);
+            if (is.null(sztp)) return null;
+            let csv = this.cssvar.size;
+            if (sztp==='css') return size;
+            if (sztp==='num') return size+'px';
+            if (sztp==='csv') return lgt(csv, size);
+            if (!is.string(csvKey) || !is.defined(csv[csvKey])) return null;
+            let skey = sztp==='str' ? this.sizeStrToKey(size) : size;
+            if (!is.defined(csv[csvKey][skey])) return null;
+            return lgt(csv, `${csvKey}.${skey}`);
+        },
+
+        //size str 转为 key   huge|large|medium|normal  -->  xxl|xl|l|m
+        sizeStrToKey(str) {
+            let is = this.$is,
+                szmap = this.cssvar.extra.size.sizeStrMap;
+            if (!is.defined(szmap[str])) return null;
+            return szmap[str];
+        },
+        //size key 转为 str   xxl|xl|l|m  -->  huge|large|medium|normal
+        sizeKeyToStr(key) {
+            let is = this.$is,
+                szmap = this.cssvar.extra.size.sizeStrMap,
+                szs = Object.values(szmap);
+            if (!szs.includes(key)) return null;
+            let str = null;
+            this.$each(szmap, (v,k) => {
+                if (v === key) {
+                    str = k;
+                    return false;
+                }
+            });
+            return str;
+        },
+        //实际尺寸值 转为 key 如果在 cssvar.size.csvKey{} 中未找到，则返回 null
+        sizeValToKey(size, csvKey=null) {
+            let is = this.$is,
+                csv = this.cssvar.size;
+            //传入的 size 必须是 numeric 形式 100px|100
+            if (!this.isSizeVal(size)) return null;
+            if (!is.string(csvKey) || csvKey==='' || is.undefined(csv[csvKey]) || !is.plainObject(csv[csvKey])) return null;
+            if (is.realNumber(size)) size = size+'px';
+            let key = null;
+            this.$each(csv[csvKey], (v,k) => {
+                if (v === size) {
+                    key = k;
+                    return false;
+                }
+            });
+            return key;
+        },
+
+        //将尺寸值 转为 [ 数字, 单位 ] 数组
+        sizeToArr(sz) {
+            let is = this.$is;
+            //只有 100px 形式的尺寸值才可以拆分为 [数字, 单位]
+            if (!this.isSizeVal(sz)) return null;
+            //默认单位 px
+            if (!is.realNumber(sz)) sz = sz+'px';
+
+            //字符串拆分数组
+            let szarr = sz.split(''),
+                //保存数字和小数点
+                sznarr = [];
+            for (let i=0;i<szarr.length;i++) {
+                let szi = szarr[i];
+                if (is.realNumber(szi) || szi === '.') {
+                    sznarr.push(szi);
+                } else {
+                    break;
+                }
+            }
+            if (sznarr.length<=0) return [];
+            let szn = sznarr.join(''),
+                szu = sz.replace(szn, '');
+            return [szn, szu];
+        },
+
+        //根据 bar 单行元素的 高度，计算合适的内部字体尺寸
+        sizeCalcBarFs(size) {
+            let is = this.$is,
+                // 72px --> [72, 'px']
+                szl = this.sizeToArr(size);
+            //无法解析尺寸值，则原样返回
+            if (!is.array(szl) || szl.length<=0) return size;
+            let szn = szl[0],
+                szu = szl[1] || '',
+                //!! 字号 = 行高/2.3
+                fs = Math.round(szn/2.3);
+            return `${fs}${szu}`;
         },
 
 
@@ -512,7 +941,7 @@ export default {
          * 窗口
          * @return 组件实例
          */
-        async win() {},
+        async __win() {},
 
         //pop panel
         //async poppanel(triggerBy, opt={}) {

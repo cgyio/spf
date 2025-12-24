@@ -50,7 +50,7 @@ export default pms;
 
 
 /**
- * 合并资源 temp_pms_AeAYO3.js
+ * 合并资源 temp_pms_0qAUlk.js
  * !! 不要手动修改 !!
  */
 
@@ -69,7 +69,7 @@ Vue.vcoms.async[k] = v;
 
 
 /**
- * 合并资源 temp_pms_mNtGwW.js
+ * 合并资源 temp_pms_2QOMFW.js
  * !! 不要手动修改 !!
  */
 

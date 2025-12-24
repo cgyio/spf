@@ -1,3 +1,16 @@
-.__PRE__-vcom-base {
-    width: $size-btn-m;
+/**
+ * SPF-Vcom vue2.x 组件库 基础样式 scss
+ * vcom/spf/1.0.0/common/base.scss
+ * !! 不要手动修改 !!
+ * 
+ */
+
+//for animate.css
+:root {
+    --animate-duration: #{$ani-dura};
+}
+
+//tab 标签行样式
+@mixin spf-tab-row($pre: tab-, $h: $size-bar-m) {
+
 }

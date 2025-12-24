@@ -1,0 +1,2234 @@
+@use 'sass:string';
+@use 'sass:list';
+@use 'sass:map';
+@use 'sass:color';
+@use 'sass:math';
+@use 'sass:meta';
+@use 'sass:selector';
+
+@import 'https://ms.systech.work/src/cdn/normalize/default.css';
+@import 'https://ms.systech.work/src/cdn/animate/default.css';
+
+
+
+/** dart-scss patch functions **/
+//所有支持的 数据类型
+$dartScssTypeList: number,string,color,list,map,calculation,bool,'null',function,mixin,arglist;
+//scss 支持的 unit 单位 map 用于 set-unit
+$dartScssUnitMap: (
+    cm:     1cm,
+    mm:     1mm,
+    in:     1in,
+    px:     1px,
+    pt:     1pt,
+    pc:     1pc,
+    q:      1q,
+    em:     1em,
+    rem:    1rem,
+    ex:     1ex,
+    ch:     1ch,
+    vw:     1vw,
+    vh:     1vh,
+    vmin:   1vmin,
+    vmax:   1vmax,
+    //!! %:    1%,  非法键名，使用 pec 代替 %
+    '%':    1%,
+    pec:    1%,
+    fr:     1fr,
+    cap:    1cap,
+    ic:     1ic,
+    lh:     1lh,
+    rlh:    1rlh,
+    s:      1s,
+    deg:    1deg,
+);
+//list 默认 separator comma
+$dftListSeparator: comma;
+
+/** type-system patch **/
+//isa 快捷调用 meta.type-of($val) == $tp  <返回：bool>
+@function isa($value, $type) {
+    @if meta.type-of($type) != 'string' or list.index($dartScssTypeList, $type) == null {@return false;}
+    @return meta.type-of($value) == $type;
+}
+//is-any 多个类型快捷判断  <返回：bool>
+@function is-any($value, $types...) {
+    @each $i in $types {
+        @if isa($value, $i) {
+            @return true;
+        }
+    }
+    @return false;
+}
+//is-*** 快捷类型判断  <返回：bool>
+@function is-number($value) {@return isa($value, number);}
+@function is-string($value) {@return isa($value, string);}
+@function is-color($value) {@return isa($value, color);}
+@function is-list($value) {@return isa($value, list);}
+@function is-map($value) {@return isa($value, map);}
+@function is-bool($value) {@return isa($value, bool);}
+@function is-null($value) {@return isa($value, 'null');}
+@function is-function($value) {@return isa($value, function);}
+@function is-arglist($value) {@return isa($value, arglist);}
+@function is-mixin($value) {@return isa($value, mixin);}
+@function is-calculation($value) {@return isa($value, calculation);}
+//is-empty 快捷判断 null|list|map|string 为空  <返回：bool>
+@function is-empty($value) {
+    //null 返回 true
+    @if is-null($value) {@return true;}
+    @if is-list($value) {@return list.length($value) <= 0;}
+    @if is-map($value) {@return list.length(map.keys($value)) <= 0;}
+    @if is-string($value) {@return string.length($value) <= 0;}
+    //其他类型一律返回 false
+    @return false;
+}
+//is-digit 判断是否纯数字或纯数字字符串  <返回：bool>
+@function is-digit($value) {
+    //无单位 number --> true
+    @if is-number($value) {@return math.is-unitless($value);}
+    //非 string 空 string --> false
+    @if not is-string($value) or is-empty($value) {@return false;}
+    //一些无效字符串
+    @if list.index(('-','.','-.','.-'), $value) != null {@return false;}
+    $nl: ('0','1','2','3','4','5','6','7','8','9');
+    @if string.length($value) == 1 {@return list.index($nl, $value) != null;}
+    $minus: false;
+    $dot: false;
+    @for $i from 1 through string.length($value) {
+        $ch: string.slice($value, $i, $i);
+        @if $ch == '-' {
+            //- 负数符号仅允许在第 1 位，且只能有 1 个
+            @if $i != 1 or $minus == true {
+                @return false;
+            } @else {
+                $minus: true;
+            }
+        } @else if $ch == '.' {
+            //只允许 1 个小数点
+            @if $dot == true {
+                @return false;
+            } @else {
+                $dot: true;
+            }
+        } @else if list.index($nl, $ch) == null {
+            @return false;
+        }
+    }
+    @return true;
+}
+//is-numeric 判断一个值是否是数值形式（纯数字、带单位数字、字符串）  <返回：bool|number>
+@function is-numeric($value, $conv: false) {
+    //is-numer --> true
+    @if is-number($value) {@return true;}
+    //非 string 空 string --> false
+    @if not is-string($value) or is-empty($value) {@return false;}
+    $len: string.length($value);
+    $num-str: '';
+    $unit: '';
+    $minus: false;
+    $dot: false;
+    @for $i from 1 through $len {
+        $ch: string.slice($value, $i, $i);
+        @if $ch == '-' or $ch == '.' or is-digit($ch) {
+            @if $ch == '-' {
+                @if $i != 1 or $minus == true {
+                    //负号只能在首位，且只能有 1 个
+                    @return false;
+                } @else {
+                    $minus: true;
+                }
+            } @else if $ch == '.' {
+                @if $dot == true {
+                    //只允许有 1 个 .
+                    @return false;
+                } @else {
+                    $dot: true;
+                }
+            } @else {
+                @if $unit != '' {
+                    //在 单位后 还有数字，返回 false
+                    @return false;
+                }
+            }
+            $num-str: $num-str + $ch;
+        } @else {
+            @if $num-str == '' {
+                //字符串首位 非数字，返回 false
+                @return false;
+            }
+            $unit: $unit + $ch;
+        }
+    }
+    @if $conv == debug {
+        @return ($num-str, $unit);
+    }
+    //不包含任何数字
+    @if $num-str == '' {@return false;}
+    //将数字字符串转为 number
+    $num: to-digit($num-str);
+    @if not is-number($num) {@return false;}
+    //$conv = true 返回转换后的 number
+    @if $conv == true {
+        @if $unit == '' {@return $num;}
+        //合并 unit 返回 number
+        @return set-unit($num, $unit);
+    } @else {
+        @return true;
+    }
+}
+//to-digit 将 is-digit 字符串转为 number  <返回：number|null>
+@function to-digit($value) {
+    @if not is-digit($value) {@return null;}
+    //number 直接返回
+    @if is-number($value) {@return $value;}
+    $nl: ('0','1','2','3','4','5','6','7','8','9');
+    $vl: (0,1,2,3,4,5,6,7,8,9);
+    $len: string.length($value);
+    @if $len == 1 {
+        @return nth($vl, list.index($nl, $value));
+    }
+    //标记 - 负数
+    $is-minus: string.slice($value, 1, 1) == '-';
+    @if $is-minus {
+        $value: string.slice($value, 2, $len);
+    }
+    //.3 --> 0.3
+    @if string.slice($value, 1, 1) == '.' {
+        $value: '0' + $value;
+    }
+    //3. --> 3.0
+    @if string.slice($value, $len, $len) == '.' {
+        $value: $value + '0';
+    }
+    $len: string.length($value);
+
+    //不含 . 
+    @if string.index($value, '.') == null {
+        $num: 0;
+        @for $i from 1 through $len {
+            $dig: to-digit(string.slice($value, $i, $i));
+            // 105 = 1 * pow(10, 2) + 0 * pow(10, 1) + 5 * pow(10, 0)
+            $num: $num + $dig * math.pow(10, $len - $i);
+        }
+        @return if($is-minus, $num * -1, $num);
+    }
+
+    //包含 . 数字字符串拆为 整数部分 和 小数部分
+    $nstrs: string.split($value, '.');
+    $nsl: list.length($nstrs);
+    @if $nsl > 2 or $nsl < 1 {@return null;}
+    $int: to-digit(nth($nstrs, 1));
+    @if not is-number($int) {@return null;}
+    @if $nsl == 1 {@return if($is-minus, $int * -1, $int);}
+    $flo-str: nth($nstrs, 2);
+    $flo-int: to-digit($flo-str);
+    @if not is-number($flo-int) {@return null;}
+    $flo: math.div($flo-int, math.pow(10, string.length($flo-str)));
+    $num: $int + $flo;
+    @return if($is-minus, $num * -1, $num);
+}
+//to-string 任意值转为 string  <返回：string|null>
+@function to-string($value, $escape: auto) {
+    @if is-null($value) {@return null;}
+    @if is-string($value) {@return $value;}
+    @return '#{$value}';
+}
+//to-number 任意值转为 number  <返回：number|null>
+@function to-number($value) {
+    @if is-null($value) {@return null;}
+    $tp: meta.type-of($value);
+    @if $tp == 'number' {@return $value;}
+    @if $tp == 'bool' {@return if($value == true, 1, 0);}
+    @if $tp != 'string' {@return null;}
+    $num: is-numeric($value, true);
+    @if not is-number($num) {@return null;}
+    @return $num;
+}
+//to-strings 将任意多个值 转为 string 只要有一个失败 则返回 null 全部成功则返回 顺序一致的 list  <返回：list>
+@function to-strings($values...) {
+    @if list.length($values) <= 0 {@return ();}
+    $strs: ();
+    @each $i in $values {
+        $ni: to-string($i);
+        @if not is-string($ni) {@return null;}
+        $strs: list.append($strs, $ni);
+    }
+    @return $strs;
+}
+//to-numbers 将任意多个值 转为 number 只要有一个失败 则返回 null 全部成功则返回 顺序一致的 list
+@function to-numbers($values...) {
+    @if list.length($values) <= 0 {@return ();}
+    $nums: ();
+    @each $i in $values {
+        $ni: to-number($i);
+        @if is-null($ni) {@return null;}
+        $nums: push($nums, $ni);
+    }
+    @return $nums;
+}
+//to-comparable-numbers 转换任意多个值为 number 且必须 comparable 成功返回 list 否则返回 null
+@function to-comparable-numbers($values...) {
+    $nums: to-numbers($values...);
+    @if is-null($nums) {@return null;}
+    @if all-comparable($nums...) != true {@return null;}
+    @return $nums;
+}
+//to-unitless-numbers 转换任意多个值为 纯数字 number 成功返回 list 否则返回 null
+@function to-unitless-numbers($values...) {
+    $nums: to-numbers($values...);
+    @if is-null($nums) {@return null;}
+    $ns: ();
+    @each $i in $nums {
+        $ns: push($ns, strip-unit($i));
+    }
+    @return $ns;
+}
+
+/** string patch **/
+//string.mk 根据传入的参数创建字符串  <返回：string>
+@function str() {
+
+}
+//str-len 增强 string.length 自动转换类型  <返回：number>
+@function str-len($string) {
+    $string: to-string($string);
+    @if not is-string($string) {@return 0;}
+    @return string.length($string);
+}
+//str-sub 增强 string.slice 自动类型转换  <返回：string>
+@function str-sub($string, $start-at, $end-at: -1) {
+    $str: to-string($string);
+    @if not is-string($str) or is-empty($str) {@return $string;}
+    @return string.slice($string, $start-at, $end-at);
+}
+//str-idx 增强 string.index 自动类型转换  <返回：string>
+@function str-idx($string, $substring) {
+    $strs: to-strings($string, $substring);
+    @if is-null($strs) {@return $string;}
+    @return string.index($strs...);
+}
+//str-includes 自动类型转换  <返回：bool>
+@function str-includes($string, $search) {
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return false;}
+    @return not is-null(string.index($strs...));
+}
+//str-starts-with 自动类型转换  <返回：bool>
+@function str-starts-with($string, $search) {
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return false;}
+    $idx: string.index($strs...);
+    @return is-number($idx) and $idx == 1;
+}
+//str-ends-with 自动类型转换  <返回：bool>
+@function str-ends-with($string, $search) {
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return false;}
+    @if not str-includes($strs...) {@return false;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $len: string.length($string);
+    $slen: string.length($search);
+    @return string.slice($string, $len - $slen + 1, $len) == $search;
+}
+//str-replace 替换字符串 递归替换所有找到的 search 自动转换类型  <返回：string>
+@function str-replace($string, $search, $replace) {
+    $strs: to-strings($string, $search, $replace);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $replace: nth($strs, 3);
+    $len: string.length($string);
+    $slen: string.length($search);
+    @if $len < $slen {@return $string;}
+    $idx: string.index($string, $search);
+    @if is-null($idx) {@return $string;}
+    $nstr-a: if($idx == 1, '', string.slice($string, 1, $idx - 1));
+    $nstr-b: '';
+    @if $len - $idx - $slen + 1 >= $slen {
+        //剩余字符串长度 >= search 字符串长度，递归调用
+        $nstr-b: str-replace(string.slice($string, $idx + $slen, $len), $search, $replace);
+    } @else {
+        //剩余字符串长度 < search 字符串长度，直接截取剩余的部分
+        $nstr-b: if($idx + $slen == $len + 1, '', string.slice($string, $idx + $slen, $len));
+    }
+    @return $nstr-a + $replace + $nstr-b + '';
+}
+//str-trim|str-trim-start|str-trim-end 去除字符串首尾的 空格 或 $search 自动类型转换  <返回：string>
+@function str-trim-start($string, $search: ' ') {
+    @if not str-includes($string, $search) or  not str-starts-with($string, $search) {@return to-string($string);}
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $len: string.length($string);
+    $slen: string.length($search);
+    $slice-n: math.ceil($len / $slen);
+    $ts: $string;
+    @for $i from 1 through $slice-n {
+        $ch: string.slice($ts, 1, $slen);
+        @if $ch == $search {
+            $ts: string.slice($ts, $slen + 1, string.length($ts));
+        } @else {
+            @return $ts;
+        }
+    }
+    @return '';
+}
+@function str-trim-end($string, $search: ' ') {
+    @if not str-includes($string, $search) or  not str-ends-with($string, $search) {@return to-string($string);}
+    $strs: to-strings($string, $search);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $search: nth($strs, 2);
+    $len: string.length($string);
+    $slen: string.length($search);
+    $slice-n: math.ceil($len / $slen);
+    $ts: $string;
+    @for $i from 1 through $slice-n {
+        $tlen: string.length($ts);
+        $si: $tlen - $slen + 1;
+        @if $si < 1 {$si: 1;}
+        $ch: string.slice($ts, $si, $tlen);
+        @if $ch == $search {
+            $ts: string.slice($ts, 1, $si - 1);
+        } @else {
+            @return $ts;
+        }
+    }
+    @return '';
+}
+@function str-trim($string, $search: ' ') {
+    @return str-trim-start(str-trim-end($string, $search), $search);
+}
+//str-upper|str-lower|str-ucfirst|str-lcfirst|str-camel|str-kebab 自动转换类型  <返回：string>
+@function str-upper($string) {
+    $str: to-string($string);
+    @return if(not is-string($str), $string, string.to-upper-case($str));
+}
+@function str-lower($string) {
+    $str: to-string($string);
+    @return if(not is-string($str), $string, string.to-lower-case($str));
+}
+@function str-ucfirst($string) {
+    $str: to-string($string);
+    @if not is-string($str) or is-empty($str) {@return $string;}
+    $fs: string.slice($str, 1, 1);
+    $len: string.length($str);
+    $rs: if($len <= 1, '', string.slice($str, 2, $len));
+    $ufs: str-upper($fs);
+    @return $ufs + $rs;
+}
+@function str-lcfirst($string) {
+    $str: to-string($string);
+    @if not is-string($str) or is-empty($str) {@return $string;}
+    $fs: string.slice($str, 1, 1);
+    $len: string.length($str);
+    $rs: if($len <= 1, '', string.slice($str, 2, $len));
+    $lfs: str-lower($fs);
+    @return $lfs + $rs;
+}
+@function str-camel($string, $separator: '-') {
+    $strs: to-strings($string, $separator);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $separator: nth($strs, 2);
+    $pieces: string.split($string, $separator);
+    @if not is-list($pieces) or is-empty($pieces) {@return $string;}
+    $ts: '';
+    @each $i in $pieces {
+        $ui: str-ucfirst(str-lower($i));
+        $ts: $ts + $ui;
+    }
+    @return $ts;
+}
+@function str-kebab($string, $separator: '-') {
+    $strs: to-strings($string, $separator);
+    @if is-null($strs) {@return $string;}
+    $string: nth($strs, 1);
+    $separator: nth($strs, 2);
+    $str: str-lcfirst($string);
+    $us: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $ts: '';
+    @for $i from 1 through string.length($str) {
+        $ch: string.slice($str, $i, $i);
+        @if str-includes($us, $ch) {
+            $ts: $ts + $separator + $ch;
+        } @else {
+            $ts: $ts + $ch;
+        }
+    }
+    @return str-lower($ts);
+}
+/**
+    key-shift 通过给 map 键名(如：btn-d1) 增加调整后缀 l*|d*|s* 来生成新的键名  <返回：string>
+    key-shift(btn-l2, d1)           --> btn-l1
+    key-shift(btn-l1, d1)           --> btn-m
+    key-shift(btn[-m], d1)          --> btn-d1
+    key-shift(btn-d1, l3)           --> btn-l2
+    key-shift(btn-xxl, s3, true)    --> btn-m
+    key-shift(btn-xxs, l1, true)    --> btn-xs
+**/
+@function key-shift($key, $suffix, $size: false, $glue: '-') {
+    $strs: to-strings($key, $suffix, $glue);
+    @if is-null($strs) {@return $key;}
+    $key: nth($strs, 1);
+    $suffix: nth($strs, 2);
+    $glue: nth($strs, 3);
+    @if not is-bool($size) {$size: false;}
+
+    //解析调整后缀 suffix
+    $shift: key-suffix($suffix, $size);
+    @if not is-list($shift) {@return $key;}
+    $shift-tp: nth($shift, 2);
+    $shift-lvl: nth($shift, 3);
+    @if $shift-lvl == 0 {
+        //无调整，返回原值
+        @return $key;
+    }
+
+    //解析 key
+    $kps: key-parse($key, $size, $glue);
+    @if not is-list($kps) {@return $key;}
+    $pre: nth($kps, 2);
+    $key-tp: nth($kps, 4);
+    $key-lvl: nth($kps, 5);
+    
+    //调整
+    @if $shift-tp == $key-tp {
+        $ntp: $key-tp;
+        $nlvl: add($shift-lvl, $key-lvl);
+    } @else {
+        @if $key-tp == m {
+            $ntp: $shift-tp;
+            $nlvl: $shift-lvl;
+        } @else {
+            $d: dif($key-lvl, $shift-lvl);
+            @if $d == 0 {
+                $ntp: m;
+                $nlvl: 0;
+            } @else if $d > 0 {
+                $ntp: $key-tp;
+                $nlvl: $d;
+            } @else {
+                $ntp: $shift-tp;
+                $nlvl: abs($d);
+            }
+        }
+    }
+
+    //生成新 suffix
+    @if $ntp == m {
+        $nsuf: m;
+    } @else {
+        @if $size == true {
+            //size map-key 后缀为 xx* 形式
+            $nsuf: $ntp;
+            @if $nlvl > 1 {
+                @for $i from 1 to $nlvl {
+                    $nsuf: 'x' + $nsuf;
+                }
+            }
+        } @else {
+            //其他 map-key 后缀 为 l*|d* 形式
+            $nsuf: $ntp + $nlvl;
+        }
+    }
+    //返回新键名
+    @return $pre + $glue + $nsuf;
+}
+//size-key-shift|color-key-shift 快捷方法
+@function size-key-shift($key, $suffix, $glue: '-') {@return key-shift($key, $suffix, true, $glue);}
+@function color-key-shift($key, $suffix, $glue: '-') {@return key-shift($key, $suffix, false, $glue);}
+/**
+    key-parse 解析 map 键名 返回：list (键名，键名前缀，键名后缀，shift 方向，shift level，键名类型)|null
+    key-parse(btn-xxs, true)     --> (btn-xxl, btn, s, 3, size)
+    key-parse(btn-d3)            --> (btn-d3, btn, d, 3, color)
+    key-parse(btn)               --> (btn, btn, m, 0, color)
+    key-parse(btn, true)         --> (btn, btn, m, 0, size)
+**/
+@function key-parse($key, $size: false, $glue: '-') {
+    $strs: to-strings($key, $glue);
+    @if is-null($strs) {@return null;}
+    $key: nth($strs, 1);
+    $glue: nth($strs, 2);
+    @if not is-bool($size) {$size: false;}
+    //$key-tp: if($size, size, color);
+    //key 拆分为 list
+    $kl: string.split($key, $glue);
+    $len: list.length($kl);
+    //key 不含有效后缀
+    @if $len < 2 or key-suffix(nth($kl, $len), $size) == null {
+        $kl: push($kl, m);
+        $len: $len + 1;
+    }
+    //key 前缀
+    $pre: list-join(slice($kl, 1, -1), $glue);
+    //key 后缀解析
+    $suf: key-suffix(nth($kl, $len), $size);
+    @if not is-list($suf) {@return null;}
+    //合并返回
+    @return push((), $key, $pre, $suf);
+}
+/**
+    key-suffix 解析 map 键名后缀 返回：list (后缀，shift 方向，shift level，后缀类型)|null
+    key-suffix(d3)              --> (d3, d, 3, color)
+    key-suffix(s2, true)        --> (s2, s, 2, size)
+    key-suffix(xxl, true)       --> (xxl, l, 3, size)
+    key-suffix(l, true)         --> (l, l, 1, size)
+    key-suffix(m)               --> (m, m, 0, color)
+    key-suffix(m, true)         --> (m, m, 0, size)
+**/
+@function key-suffix($suffix, $size: false) {
+    $str: to-string($suffix);
+    @if not is-string($str) or $str == '' {@return null;}
+    $suffix: $str;
+    @if not is-bool($size) {$size: false;}
+    $suf-tp: if($size, size, color);
+    $len: string.length($suffix);
+    //是否以数字结尾
+    $num-end: is-digit(string.slice($suffix, $len, $len));
+
+    //解析 l1|d2|s3 形式
+    @if $num-end == true {
+        //字符长度必须 >= 2
+        @if $len < 2 {@return null;}
+        $stp: string.slice($suffix, 1,1);
+        //shift 方向可选 lds
+        @if not str-includes('lds', $stp) {@return null;}
+        $lvl: strip-unit(string.slice($suffix, 2, $len));
+        @return push((), $suffix, $stp, $lvl, $suf-tp);
+    }
+
+    //解析 l|s|m
+    @if $len == 1 {
+        @if not str-includes('lsm', $suffix) {@return null;}
+        @if $suffix != 'm' and $size != true {@return null;}
+        @return push((), $suffix, $suffix, if($suffix == 'm', 0, 1), $suf-tp);
+    }
+
+    //解析 xxl|xs
+    //这种形式一定是 size map-key
+    @if $size != true {@return null;}
+    //最后一个字符可选 ls
+    $stp: string.slice($suffix, $len, $len);
+    @if not str-includes('ls', $stp) {@return null;}
+    //之前的字符一定是一个或多个 x
+    $lss: str-replace(string.slice($suffix, 1, $len - 1), x, '');
+    @if $lss != '' {@return null;}
+    //shift level == $len
+    @return push((), $suffix, $stp, $len, size);
+}
+
+/** number|math patch **/
+//unit 简写  <返回：string|null> 
+@function unit($number) {
+    $num: to-number($number);
+    @if not is-number($num) {@return null;}
+    @return math.unit($number);
+}
+//strip-unit 将 100px 形式数值 去除单位 自动转换类型  <返回：number 无单位>
+@function strip-unit($number) {
+    $num: to-number($number);
+    @if not is-number($num) {@return $number;}
+    $number: $num;
+    @if math.is-unitless($number) {@return $number;}
+    $u: unit($number);
+    $num-str: $number + '';
+    $num-str: str-replace($num-str, $u, '');
+    @return to-digit($num-str);
+}
+//set-unit 替换传入的 number 的 unit 单位 自动转换类型   <返回：number 带单位>
+@function set-unit($number, $unit) {
+    $num: to-number($number);
+    $unit: to-string($unit);
+    @if not is-number($num) or not is-string($unit) {@return $number;}
+    $number: $num;
+
+    //!! % 在 $unitMap 中的键名为 pec
+    @if $unit == '%' {$unit: pec;}
+
+    $du: map-get($dartScssUnitMap, $unit);
+    @if is-null($du) {@return $number;}
+    @if unit($number) == $unit {@return $number;}
+    $number: strip-unit($number);
+    @if $unit == '' {@return $number;}
+    @return $number * $du;
+}
+//all-comparable 扩展到多个 numbers 判断 comparable  <返回：bool>
+@function all-comparable($numbers...) {
+    $numbers: to-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return false;}
+    $len: list.length($numbers);
+    @if $len == 1 {@return true;}
+    @for $i from 1 to $len - 1 {
+        $n1: nth($numbers, $i);
+        $n2: nth($numbers, $i + 1);
+        @if comparable($n1, $n2) != true {
+            @return false;
+        }
+    }
+    @return true;
+}
+//num-clamp 确保输入的 number 在 min|max 范围内 自动转换类型  <返回：number|null>
+@function n-clamp($min, $number, $max) {
+    $nums: to-comparable-numbers($min, $number, $max);
+    @if is-null($nums) {@return null;}
+    @return n-clamp($nums...);
+}
+//min 最小值 自动转换类型  <返回：number|null>
+@function min($numbers...) {
+    //type-of($numbers) == arglist 可用 nth|length|@each
+    $numbers: to-comparable-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    @return math.min($numbers...);
+}
+//max 最大值 自动转换类型  <返回：number|null>
+@function max($numbers...) {
+    $numbers: to-comparable-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    @return math.max($numbers...);
+}
+//扩展 加减乘除方法 add|sub|mul|div 自动转换类型 返回：number|null
+@function add($numbers...) {
+    $numbers: to-comparable-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    $sum: 0;
+    @each $i in $numbers {
+        $sum: $sum + $i;
+    }
+    @return $sum;
+}
+@function sub($numbers...) {
+    $numbers: to-comparable-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    @if length($numbers) == 1 {@return nth($numbers, 1);}
+    $diff: nth($numbers, 1);
+    @for $i from 2 through length($numbers) {
+        $n: nth($numbers, $i);
+        $diff: $diff - $n;
+    }
+    @return $diff;
+}
+//!! 乘法|除法 会自动统一单位，使用 第一个存在的单位 作为最终结果的 单位
+@function mul($numbers...) {
+    $numbers: to-comparable-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    $len: list.length($numbers);
+    @if $len == 1 {@return nth($numbers, 1);}
+    //统一单位，只保留第一个单位
+    $unit: '';
+    @each $i in $numbers {
+        @if $unit == '' {
+            $ui: unit($i);
+            @if $ui != '' {
+                $unit: $ui;
+            }
+        }
+    }
+    $prod: 1;
+    @each $i in $numbers {
+        $ni: strip-unit($i);
+        $prod: $prod * $i;
+    }
+    @return if($unit != '', set-unit($prod, $unit), $prod);
+}
+@function div($numbers...) {
+    $numbers: to-comparable-numbers($numbers...);
+    @if is-null($numbers) or is-empty($numbers) {@return null;}
+    $len: list.length($numbers);
+    @if $len == 1 {@return nth($numbers, 1);}
+    //统一单位，只保留第一个单位
+    $unit: '';
+    @each $i in $numbers {
+        @if $unit == '' {
+            $ui: unit($i);
+            @if $ui != '' {
+                $unit: $ui;
+            }
+        }
+    }
+    $quo: strip-unit(nth($numbers, 1));
+    @for $i from 2 through $len {
+        $ni: strip-unit(nth($numbers, $i));
+        $quo: math.div($quo, $ni);
+    }
+    @return if($unit != '', set-unit($quo, $unit), $quo);
+}
+//扩展 round|ceil|floor|abs 方法 增加自动类型转换功能 返回：number
+@function round($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.round($n);
+}
+@function ceil($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.ceil($n);
+}
+@function floor($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.floor($n);
+}
+@function abs($number) {
+    $n: to-number($number);
+    @if not is-number($n) {@return null;}
+    @return math.abs($n);
+}
+
+/** list patch **/
+//list-len  <返回：number|null>
+@function list-len($list) {
+    @if is-any($list, list, arglist, map) {@return list.length($list);}
+    @return null;
+}
+//list-idx 自动处理 quote  <返回：number|null>
+@function list-idx($list, $value, $quote: false) {
+    @if not is-list($list) {@return null;}
+    $idx: list.index($list, $value);
+    @if is-number($idx) {@return $idx;}
+    @if is-string($value) and $quote == true {
+        //quote 后再尝试一遍
+        $idx: list.index(list-quote($list), $value);
+        @if is-number($idx) {@return $idx;}
+    }
+    @return null;
+}
+//list-includes  <返回：bool>
+@function list-includes($list, $value, $quote: false) {
+    @return list-idx($list, $value, $quote) != null;
+}
+//将 list 中所有 is-string 元素执行 quote  <返回：list>
+@function list-quote($list) {
+    @if not is-list($list) {@return $list;}
+    $rtn: ();
+    @each $i in $list {
+        @if is-string($i) {
+            $rtn: list.append($rtn, string.quote($i));
+        } @else {
+            $rtn: list.append($rtn, $i);
+        }
+    }
+    @return $rtn;
+}
+//arglist 转为 list  <返回：list>
+/*@function list-args($args...) {
+    $list: ();
+    @each $i in $args {
+        $list: list.append($list, $i, $dftListSeparator);
+    }
+    @return $list;
+}*/
+//push   <返回：list>
+@function push($list, $values...) {
+    @if not is-list($list) {@return $list;}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    @return list.join($list, $values, $sep, $bra);
+}
+//unshift  <返回：list>
+@function unshift($list, $values...) {
+    @if not is-list($list) {@return $list;}
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    //$values: list-args($values...);
+    @return list.join($values, $list, $sep, $bra);
+}
+//first|last  <返回：any>
+@function first($list) {
+    @if not is-list($list) or is-empty($list) {@return null;}
+    @return nth($list, 1);
+}
+@function last($list) {
+    @if not is-list($list) or is-empty($list) {@return null;}
+    @return nth($list, list.length($list));
+}
+//slice 切片 list 支持负 index  <返回：list>
+@function slice($list, $start, $end: 0) {
+    @if not is-list($list) or is-empty($list) {@return $list;}
+    @if not is-number($start) or not is-number($end) {@return $list;}
+    $len: list.length($list);
+    $sep: list.separator($list);
+    $bra: list.is-bracketed($list);
+    @if $start == 0 and $end == 0 {@return ();}
+    @if $end == 0 {
+        @if $start < 0 {$start: $start + $len + 1;}
+        $end: $len;
+    } @else if $start >= 0 {
+        @if $end < 0 {$end: $end + $len;}
+        @if $start == 0 {$start: 1;}
+    } @else if $start < 0 {
+        @if $end < 0 {$end: $end + $len + 1;}
+        $start: $start + $len + 1;
+    }
+    //@if $start <= 0 {$start: $start + $len + 1;}
+    //@if $end <= 0 {$end: $end + $len + 1;}
+    $start: n-clamp(1, $start, $len);
+    $end: n-clamp(1, $end, $len);
+    @if $start > $end {
+        $t: $end;
+        $end: $start;
+        $start: $t;
+    }
+    $rtn: ();
+    @for $i from $start through $end {
+        $ch: nth($list, $i);
+        $rtn: list.append($rtn, $ch, $sep);
+    }
+    @return $rtn;
+}
+//splice 插入  支持负 index  <返回：list>
+@function splice($list, $index, $length: 0, $values...) {
+    @if not is-list($list) {@return $list;}
+    @if not is-number($index) or not is-number($length) {@return $list;}
+    $len: list.length($list);
+    $sep: list.separator($list);
+    $bra: list.is-bracketed($list);
+    $length: n-clamp(0, $length, $len);
+    //待拼接的 list 片段
+    $l-s: ();
+    $l-i: $values;  //list-args($values...);
+    $l-e: ();
+    @if $length == 0 {
+        //不删除元素
+        @if $index == 0 {
+            $index: 1;
+        } @else if $index < 0 {
+            $index: $index + $len + 2;
+        }
+        $index: n-clamp(1, $index, $len + 1);
+        $l-s: if($index == 1, (), slice($list, 1, $index - 1));
+        $l-e: if($index == $len + 1, (), slice($list, $index, $len));
+    } @else {
+        //需要删除长度为 length 的 元素
+        @if $index == 0 {$index: 1;}
+        $start: $index;
+        $end: $index + $length - 1;
+        //调用 slice 的逻辑 取得要截取的 起止 index
+        @if $end == 0 {
+            @if $start < 0 {$start: $start + $len + 1;}
+            $end: $len;
+        } @else if $start >= 0 {
+            @if $end < 0 {$end: $end + $len;}
+            @if $start == 0 {$start: 1;}
+        } @else if $start < 0 {
+            @if $end < 0 {$end: $end + $len + 1;}
+            $start: $start + $len + 1;
+        }
+        $start: n-clamp(1, $start, $len);
+        $end: n-clamp(1, $end, $len);
+        @if $start > $end {
+            $t: $end;
+            $end: $start;
+            $start: $t;
+        }
+        
+        $l-s: if($start == 1, (), slice($list, 1, $start - 1));
+        $l-e: if($end == $len, (), slice($list, $end + 1, $len));
+    }
+    //拼接 list
+    $rtn: list.join($l-s, $l-i, $sep, $bra);
+    @return list.join($rtn, $l-e, $sep, $bra);
+}
+//list-insert 使用 scss 的参数风格执行 splice  <返回：list>
+@function list-insert($list, $insert, $index, $length: 0) {
+    @if is-list($insert) {
+        @return splice($list, $index, $length, $insert...);
+    }
+    @return splice($list, $index, $length, $insert);
+}
+//nth 简写  <返回：any>
+@function nth($list, $n) {
+    @if not is-list($list) {@return null;}
+    @return list.nth($list, $n);
+}
+//set-nth 简写  <返回：list>
+@function set-nth($list, $n, $value) {
+    @if not is-list($list) {@return $list;}
+    @return list.set-nth($list, $n, $value);
+}
+//del-nth 从 list 删除某个 index 支持负 index  <返回：list>
+@function del-nth($list, $index) {
+    @if not is-list($list) or is-empty($list) or not is-number($index) or $index == 0 {@return $list;}
+    $len: list.length($list);
+    $sep: if(is-empty($list), $dftListSeparator, list.separator($list));
+    $bra: list.is-bracketed($list);
+    @if $index == 0 {$index: 1;}
+    @if $index < 0 {$index: $index + $len + 1;}
+    $i: n-clamp(1, $index, $len);
+    $la: if($index == 1, (), slice($list, 1, $index - 1));
+    $lb: if($index == $len, (), slice($list, $index + 1, $len));
+    @return list.join($la, $lb, $sep, $bra);
+
+}
+//remove 从 list 中删除元素 支持传入多个要删除的元素组成的 list  <返回：list>
+@function remove($list, $removes...) {
+    @if not is-list($list) {@return $list;}
+    $len: length($list);
+    @if $len <= 0 {@return $list;}
+    @each $i in $removes {
+        $index: list-idx($list, $i, true);
+        @if not is-null($index) {
+            $list: del-nth($list, $index);
+        }
+    }
+    @return $list;
+}
+//list-join  <返回：string|null>
+@function list-join($list, $glue: '-') {
+    @if not is-list($list) {@return null;}
+    @if is-empty($list) {@return '';}
+    $ts: '';
+    @each $i in $list {
+        $si: to-string($i);
+        @if not is-string($si) {
+            $si: 'null';
+        }
+        @if $ts == '' {
+            $ts: $si;
+        } @else {
+            $ts: $ts + $glue + $si;
+        }
+    }
+    @return $ts;
+}
+
+
+
+/** for debug **/
+@mixin dump($map) {
+    $cnt: '';
+    @each $key, $val in $map {
+        $cti: $key + ': ' + $val + ' (' + meta.type-of($val) + ');';
+        $cnt: if($cnt == '', $cti, $cnt + ' | ' + $cti);
+    }
+    content: $cnt;
+}
+
+.dart-scss-type-system {
+    $l: foo,bar,'jaz';
+    $k: string.slice('foobar', 4, 6);
+    @include dump((
+        typeof-unit-num: meta.type-of(10px),
+        list-index: list.index($l, bar),
+        list-index-quote: list.index($l, $k),
+        list-index-noquote: list.index($l, jaz),
+        isa: isa(foo-bar, list),
+        noa: not isa(foo-bar, list),
+        is-string: is-string(foo-bar),
+        no-null: not is-null(null),
+        is-null: is-null(null),
+
+        is-calc: is-calculation(100px * 2),
+        is-calc-a: is-calculation(calc(100px + 1em)),
+
+        empty-string: is-empty(''),
+        empty-list: is-empty(btn-m btn-xs),
+        empty-map: is-empty((foo: 123, bar: 456)),
+        empty-map2: is-empty(()),
+        empty-null: is-empty(null),
+
+        dig: is-digit(-.3),
+        dig-a: is-digit('23.56'),
+        dig-b: is-digit(35.62px),
+        dig-c: is-digit(33.22.11),
+
+        tdig: to-digit(-.3),
+        tdig-a: to-digit('23.56'),
+        tdig-b: to-digit(35.62px),
+        tdig-c: to-digit(33.22.11),
+
+        stripu: strip-unit(100px),
+        stripu-a: strip-unit('25.6478px'),
+        setu: set-unit('72.63em', '%'),
+
+        rpl: str-replace(foobar, 'ob', bo),
+        sw: str-starts-with(foobar, fo),
+        ew: str-ends-with(foobar, ba),
+        trs: str-trim-start(fffff, f),
+        trs-a: str-trim-start('    foo bar   ', ' '),
+        tre: str-trim-end(fofofofofo, fo),
+        tre-a: str-trim-end('    foo bar   ', ' '),
+        tr-a: str-trim('    foo bar   ', ' '),
+
+        spl: string.split(foobar, ''),
+
+        uper: str-upper(foobar),
+        loer: str-lower(Foobar),
+        ucf: str-ucfirst(fooBar),
+        lcf: str-lcfirst(FooBar),
+        cam: str-camel(foo-bar),
+        keb: str-kebab(FooBar),
+
+        //rpl: string.replace(foobar, o, x),
+        rpl-a: str-replace(foobar, o, x),
+
+        ssl: 'abcdefg',
+        ssl-a: string.slice('abcdefg', -1),
+        ssl-b: string.slice('abcdefg', -2, -1),
+        ssl-c: string.slice('abcdefg', 2,5),
+        ssl-d: string.insert('abcdefg', xx, -2),
+        ssl-e: string.insert('abcdefg', xx, 2),
+
+        lsl-a: slice((a,b,c,d,e,f,g), -1),
+        lsl-b: slice((a,b,c,d,e,f,g), -2, -1),
+        lsl-d: slice((a,b,c,d,e,f,g), -2, -2),
+        lsl-c: slice((a,b,c,d,e,f,g), 2,5),
+        lsl-e: slice((a,b,c,d,e,f,g), 2,2),
+
+        lsp-a: splice((a,b,c,d,e,f,g), -1, 0, xx, yy),
+        lsp-b: splice((a,b,c,d,e,f,g), -2, 0, xx, yy),
+        lsp-c: splice((a,b,c,d,e,f,g), 1, 0, xx, yy),
+        lsp-d: splice((a,b,c,d,e,f,g), 2, 0, xx, yy),
+        lsp-e: splice((a,b,c,d,e,f,g), -2, 2, xx, yy),
+        lsp-f: splice((a,b,c,d,e,f,g), 1, 2, xx, yy),
+        lsp-g: splice((a,b,c,d,e,f,g), 3, 2, xx, yy),
+
+        lis-a: list-insert((a,b,c,d,e,f,g), (xx, yy), -1, 0),
+        lis-b: list-insert((a,b,c,d,e,f,g), (xx, yy), -2, 0),
+        lis-c: list-insert((a,b,c,d,e,f,g), (xx, yy), 1, 0),
+        lis-d: list-insert((a,b,c,d,e,f,g), (xx, yy), 2, 0),
+        lis-e: list-insert((a,b,c,d,e,f,g), (xx, yy), -2, 2),
+        lis-f: list-insert((a,b,c,d,e,f,g), (xx, yy), 1, 2),
+        lis-g: list-insert((a,b,c,d,e,f,g), (xx, yy), 3, 2),
+
+        ld-a: del-nth((a,b,c,d,e,f,g), -2),
+        ld-b: del-nth((a,b,c,d,e,f,g), -1),
+        ld-c: del-nth((a,b,c,d,e,f,g), 1),
+        ld-d: del-nth((a,b,c,d,e,f,g), 2),
+
+        lr-a: remove((a,b,c,d,e,f,g), f),
+        lr-b: remove((a,b,c,d,e,f,g), c,e,g),
+
+        key-suf-a: key-suffix(l3),
+        key-suf-b: key-suffix(d3),
+        key-suf-c: key-suffix(m, true),
+        key-suf-d: key-suffix(xxxs, true),
+        key-suf-e: key-suffix(l, true),
+
+        key-ps-a: key-parse(btn-xxxl, true),
+        key-ps-b: key-parse(btn-d1),
+        key-ps-c: key-parse(btn-m),
+        key-ps-d: key-parse(btn-fs),
+
+        min-a: math.min(100px, 20px, 75px),
+        //min-b: math.min(100px, '20px', 75px),
+        min-b: min(100px, '20px', 75px),
+
+        clamp: n-clamp(100px, 20px, 75px),
+        clamp-a: n-clamp(100px, '20px', 75px),
+    ));
+}
+
+
+
+
+
+
+
+
+/**
+ * 主题模块 color 生成语句
+ * 不要手动修改
+ */
+
+$colorListBase: red,orange,yellow,green,cyan,blue,purple,gray,danger,warn,success,primary,info,bz,fc,bgc,bdc;
+$colorListStatic:   white,black,shadow;
+$colorListAll:  red,orange,yellow,green,cyan,blue,purple,gray,danger,warn,success,primary,info,bz,fc,bgc,bdc,white,black,shadow;
+$colorShiftQueue:   l6,l5,l4,l3,l2,l1,m,d1,d2,d3,d4,d5,d6;
+
+$colorAlphaMap: (
+a1: 1a,
+a2: 33,
+a3: 4d,
+a4: 66,
+a5: 80,
+a6: 99,
+a7: b3,
+a8: cc,
+a9: e6,
+);
+$colorListAlpha:    a1,a2,a3,a4,a5,a6,a7,a8,a9;
+
+$typeList:  primary,danger,warn,success,info;
+$effectList:    normal,fill,plain,popout;
+
+$color-red-m:   #fa5151;
+$color-red-d3:  #782626;
+$color-red-d2:  #a23434;
+$color-red-d1:  #cf4343;
+$color-red-l1:  #fb7a7a;
+$color-red-l2:  #fca4a4;
+$color-red-l3:  #fdcece;
+$color-red-m-fc:    #000000e6;
+$color-red-d3-fc:   #ffffffe6;
+$color-red-d2-fc:   #ffffffe6;
+$color-red-d1-fc:   #ffffffe6;
+$color-red-l1-fc:   #000000e6;
+$color-red-l2-fc:   #000000e6;
+$color-red-l3-fc:   #000000e6;
+$color-orange-m:    #ff8600;
+$color-orange-d3:   #7a4000;
+$color-orange-d2:   #a55700;
+$color-orange-d1:   #d36f00;
+$color-orange-l1:   #ffa33d;
+$color-orange-l2:   #ffc07a;
+$color-orange-l3:   #ffddb7;
+$color-orange-m-fc: #000000e6;
+$color-orange-d3-fc:    #ffffffe6;
+$color-orange-d2-fc:    #ffffffe6;
+$color-orange-d1-fc:    #000000e6;
+$color-orange-l1-fc:    #000000e6;
+$color-orange-l2-fc:    #000000e6;
+$color-orange-l3-fc:    #000000e6;
+$color-yellow-m:    #fa9d3b;
+$color-yellow-d3:   #784b1c;
+$color-yellow-d2:   #a26626;
+$color-yellow-d1:   #cf8230;
+$color-yellow-l1:   #fbb46a;
+$color-yellow-l2:   #fccc99;
+$color-yellow-l3:   #fde3c8;
+$color-yellow-m-fc: #000000e6;
+$color-yellow-d3-fc:    #ffffffe6;
+$color-yellow-d2-fc:    #ffffffe6;
+$color-yellow-d1-fc:    #000000e6;
+$color-yellow-l1-fc:    #000000e6;
+$color-yellow-l2-fc:    #000000e6;
+$color-yellow-l3-fc:    #000000e6;
+$color-green-m: #07c160;
+$color-green-d3:    #035c2e;
+$color-green-d2:    #047d3e;
+$color-green-d1:    #05a04f;
+$color-green-l1:    #42cf86;
+$color-green-l2:    #7edeac;
+$color-green-l3:    #b9edd2;
+$color-green-m-fc:  #ffffffe6;
+$color-green-d3-fc: #ffffffe6;
+$color-green-d2-fc: #ffffffe6;
+$color-green-d1-fc: #ffffffe6;
+$color-green-l1-fc: #000000e6;
+$color-green-l2-fc: #000000e6;
+$color-green-l3-fc: #000000e6;
+$color-cyan-m:  #01c4b3;
+$color-cyan-d3: #005e55;
+$color-cyan-d2: #007f74;
+$color-cyan-d1: #00a294;
+$color-cyan-l1: #3dd2c5;
+$color-cyan-l2: #7ae0d7;
+$color-cyan-l3: #b7eee9;
+$color-cyan-m-fc:   #000000e6;
+$color-cyan-d3-fc:  #ffffffe6;
+$color-cyan-d2-fc:  #ffffffe6;
+$color-cyan-d1-fc:  #ffffffe6;
+$color-cyan-l1-fc:  #000000e6;
+$color-cyan-l2-fc:  #000000e6;
+$color-cyan-l3-fc:  #000000e6;
+$color-blue-m:  #1485ee;
+$color-blue-d3: #093f72;
+$color-blue-d2: #0d569a;
+$color-blue-d1: #106ec5;
+$color-blue-l1: #4ca2f2;
+$color-blue-l2: #84bff6;
+$color-blue-l3: #bddcfa;
+$color-blue-m-fc:   #ffffffe6;
+$color-blue-d3-fc:  #ffffffe6;
+$color-blue-d2-fc:  #ffffffe6;
+$color-blue-d1-fc:  #ffffffe6;
+$color-blue-l1-fc:  #000000e6;
+$color-blue-l2-fc:  #000000e6;
+$color-blue-l3-fc:  #000000e6;
+$color-purple-m:    #ea6e9c;
+$color-purple-d3:   #70344a;
+$color-purple-d2:   #984765;
+$color-purple-d1:   #c25b81;
+$color-purple-l1:   #ef90b3;
+$color-purple-l2:   #f4b3cb;
+$color-purple-l3:   #f9d6e3;
+$color-purple-m-fc: #000000e6;
+$color-purple-d3-fc:    #ffffffe6;
+$color-purple-d2-fc:    #ffffffe6;
+$color-purple-d1-fc:    #ffffffe6;
+$color-purple-l1-fc:    #000000e6;
+$color-purple-l2-fc:    #000000e6;
+$color-purple-l3-fc:    #000000e6;
+$color-gray-m:  #888888;
+$color-gray-d3: #414141;
+$color-gray-d2: #585858;
+$color-gray-d1: #707070;
+$color-gray-l1: #a4a4a4;
+$color-gray-l2: #c1c1c1;
+$color-gray-l3: #dddddd;
+$color-gray-m-fc:   #000000e6;
+$color-gray-d3-fc:  #ffffffe6;
+$color-gray-d2-fc:  #ffffffe6;
+$color-gray-d1-fc:  #ffffffe6;
+$color-gray-l1-fc:  #000000e6;
+$color-gray-l2-fc:  #000000e6;
+$color-gray-l3-fc:  #000000e6;
+$color-danger-m:    #fa5151;
+$color-danger-d3:   #782626;
+$color-danger-d2:   #a23434;
+$color-danger-d1:   #cf4343;
+$color-danger-l1:   #fb7a7a;
+$color-danger-l2:   #fca4a4;
+$color-danger-l3:   #fdcece;
+$color-danger-m-fc: #000000e6;
+$color-danger-d3-fc:    #ffffffe6;
+$color-danger-d2-fc:    #ffffffe6;
+$color-danger-d1-fc:    #ffffffe6;
+$color-danger-l1-fc:    #000000e6;
+$color-danger-l2-fc:    #000000e6;
+$color-danger-l3-fc:    #000000e6;
+$color-warn-m:  #fa9d3b;
+$color-warn-d3: #784b1c;
+$color-warn-d2: #a26626;
+$color-warn-d1: #cf8230;
+$color-warn-l1: #fbb46a;
+$color-warn-l2: #fccc99;
+$color-warn-l3: #fde3c8;
+$color-warn-m-fc:   #000000e6;
+$color-warn-d3-fc:  #ffffffe6;
+$color-warn-d2-fc:  #ffffffe6;
+$color-warn-d1-fc:  #000000e6;
+$color-warn-l1-fc:  #000000e6;
+$color-warn-l2-fc:  #000000e6;
+$color-warn-l3-fc:  #000000e6;
+$color-success-m:   #07c160;
+$color-success-d3:  #035c2e;
+$color-success-d2:  #047d3e;
+$color-success-d1:  #05a04f;
+$color-success-l1:  #42cf86;
+$color-success-l2:  #7edeac;
+$color-success-l3:  #b9edd2;
+$color-success-m-fc:    #ffffffe6;
+$color-success-d3-fc:   #ffffffe6;
+$color-success-d2-fc:   #ffffffe6;
+$color-success-d1-fc:   #ffffffe6;
+$color-success-l1-fc:   #000000e6;
+$color-success-l2-fc:   #000000e6;
+$color-success-l3-fc:   #000000e6;
+$color-primary-m:   #1485ee;
+$color-primary-d3:  #093f72;
+$color-primary-d2:  #0d569a;
+$color-primary-d1:  #106ec5;
+$color-primary-l1:  #4ca2f2;
+$color-primary-l2:  #84bff6;
+$color-primary-l3:  #bddcfa;
+$color-primary-m-fc:    #ffffffe6;
+$color-primary-d3-fc:   #ffffffe6;
+$color-primary-d2-fc:   #ffffffe6;
+$color-primary-d1-fc:   #ffffffe6;
+$color-primary-l1-fc:   #000000e6;
+$color-primary-l2-fc:   #000000e6;
+$color-primary-l3-fc:   #000000e6;
+$color-info-m:  #888888;
+$color-info-d3: #414141;
+$color-info-d2: #585858;
+$color-info-d1: #707070;
+$color-info-l1: #a4a4a4;
+$color-info-l2: #c1c1c1;
+$color-info-l3: #dddddd;
+$color-info-m-fc:   #000000e6;
+$color-info-d3-fc:  #ffffffe6;
+$color-info-d2-fc:  #ffffffe6;
+$color-info-d1-fc:  #ffffffe6;
+$color-info-l1-fc:  #000000e6;
+$color-info-l2-fc:  #000000e6;
+$color-info-l3-fc:  #000000e6;
+$color-bz-m:    #ff8600;
+$color-bz-d3:   #7a4000;
+$color-bz-d2:   #a55700;
+$color-bz-d1:   #d36f00;
+$color-bz-l1:   #ffa33d;
+$color-bz-l2:   #ffc07a;
+$color-bz-l3:   #ffddb7;
+$color-bz-m-fc: #000000e6;
+$color-bz-d3-fc:    #ffffffe6;
+$color-bz-d2-fc:    #ffffffe6;
+$color-bz-d1-fc:    #000000e6;
+$color-bz-l1-fc:    #000000e6;
+$color-bz-l2-fc:    #000000e6;
+$color-bz-l3-fc:    #000000e6;
+$color-fc-m:    #555555;
+$color-fc-d3:   #282828;
+$color-fc-d2:   #373737;
+$color-fc-d1:   #464646;
+$color-fc-l1:   #7d7d7d;
+$color-fc-l2:   #a6a6a6;
+$color-fc-l3:   #cfcfcf;
+$color-fc-m-fc: #ffffffe6;
+$color-fc-d3-fc:    #ffffffe6;
+$color-fc-d2-fc:    #ffffffe6;
+$color-fc-d1-fc:    #ffffffe6;
+$color-fc-l1-fc:    #ffffffe6;
+$color-fc-l2-fc:    #000000e6;
+$color-fc-l3-fc:    #000000e6;
+$color-bgc-m:   #f0f0f0;
+$color-bgc-d3:  #909090;
+$color-bgc-d2:  #afafaf;
+$color-bgc-d1:  #d0d0d0;
+$color-bgc-l1:  #f4f4f4;
+$color-bgc-l2:  #fafafa;
+$color-bgc-l3:  #ffffff;
+$color-bgc-m-fc:    #000000e6;
+$color-bgc-d3-fc:   #000000e6;
+$color-bgc-d2-fc:   #000000e6;
+$color-bgc-d1-fc:   #000000e6;
+$color-bgc-l1-fc:   #000000e6;
+$color-bgc-l2-fc:   #000000e6;
+$color-bgc-l3-fc:   #000000e6;
+$color-bdc-m:   #dfdfdf;
+$color-bdc-d3:  #787878;
+$color-bdc-d2:  #999999;
+$color-bdc-d1:  #bdbdbd;
+$color-bdc-l1:  #e5e5e5;
+$color-bdc-l2:  #ececec;
+$color-bdc-l3:  #f3f3f3;
+$color-bdc-m-fc:    #000000e6;
+$color-bdc-d3-fc:   #ffffffe6;
+$color-bdc-d2-fc:   #000000e6;
+$color-bdc-d1-fc:   #000000e6;
+$color-bdc-l1-fc:   #000000e6;
+$color-bdc-l2-fc:   #000000e6;
+$color-bdc-l3-fc:   #000000e6;
+$color-white-m: #ffffff;
+$color-black-m: #000000;
+$color-shadow-m:    #0000004d;
+
+$colorMap: (
+red-m:  #fa5151,
+red-d3: #782626,
+red-d2: #a23434,
+red-d1: #cf4343,
+red-l1: #fb7a7a,
+red-l2: #fca4a4,
+red-l3: #fdcece,
+red-m-fc:   #000000e6,
+red-d3-fc:  #ffffffe6,
+red-d2-fc:  #ffffffe6,
+red-d1-fc:  #ffffffe6,
+red-l1-fc:  #000000e6,
+red-l2-fc:  #000000e6,
+red-l3-fc:  #000000e6,
+orange-m:   #ff8600,
+orange-d3:  #7a4000,
+orange-d2:  #a55700,
+orange-d1:  #d36f00,
+orange-l1:  #ffa33d,
+orange-l2:  #ffc07a,
+orange-l3:  #ffddb7,
+orange-m-fc:    #000000e6,
+orange-d3-fc:   #ffffffe6,
+orange-d2-fc:   #ffffffe6,
+orange-d1-fc:   #000000e6,
+orange-l1-fc:   #000000e6,
+orange-l2-fc:   #000000e6,
+orange-l3-fc:   #000000e6,
+yellow-m:   #fa9d3b,
+yellow-d3:  #784b1c,
+yellow-d2:  #a26626,
+yellow-d1:  #cf8230,
+yellow-l1:  #fbb46a,
+yellow-l2:  #fccc99,
+yellow-l3:  #fde3c8,
+yellow-m-fc:    #000000e6,
+yellow-d3-fc:   #ffffffe6,
+yellow-d2-fc:   #ffffffe6,
+yellow-d1-fc:   #000000e6,
+yellow-l1-fc:   #000000e6,
+yellow-l2-fc:   #000000e6,
+yellow-l3-fc:   #000000e6,
+green-m:    #07c160,
+green-d3:   #035c2e,
+green-d2:   #047d3e,
+green-d1:   #05a04f,
+green-l1:   #42cf86,
+green-l2:   #7edeac,
+green-l3:   #b9edd2,
+green-m-fc: #ffffffe6,
+green-d3-fc:    #ffffffe6,
+green-d2-fc:    #ffffffe6,
+green-d1-fc:    #ffffffe6,
+green-l1-fc:    #000000e6,
+green-l2-fc:    #000000e6,
+green-l3-fc:    #000000e6,
+cyan-m: #01c4b3,
+cyan-d3:    #005e55,
+cyan-d2:    #007f74,
+cyan-d1:    #00a294,
+cyan-l1:    #3dd2c5,
+cyan-l2:    #7ae0d7,
+cyan-l3:    #b7eee9,
+cyan-m-fc:  #000000e6,
+cyan-d3-fc: #ffffffe6,
+cyan-d2-fc: #ffffffe6,
+cyan-d1-fc: #ffffffe6,
+cyan-l1-fc: #000000e6,
+cyan-l2-fc: #000000e6,
+cyan-l3-fc: #000000e6,
+blue-m: #1485ee,
+blue-d3:    #093f72,
+blue-d2:    #0d569a,
+blue-d1:    #106ec5,
+blue-l1:    #4ca2f2,
+blue-l2:    #84bff6,
+blue-l3:    #bddcfa,
+blue-m-fc:  #ffffffe6,
+blue-d3-fc: #ffffffe6,
+blue-d2-fc: #ffffffe6,
+blue-d1-fc: #ffffffe6,
+blue-l1-fc: #000000e6,
+blue-l2-fc: #000000e6,
+blue-l3-fc: #000000e6,
+purple-m:   #ea6e9c,
+purple-d3:  #70344a,
+purple-d2:  #984765,
+purple-d1:  #c25b81,
+purple-l1:  #ef90b3,
+purple-l2:  #f4b3cb,
+purple-l3:  #f9d6e3,
+purple-m-fc:    #000000e6,
+purple-d3-fc:   #ffffffe6,
+purple-d2-fc:   #ffffffe6,
+purple-d1-fc:   #ffffffe6,
+purple-l1-fc:   #000000e6,
+purple-l2-fc:   #000000e6,
+purple-l3-fc:   #000000e6,
+gray-m: #888888,
+gray-d3:    #414141,
+gray-d2:    #585858,
+gray-d1:    #707070,
+gray-l1:    #a4a4a4,
+gray-l2:    #c1c1c1,
+gray-l3:    #dddddd,
+gray-m-fc:  #000000e6,
+gray-d3-fc: #ffffffe6,
+gray-d2-fc: #ffffffe6,
+gray-d1-fc: #ffffffe6,
+gray-l1-fc: #000000e6,
+gray-l2-fc: #000000e6,
+gray-l3-fc: #000000e6,
+danger-m:   #fa5151,
+danger-d3:  #782626,
+danger-d2:  #a23434,
+danger-d1:  #cf4343,
+danger-l1:  #fb7a7a,
+danger-l2:  #fca4a4,
+danger-l3:  #fdcece,
+danger-m-fc:    #000000e6,
+danger-d3-fc:   #ffffffe6,
+danger-d2-fc:   #ffffffe6,
+danger-d1-fc:   #ffffffe6,
+danger-l1-fc:   #000000e6,
+danger-l2-fc:   #000000e6,
+danger-l3-fc:   #000000e6,
+warn-m: #fa9d3b,
+warn-d3:    #784b1c,
+warn-d2:    #a26626,
+warn-d1:    #cf8230,
+warn-l1:    #fbb46a,
+warn-l2:    #fccc99,
+warn-l3:    #fde3c8,
+warn-m-fc:  #000000e6,
+warn-d3-fc: #ffffffe6,
+warn-d2-fc: #ffffffe6,
+warn-d1-fc: #000000e6,
+warn-l1-fc: #000000e6,
+warn-l2-fc: #000000e6,
+warn-l3-fc: #000000e6,
+success-m:  #07c160,
+success-d3: #035c2e,
+success-d2: #047d3e,
+success-d1: #05a04f,
+success-l1: #42cf86,
+success-l2: #7edeac,
+success-l3: #b9edd2,
+success-m-fc:   #ffffffe6,
+success-d3-fc:  #ffffffe6,
+success-d2-fc:  #ffffffe6,
+success-d1-fc:  #ffffffe6,
+success-l1-fc:  #000000e6,
+success-l2-fc:  #000000e6,
+success-l3-fc:  #000000e6,
+primary-m:  #1485ee,
+primary-d3: #093f72,
+primary-d2: #0d569a,
+primary-d1: #106ec5,
+primary-l1: #4ca2f2,
+primary-l2: #84bff6,
+primary-l3: #bddcfa,
+primary-m-fc:   #ffffffe6,
+primary-d3-fc:  #ffffffe6,
+primary-d2-fc:  #ffffffe6,
+primary-d1-fc:  #ffffffe6,
+primary-l1-fc:  #000000e6,
+primary-l2-fc:  #000000e6,
+primary-l3-fc:  #000000e6,
+info-m: #888888,
+info-d3:    #414141,
+info-d2:    #585858,
+info-d1:    #707070,
+info-l1:    #a4a4a4,
+info-l2:    #c1c1c1,
+info-l3:    #dddddd,
+info-m-fc:  #000000e6,
+info-d3-fc: #ffffffe6,
+info-d2-fc: #ffffffe6,
+info-d1-fc: #ffffffe6,
+info-l1-fc: #000000e6,
+info-l2-fc: #000000e6,
+info-l3-fc: #000000e6,
+bz-m:   #ff8600,
+bz-d3:  #7a4000,
+bz-d2:  #a55700,
+bz-d1:  #d36f00,
+bz-l1:  #ffa33d,
+bz-l2:  #ffc07a,
+bz-l3:  #ffddb7,
+bz-m-fc:    #000000e6,
+bz-d3-fc:   #ffffffe6,
+bz-d2-fc:   #ffffffe6,
+bz-d1-fc:   #000000e6,
+bz-l1-fc:   #000000e6,
+bz-l2-fc:   #000000e6,
+bz-l3-fc:   #000000e6,
+fc-m:   #555555,
+fc-d3:  #282828,
+fc-d2:  #373737,
+fc-d1:  #464646,
+fc-l1:  #7d7d7d,
+fc-l2:  #a6a6a6,
+fc-l3:  #cfcfcf,
+fc-m-fc:    #ffffffe6,
+fc-d3-fc:   #ffffffe6,
+fc-d2-fc:   #ffffffe6,
+fc-d1-fc:   #ffffffe6,
+fc-l1-fc:   #ffffffe6,
+fc-l2-fc:   #000000e6,
+fc-l3-fc:   #000000e6,
+bgc-m:  #f0f0f0,
+bgc-d3: #909090,
+bgc-d2: #afafaf,
+bgc-d1: #d0d0d0,
+bgc-l1: #f4f4f4,
+bgc-l2: #fafafa,
+bgc-l3: #ffffff,
+bgc-m-fc:   #000000e6,
+bgc-d3-fc:  #000000e6,
+bgc-d2-fc:  #000000e6,
+bgc-d1-fc:  #000000e6,
+bgc-l1-fc:  #000000e6,
+bgc-l2-fc:  #000000e6,
+bgc-l3-fc:  #000000e6,
+bdc-m:  #dfdfdf,
+bdc-d3: #787878,
+bdc-d2: #999999,
+bdc-d1: #bdbdbd,
+bdc-l1: #e5e5e5,
+bdc-l2: #ececec,
+bdc-l3: #f3f3f3,
+bdc-m-fc:   #000000e6,
+bdc-d3-fc:  #ffffffe6,
+bdc-d2-fc:  #000000e6,
+bdc-d1-fc:  #000000e6,
+bdc-l1-fc:  #000000e6,
+bdc-l2-fc:  #000000e6,
+bdc-l3-fc:  #000000e6,
+white-m:    #ffffff,
+black-m:    #000000,
+shadow-m:   #0000004d,
+);
+
+:root {
+--color-red-m:  #fa5151;
+--color-red-d3: #782626;
+--color-red-d2: #a23434;
+--color-red-d1: #cf4343;
+--color-red-l1: #fb7a7a;
+--color-red-l2: #fca4a4;
+--color-red-l3: #fdcece;
+--color-red-m-fc:   #000000e6;
+--color-red-d3-fc:  #ffffffe6;
+--color-red-d2-fc:  #ffffffe6;
+--color-red-d1-fc:  #ffffffe6;
+--color-red-l1-fc:  #000000e6;
+--color-red-l2-fc:  #000000e6;
+--color-red-l3-fc:  #000000e6;
+--color-orange-m:   #ff8600;
+--color-orange-d3:  #7a4000;
+--color-orange-d2:  #a55700;
+--color-orange-d1:  #d36f00;
+--color-orange-l1:  #ffa33d;
+--color-orange-l2:  #ffc07a;
+--color-orange-l3:  #ffddb7;
+--color-orange-m-fc:    #000000e6;
+--color-orange-d3-fc:   #ffffffe6;
+--color-orange-d2-fc:   #ffffffe6;
+--color-orange-d1-fc:   #000000e6;
+--color-orange-l1-fc:   #000000e6;
+--color-orange-l2-fc:   #000000e6;
+--color-orange-l3-fc:   #000000e6;
+--color-yellow-m:   #fa9d3b;
+--color-yellow-d3:  #784b1c;
+--color-yellow-d2:  #a26626;
+--color-yellow-d1:  #cf8230;
+--color-yellow-l1:  #fbb46a;
+--color-yellow-l2:  #fccc99;
+--color-yellow-l3:  #fde3c8;
+--color-yellow-m-fc:    #000000e6;
+--color-yellow-d3-fc:   #ffffffe6;
+--color-yellow-d2-fc:   #ffffffe6;
+--color-yellow-d1-fc:   #000000e6;
+--color-yellow-l1-fc:   #000000e6;
+--color-yellow-l2-fc:   #000000e6;
+--color-yellow-l3-fc:   #000000e6;
+--color-green-m:    #07c160;
+--color-green-d3:   #035c2e;
+--color-green-d2:   #047d3e;
+--color-green-d1:   #05a04f;
+--color-green-l1:   #42cf86;
+--color-green-l2:   #7edeac;
+--color-green-l3:   #b9edd2;
+--color-green-m-fc: #ffffffe6;
+--color-green-d3-fc:    #ffffffe6;
+--color-green-d2-fc:    #ffffffe6;
+--color-green-d1-fc:    #ffffffe6;
+--color-green-l1-fc:    #000000e6;
+--color-green-l2-fc:    #000000e6;
+--color-green-l3-fc:    #000000e6;
+--color-cyan-m: #01c4b3;
+--color-cyan-d3:    #005e55;
+--color-cyan-d2:    #007f74;
+--color-cyan-d1:    #00a294;
+--color-cyan-l1:    #3dd2c5;
+--color-cyan-l2:    #7ae0d7;
+--color-cyan-l3:    #b7eee9;
+--color-cyan-m-fc:  #000000e6;
+--color-cyan-d3-fc: #ffffffe6;
+--color-cyan-d2-fc: #ffffffe6;
+--color-cyan-d1-fc: #ffffffe6;
+--color-cyan-l1-fc: #000000e6;
+--color-cyan-l2-fc: #000000e6;
+--color-cyan-l3-fc: #000000e6;
+--color-blue-m: #1485ee;
+--color-blue-d3:    #093f72;
+--color-blue-d2:    #0d569a;
+--color-blue-d1:    #106ec5;
+--color-blue-l1:    #4ca2f2;
+--color-blue-l2:    #84bff6;
+--color-blue-l3:    #bddcfa;
+--color-blue-m-fc:  #ffffffe6;
+--color-blue-d3-fc: #ffffffe6;
+--color-blue-d2-fc: #ffffffe6;
+--color-blue-d1-fc: #ffffffe6;
+--color-blue-l1-fc: #000000e6;
+--color-blue-l2-fc: #000000e6;
+--color-blue-l3-fc: #000000e6;
+--color-purple-m:   #ea6e9c;
+--color-purple-d3:  #70344a;
+--color-purple-d2:  #984765;
+--color-purple-d1:  #c25b81;
+--color-purple-l1:  #ef90b3;
+--color-purple-l2:  #f4b3cb;
+--color-purple-l3:  #f9d6e3;
+--color-purple-m-fc:    #000000e6;
+--color-purple-d3-fc:   #ffffffe6;
+--color-purple-d2-fc:   #ffffffe6;
+--color-purple-d1-fc:   #ffffffe6;
+--color-purple-l1-fc:   #000000e6;
+--color-purple-l2-fc:   #000000e6;
+--color-purple-l3-fc:   #000000e6;
+--color-gray-m: #888888;
+--color-gray-d3:    #414141;
+--color-gray-d2:    #585858;
+--color-gray-d1:    #707070;
+--color-gray-l1:    #a4a4a4;
+--color-gray-l2:    #c1c1c1;
+--color-gray-l3:    #dddddd;
+--color-gray-m-fc:  #000000e6;
+--color-gray-d3-fc: #ffffffe6;
+--color-gray-d2-fc: #ffffffe6;
+--color-gray-d1-fc: #ffffffe6;
+--color-gray-l1-fc: #000000e6;
+--color-gray-l2-fc: #000000e6;
+--color-gray-l3-fc: #000000e6;
+--color-danger-m:   #fa5151;
+--color-danger-d3:  #782626;
+--color-danger-d2:  #a23434;
+--color-danger-d1:  #cf4343;
+--color-danger-l1:  #fb7a7a;
+--color-danger-l2:  #fca4a4;
+--color-danger-l3:  #fdcece;
+--color-danger-m-fc:    #000000e6;
+--color-danger-d3-fc:   #ffffffe6;
+--color-danger-d2-fc:   #ffffffe6;
+--color-danger-d1-fc:   #ffffffe6;
+--color-danger-l1-fc:   #000000e6;
+--color-danger-l2-fc:   #000000e6;
+--color-danger-l3-fc:   #000000e6;
+--color-warn-m: #fa9d3b;
+--color-warn-d3:    #784b1c;
+--color-warn-d2:    #a26626;
+--color-warn-d1:    #cf8230;
+--color-warn-l1:    #fbb46a;
+--color-warn-l2:    #fccc99;
+--color-warn-l3:    #fde3c8;
+--color-warn-m-fc:  #000000e6;
+--color-warn-d3-fc: #ffffffe6;
+--color-warn-d2-fc: #ffffffe6;
+--color-warn-d1-fc: #000000e6;
+--color-warn-l1-fc: #000000e6;
+--color-warn-l2-fc: #000000e6;
+--color-warn-l3-fc: #000000e6;
+--color-success-m:  #07c160;
+--color-success-d3: #035c2e;
+--color-success-d2: #047d3e;
+--color-success-d1: #05a04f;
+--color-success-l1: #42cf86;
+--color-success-l2: #7edeac;
+--color-success-l3: #b9edd2;
+--color-success-m-fc:   #ffffffe6;
+--color-success-d3-fc:  #ffffffe6;
+--color-success-d2-fc:  #ffffffe6;
+--color-success-d1-fc:  #ffffffe6;
+--color-success-l1-fc:  #000000e6;
+--color-success-l2-fc:  #000000e6;
+--color-success-l3-fc:  #000000e6;
+--color-primary-m:  #1485ee;
+--color-primary-d3: #093f72;
+--color-primary-d2: #0d569a;
+--color-primary-d1: #106ec5;
+--color-primary-l1: #4ca2f2;
+--color-primary-l2: #84bff6;
+--color-primary-l3: #bddcfa;
+--color-primary-m-fc:   #ffffffe6;
+--color-primary-d3-fc:  #ffffffe6;
+--color-primary-d2-fc:  #ffffffe6;
+--color-primary-d1-fc:  #ffffffe6;
+--color-primary-l1-fc:  #000000e6;
+--color-primary-l2-fc:  #000000e6;
+--color-primary-l3-fc:  #000000e6;
+--color-info-m: #888888;
+--color-info-d3:    #414141;
+--color-info-d2:    #585858;
+--color-info-d1:    #707070;
+--color-info-l1:    #a4a4a4;
+--color-info-l2:    #c1c1c1;
+--color-info-l3:    #dddddd;
+--color-info-m-fc:  #000000e6;
+--color-info-d3-fc: #ffffffe6;
+--color-info-d2-fc: #ffffffe6;
+--color-info-d1-fc: #ffffffe6;
+--color-info-l1-fc: #000000e6;
+--color-info-l2-fc: #000000e6;
+--color-info-l3-fc: #000000e6;
+--color-bz-m:   #ff8600;
+--color-bz-d3:  #7a4000;
+--color-bz-d2:  #a55700;
+--color-bz-d1:  #d36f00;
+--color-bz-l1:  #ffa33d;
+--color-bz-l2:  #ffc07a;
+--color-bz-l3:  #ffddb7;
+--color-bz-m-fc:    #000000e6;
+--color-bz-d3-fc:   #ffffffe6;
+--color-bz-d2-fc:   #ffffffe6;
+--color-bz-d1-fc:   #000000e6;
+--color-bz-l1-fc:   #000000e6;
+--color-bz-l2-fc:   #000000e6;
+--color-bz-l3-fc:   #000000e6;
+--color-fc-m:   #555555;
+--color-fc-d3:  #282828;
+--color-fc-d2:  #373737;
+--color-fc-d1:  #464646;
+--color-fc-l1:  #7d7d7d;
+--color-fc-l2:  #a6a6a6;
+--color-fc-l3:  #cfcfcf;
+--color-fc-m-fc:    #ffffffe6;
+--color-fc-d3-fc:   #ffffffe6;
+--color-fc-d2-fc:   #ffffffe6;
+--color-fc-d1-fc:   #ffffffe6;
+--color-fc-l1-fc:   #ffffffe6;
+--color-fc-l2-fc:   #000000e6;
+--color-fc-l3-fc:   #000000e6;
+--color-bgc-m:  #f0f0f0;
+--color-bgc-d3: #909090;
+--color-bgc-d2: #afafaf;
+--color-bgc-d1: #d0d0d0;
+--color-bgc-l1: #f4f4f4;
+--color-bgc-l2: #fafafa;
+--color-bgc-l3: #ffffff;
+--color-bgc-m-fc:   #000000e6;
+--color-bgc-d3-fc:  #000000e6;
+--color-bgc-d2-fc:  #000000e6;
+--color-bgc-d1-fc:  #000000e6;
+--color-bgc-l1-fc:  #000000e6;
+--color-bgc-l2-fc:  #000000e6;
+--color-bgc-l3-fc:  #000000e6;
+--color-bdc-m:  #dfdfdf;
+--color-bdc-d3: #787878;
+--color-bdc-d2: #999999;
+--color-bdc-d1: #bdbdbd;
+--color-bdc-l1: #e5e5e5;
+--color-bdc-l2: #ececec;
+--color-bdc-l3: #f3f3f3;
+--color-bdc-m-fc:   #000000e6;
+--color-bdc-d3-fc:  #ffffffe6;
+--color-bdc-d2-fc:  #000000e6;
+--color-bdc-d1-fc:  #000000e6;
+--color-bdc-l1-fc:  #000000e6;
+--color-bdc-l2-fc:  #000000e6;
+--color-bdc-l3-fc:  #000000e6;
+--color-white-m:    #ffffff;
+--color-black-m:    #000000;
+--color-shadow-m:   #0000004d;
+}
+
+
+/**
+ * 主题模块 size 生成语句
+ * 不要手动修改
+ */
+
+$sizeShiftQueue:    xxxxs,xxxs,xxs,xs,s,m,l,xl,xxl,xxxl,xxxxl;
+
+$size-fs-m: 14px;
+$size-fs-l: 16px;
+$size-fs-s: 12px;
+$size-fs-xl:    18px;
+$size-fs-xs:    10px;
+$size-fs-xxl:   22px;
+$size-fs-xxs:   10px;
+$size-fs-xxxl:  26px;
+$size-fs-xxxs:  9px;
+$size-fs-xxxxl: 32px;
+$size-fs-xxxxs: 8px;
+$size-fw-m: 400;
+$size-fw-l: 500;
+$size-fw-s: 300;
+$size-fw-xl:    700;
+$size-fw-xs:    200;
+$size-fw-xxl:   900;
+$size-fw-xxs:   100;
+$size-mg-m: 16px;
+$size-mg-l: 20px;
+$size-mg-s: 12px;
+$size-mg-xl:    24px;
+$size-mg-xs:    8px;
+$size-mg-xxl:   28px;
+$size-mg-xxs:   4px;
+$size-pd-m: 12px;
+$size-pd-l: 16px;
+$size-pd-s: 8px;
+$size-pd-xl:    20px;
+$size-pd-xs:    4px;
+$size-pd-xxl:   24px;
+$size-pd-xxs:   0px;
+$size-rd-m: 8px;
+$size-rd-l: 10px;
+$size-rd-s: 6px;
+$size-rd-xl:    12px;
+$size-rd-xs:    4px;
+$size-rd-xxl:   14px;
+$size-rd-xxs:   2px;
+$size-bar-m:    36px;
+$size-bar-l:    40px;
+$size-bar-s:    32px;
+$size-bar-xl:   44px;
+$size-bar-xs:   28px;
+$size-bar-xxl:  48px;
+$size-bar-xxs:  24px;
+$size-icon-m:   24px;
+$size-icon-l:   28px;
+$size-icon-s:   20px;
+$size-icon-xl:  32px;
+$size-icon-xs:  16px;
+$size-icon-xxl: 36px;
+$size-icon-xxs: 12px;
+$size-btn-m:    32px;
+$size-btn-l:    36px;
+$size-btn-s:    28px;
+$size-btn-xl:   42px;
+$size-btn-xs:   24px;
+$size-btn-xxl:  48px;
+$size-btn-xxs:  20px;
+$size-btn-fs-m: 14px;
+$size-btn-fs-l: 16px;
+$size-btn-fs-s: 12px;
+$size-btn-fs-xl:    18px;
+$size-btn-fs-xs:    10px;
+$size-btn-fs-xxl:   20px;
+$size-btn-fs-xxs:   10px;
+$size-btn-pd-m: 14px;
+$size-btn-pd-l: 16px;
+$size-btn-pd-s: 12px;
+$size-btn-pd-xl:    20px;
+$size-btn-pd-xs:    10px;
+$size-btn-pd-xxl:   24px;
+$size-btn-pd-xxs:   8px;
+$size-btn-rd-m: 8px;
+$size-btn-rd-l: 9px;
+$size-btn-rd-s: 7px;
+$size-btn-rd-xl:    10px;
+$size-btn-rd-xs:    6px;
+$size-btn-rd-xxl:   12px;
+$size-btn-rd-xxs:   5px;
+$size-shadow-m: 8px;
+$size-shadow-l: 10px;
+$size-shadow-s: 6px;
+$size-shadow-xl:    12px;
+$size-shadow-xs:    4px;
+$size-shadow-xxl:   14px;
+$size-shadow-xxs:   2px;
+$size-bd-m: 1px;
+$size-blur-m:   8px;
+
+$sizeMap: (
+fs-m:   14px,
+fs-l:   16px,
+fs-s:   12px,
+fs-xl:  18px,
+fs-xs:  10px,
+fs-xxl: 22px,
+fs-xxs: 10px,
+fs-xxxl:    26px,
+fs-xxxs:    9px,
+fs-xxxxl:   32px,
+fs-xxxxs:   8px,
+fw-m:   400,
+fw-l:   500,
+fw-s:   300,
+fw-xl:  700,
+fw-xs:  200,
+fw-xxl: 900,
+fw-xxs: 100,
+mg-m:   16px,
+mg-l:   20px,
+mg-s:   12px,
+mg-xl:  24px,
+mg-xs:  8px,
+mg-xxl: 28px,
+mg-xxs: 4px,
+pd-m:   12px,
+pd-l:   16px,
+pd-s:   8px,
+pd-xl:  20px,
+pd-xs:  4px,
+pd-xxl: 24px,
+pd-xxs: 0px,
+rd-m:   8px,
+rd-l:   10px,
+rd-s:   6px,
+rd-xl:  12px,
+rd-xs:  4px,
+rd-xxl: 14px,
+rd-xxs: 2px,
+bar-m:  36px,
+bar-l:  40px,
+bar-s:  32px,
+bar-xl: 44px,
+bar-xs: 28px,
+bar-xxl:    48px,
+bar-xxs:    24px,
+icon-m: 24px,
+icon-l: 28px,
+icon-s: 20px,
+icon-xl:    32px,
+icon-xs:    16px,
+icon-xxl:   36px,
+icon-xxs:   12px,
+btn-m:  32px,
+btn-l:  36px,
+btn-s:  28px,
+btn-xl: 42px,
+btn-xs: 24px,
+btn-xxl:    48px,
+btn-xxs:    20px,
+btn-fs-m:   14px,
+btn-fs-l:   16px,
+btn-fs-s:   12px,
+btn-fs-xl:  18px,
+btn-fs-xs:  10px,
+btn-fs-xxl: 20px,
+btn-fs-xxs: 10px,
+btn-pd-m:   14px,
+btn-pd-l:   16px,
+btn-pd-s:   12px,
+btn-pd-xl:  20px,
+btn-pd-xs:  10px,
+btn-pd-xxl: 24px,
+btn-pd-xxs: 8px,
+btn-rd-m:   8px,
+btn-rd-l:   9px,
+btn-rd-s:   7px,
+btn-rd-xl:  10px,
+btn-rd-xs:  6px,
+btn-rd-xxl: 12px,
+btn-rd-xxs: 5px,
+shadow-m:   8px,
+shadow-l:   10px,
+shadow-s:   6px,
+shadow-xl:  12px,
+shadow-xs:  4px,
+shadow-xxl: 14px,
+shadow-xxs: 2px,
+bd-m:   1px,
+blur-m: 8px,
+);
+
+$sizeStrQueue:  huge,large,medium,normal,small,mini,tiny;
+$sizeStrMap: (
+huge:   'xxl',
+large:  'xl',
+medium: 'l',
+normal: 'm',
+small:  's',
+mini:   'xs',
+tiny:   'xxs',
+);
+
+$extraIconSizeQueue:    48,54,64,72,88,96,128;
+$extraBtnSizeQueue: 54,64,72,88,96,128;
+
+$shapeList: normal,pill,sharp;
+
+:root {
+--size-fs-m:    14px;
+--size-fs-l:    16px;
+--size-fs-s:    12px;
+--size-fs-xl:   18px;
+--size-fs-xs:   10px;
+--size-fs-xxl:  22px;
+--size-fs-xxs:  10px;
+--size-fs-xxxl: 26px;
+--size-fs-xxxs: 9px;
+--size-fs-xxxxl:    32px;
+--size-fs-xxxxs:    8px;
+--size-fw-m:    400;
+--size-fw-l:    500;
+--size-fw-s:    300;
+--size-fw-xl:   700;
+--size-fw-xs:   200;
+--size-fw-xxl:  900;
+--size-fw-xxs:  100;
+--size-mg-m:    16px;
+--size-mg-l:    20px;
+--size-mg-s:    12px;
+--size-mg-xl:   24px;
+--size-mg-xs:   8px;
+--size-mg-xxl:  28px;
+--size-mg-xxs:  4px;
+--size-pd-m:    12px;
+--size-pd-l:    16px;
+--size-pd-s:    8px;
+--size-pd-xl:   20px;
+--size-pd-xs:   4px;
+--size-pd-xxl:  24px;
+--size-pd-xxs:  0px;
+--size-rd-m:    8px;
+--size-rd-l:    10px;
+--size-rd-s:    6px;
+--size-rd-xl:   12px;
+--size-rd-xs:   4px;
+--size-rd-xxl:  14px;
+--size-rd-xxs:  2px;
+--size-bar-m:   36px;
+--size-bar-l:   40px;
+--size-bar-s:   32px;
+--size-bar-xl:  44px;
+--size-bar-xs:  28px;
+--size-bar-xxl: 48px;
+--size-bar-xxs: 24px;
+--size-icon-m:  24px;
+--size-icon-l:  28px;
+--size-icon-s:  20px;
+--size-icon-xl: 32px;
+--size-icon-xs: 16px;
+--size-icon-xxl:    36px;
+--size-icon-xxs:    12px;
+--size-btn-m:   32px;
+--size-btn-l:   36px;
+--size-btn-s:   28px;
+--size-btn-xl:  42px;
+--size-btn-xs:  24px;
+--size-btn-xxl: 48px;
+--size-btn-xxs: 20px;
+--size-btn-fs-m:    14px;
+--size-btn-fs-l:    16px;
+--size-btn-fs-s:    12px;
+--size-btn-fs-xl:   18px;
+--size-btn-fs-xs:   10px;
+--size-btn-fs-xxl:  20px;
+--size-btn-fs-xxs:  10px;
+--size-btn-pd-m:    14px;
+--size-btn-pd-l:    16px;
+--size-btn-pd-s:    12px;
+--size-btn-pd-xl:   20px;
+--size-btn-pd-xs:   10px;
+--size-btn-pd-xxl:  24px;
+--size-btn-pd-xxs:  8px;
+--size-btn-rd-m:    8px;
+--size-btn-rd-l:    9px;
+--size-btn-rd-s:    7px;
+--size-btn-rd-xl:   10px;
+--size-btn-rd-xs:   6px;
+--size-btn-rd-xxl:  12px;
+--size-btn-rd-xxs:  5px;
+--size-shadow-m:    8px;
+--size-shadow-l:    10px;
+--size-shadow-s:    6px;
+--size-shadow-xl:   12px;
+--size-shadow-xs:   4px;
+--size-shadow-xxl:  14px;
+--size-shadow-xxs:  2px;
+--size-bd-m:    1px;
+--size-blur-m:  8px;
+}
+
+
+/**
+ * 主题模块 vars 生成语句
+ * 不要手动修改
+ */
+
+$font-fml-default:  -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+$font-fml-code: 'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace;
+$font-fml-fangsong: 'Times New Roman', '仿宋';
+$font-fml-yahei:    '微软雅黑', 'Microsoft Yahei';
+$font-fml-songti:   'Times New Roman', '宋体';
+$ani-dura:  0.3s;
+
+$varsMap: (
+font-fml-default:   "-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji'",
+font-fml-code:  "'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace",
+font-fml-fangsong:  "'Times New Roman', '仿宋'",
+font-fml-yahei: "'微软雅黑', 'Microsoft Yahei'",
+font-fml-songti:    "'Times New Roman', '宋体'",
+ani-dura:   0.3s,
+);
+
+
+:root {
+--font-fml-default: -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft Yahei',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji';
+--font-fml-code:    'Cascadia Code', 'Consolas', 'Courier New', 'Pingfang SC', 'Microsoft Yahei', monospace;
+--font-fml-fangsong:    'Times New Roman', '仿宋';
+--font-fml-yahei:   '微软雅黑', 'Microsoft Yahei';
+--font-fml-songti:  'Times New Roman', '宋体';
+--ani-dura: 0.3s;
+}
+
+
+
+
+
+/**
+ * 合并资源 base.scss
+ * !! 不要手动修改 !!
+ */
+
+.test {
+    $defined: meta.variable-exists(colorMap);
+    content: '#{$defined}';
+}
+
+

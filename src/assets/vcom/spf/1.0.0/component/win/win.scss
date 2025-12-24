@@ -1,0 +1,284 @@
+//根据传入的 block-[m|xs|xxl] 计算对应的 win 窗口相关尺寸  <返回：map>
+@function win-size-key-calc($skey: block-m) {
+    //读取基础尺寸值
+    $sz: size-get($skey);
+    @if not is-string($skey) or not is-number($sz) {@return null;}
+    //block-xxl  -->  (block-xxl, block, xxl, l, 3, size)
+    $skl: key-parse($skey, true);
+    //尺寸类型 block..
+    $ztp: nth($skl, 2);
+    //传入尺寸的偏移形式 以及 偏移量
+    $sfx: nth($skl, 3);     // xxl|xs|m
+    $stp: nth($skl, 4);     // s|m|l
+    $lvl: nth($skl, 5);     // 0|1|2|3|4
+
+    //计算
+    //按钮使用默认尺寸
+    $btn: $size-btn-m;
+    //窗口的最小宽度
+    $min-w: n-clamp(256px, round(mul($sz, 8)), 1280px);
+    //窗口 padding
+    $pd: size-get(bar-pd-#{$sfx});
+    //窗口 radius
+    $rd: size-get(bar-rd-#{$sfx});
+    //窗口 titbar 高度
+    $tit-h: size-get(bar-#{$sfx});
+    //窗口 titbar 右侧 最小化|最大化|关闭 按钮到右边的 gap
+    $tit-gap: round(div(sub($tit-h, $btn), 2));
+    //窗口 titbar 右侧 最小化|最大化|关闭 按钮与 窗口 radius 匹配的 btn-radius
+    //$tit-btn-rd: sub($rd, $tit-gap);
+    //窗口 ctrlbar 高度
+    $ctrl-h: add($btn, mul($pd, 2));
+
+    //输出
+    @return (
+        min-h:      $sz,    //基础尺寸作为窗口的 min-height
+        min-w:      $min-w,
+        pd:         $pd,
+        rd:         $rd,
+        tit-h:      $tit-h,
+        tit-gap:    $tit-gap,
+        //tit-btn-rd: $tit-btn-rd,
+        ctrl-h:     $ctrl-h,
+    );
+}
+//根据传入的 block-[m|xs|xxl] 设置对应的 尺寸样式
+@mixin win-set-size($pre: win-, $size: block-m) {
+    $smap: win-size-key-calc($size);
+    @if is-nemmap($smap) {
+        $szs: map.values($smap);
+        @if is-number($szs...) {
+            //读取数据
+            $min-w:         map.get($smap, min-w);
+            $min-h:         map.get($smap, min-h);
+            $pd:            map.get($smap, pd);
+            $rd:            map.get($smap, rd);
+            $tit-h:         map.get($smap, tit-h);
+            $tit-gap:       map.get($smap, tit-gap);
+            //$tit-btn-rd:    map.get($smap, tit-btn-rd);
+            $ctrl-h:        map.get($smap, ctrl-h);
+            //padding 一半
+            $pd-05x: round(div($pd, 2));
+        
+            //窗口样式
+            min-width: $min-w;
+            min-height: $min-h;
+            border-radius: $rd;
+            //titbar
+            &>.#{$pre}titbar {
+                height: $tit-h;
+                padding: 0 0 0 $pd;
+                &>*[class*=btn]:last-child {
+                    margin-right: $tit-gap;
+                    //border-radius: 0 $tit-btn-rd 0 0 !important;
+                }
+                .#{$pre}title {
+                    padding: 0 $pd 0 0;
+                }
+                &>*[class*=icon]+.#{$pre}title {
+                    padding-left: $pd-05x;
+                }
+                &>.#{$pre}titctrl {
+                    padding: 0 $pd 0 0;
+                }
+            }
+            //tabbar
+            &>.#{$pre}tabbar {
+                height: $tit-h;
+                &>[class*=tabbar] {
+                    height: $tit-h;
+                }
+            }
+            //body
+            &>.#{$pre}body {
+                min-height: $min-h;
+                padding: $pd 0;
+                .#{$pre}row {
+                    padding: 0 $pd;
+                    //默认 min-height
+                    min-height: $tit-h;
+                    &>*[class*=icon]:first-child {
+                        &+* {
+                            margin-left: $pd-05x;
+                        }
+                    }
+                }
+            }
+            //ctrlbar
+            &>.#{$pre}ctrlbar {
+                padding: 0 $pd;
+                height: $ctrl-h;
+            }
+        }
+    }
+}
+
+
+.__PRE__-win {
+    @include spf-po-fix($w: unset, $h: unset, $pd: 0, $mg: 0, $l: 0, $t: 0);
+    //默认初始隐藏窗口
+    display: none;
+    //@include spf-flex-y-noinner($x: stretch);
+    //默认自带 backdrop-blur 效果
+    @extend .bg-backdrop-blur;
+    @extend .bd-default;
+    transition: background-color $ani-dura,
+                box-shadow $ani-dura,
+                opacity $ani-dura,
+                left $ani-dura,
+                top $ani-dura,
+                transform $ani-dura ease-in-out,
+                min-width $ani-dura ease-in-out,
+                min-height $ani-dura ease-in-out;
+
+    //show
+    &.win-show {
+        display: flex;
+    }
+
+    //titbar
+    &>.win-titbar {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        //@include spf-flex-x-noinner;
+        &>* {flex-shrink: 0;}
+        &>.win-title {
+            @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+            //@include spf-flex-x-noinner;
+            //flex: 1;
+            font-weight: $size-fw-xl;
+        }
+        &>.win-titctrl {
+            @include spf-po-ov($w: unset, $h: unset, $pd: 0, $mg: 0);
+            //@include spf-flex-x-noinner($x: flex-end);
+        }
+    }
+
+    //tabbar
+    &>.win-tabbar {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        //@include spf-flex-x-noinner($x: center);
+    }
+
+    //body
+    &>.win-body {
+        @include spf-po($w: 100%, $h: unset, $pd: 0, $mg: 0, $ov: hidden auto);
+        //flex: 1;
+        //@include spf-flex-y;
+        @extend .scroll;
+        .win-row {
+            @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+            min-height: $size-bar-m;
+            @include spf-flex-x($x: flex-start);
+            &.win-row-no-pd {
+                padding: 0;
+            }
+
+            //row 尺寸循环 .win-row.row-xxl 控制 min-height
+            @include spf-size-shift(self, row-, min-height, bar, $extraBarSizeQueue, false);
+        }
+    }
+
+    //ctrlbar
+    &>.win-ctrlbar {
+        @include spf-po-ov($w: 100%, $h: unset, $pd: 0, $mg: 0);
+        //@include spf-flex-x-noinner($x: flex-end);
+        @extend .bd-default;
+    }
+
+    //loading mask
+    &>.win-loading {
+        @include spf-po-abs($w: 100%, $h: 100%, $pd: 0, $mg: 0, $l: 0, $t: 0);
+        background-color: set-alpha($color-white-m, 0.6);
+        //z-index: 1;
+    }
+
+    //默认窗口尺寸
+    @include win-set-size(win-, block-m);
+
+    //border
+    &.win-border {
+        border-width: $size-bd-m;
+        &>.win-ctrlbar {
+            border-width: $size-bd-m 0 0 0;
+        }
+    }
+
+    //sharp
+    &.win-sharp, &.win-type-inside {
+        border-radius: 0;
+        &>.win-titbar {
+            &>*[class*=btn]:last-child {
+                border-radius: 0 !important;
+            }
+        }
+    }
+
+    //shadow
+    &.win-shadow {
+        &, &.win-shadow-normal {
+            @extend .shadow-m-a1;
+        }
+        &.win-shadow-thin {@extend .shadow-s-a1;}
+        &.win-shadow-bold {
+            border-color: $color-bdc-d1;
+            @extend .shadow-l-a2;
+        }
+    }
+
+    //hoverable 窗口悬停增加阴影
+    &.win-hoverable:hover {
+        border-color: $color-bdc-d1;
+
+        //悬停背景翻转
+        background-color: set-alpha($color-bgc-l1, 0.8);
+
+        //叠加 shadow 效果
+        @extend .shadow-s-a1;
+        &.win-shadow {
+            &, &.win-shadow-normal {
+                @extend .shadow-l-a1;
+            }
+            &.win-shadow-thin {@extend .shadow-m-a1;}
+            &.win-shadow-bold {
+                border-color: $color-bdc-d2;
+                @extend .shadow-xl-a3;
+            }
+        }
+    }
+
+    //inside
+    &.win-type-inside {
+        position: relative; left: unset; top: unset;
+        width: 100%; height: unset; 
+        min-width: unset; min-height: unset;
+        flex: 1;
+    }
+
+    //tightness
+    &.win-tightness-loose {
+        @include win-set-size(win-, block-xxl);
+    }
+    &.win-tightness-tight {
+        @include win-set-size(win-, block-xs);
+    }
+
+    //minimized
+    &.win-minimized:not([class*=inside]) {
+        position: fixed;
+        transform: scale(0.5);
+        opacity: 0;
+    }
+
+    //maximized
+    &.win-maximized:not([class*=inside]) {
+        position: fixed;
+        left: 0; top: 0;
+        min-width: 100vw;
+        min-height: 100vh;
+        box-shadow: none;
+        border-radius: 0;
+        border-width: 0;
+    }
+
+
+}

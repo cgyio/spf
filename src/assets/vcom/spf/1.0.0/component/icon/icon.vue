@@ -4,9 +4,9 @@
         :style="styComputedStyleStr.root"
         aria-hidden="true"
     >
-        <use v-if="icon!='-empty-'" v-bind:xlink:href="'#'+iconKey">
+        <use v-if="iconKey!='-empty-'" v-bind:xlink:href="'#'+iconKey">
             <animateTransform
-                v-if="spin"
+                v-if="spinSelf"
                 attributeName="transform"
                 attributeType="XML"
                 type="rotate"
@@ -31,9 +31,21 @@ export default {
             default: '-empty-'
         },
 
-        //spin
+        //图表 shape 可选 round|fill|sharp
+        shape: {
+            type: String,
+            default: 'round'
+        },
+
+        /**
+         * spin 图标旋转 可选：false|true 或 self|wait|wifi...
+         * false            不旋转
+         * true             使用自旋转图标 spinner-spin
+         * self             使用 animateTransform 旋转当前图标
+         * wait|wifi...     使用自旋转图标 spinner-wait|wifi...
+         */
         spin: {
-            type: Boolean,
+            type: [Boolean, String],
             default: false
         },
 
@@ -42,45 +54,25 @@ export default {
             type: String,
             default: '2s'
         },
-
-        //使用外部 icon 图标，不通过自带 iconPackage 图标包
-        //图标来源 https://io.cgy.design/icon/***
-        /*useExtraIcon: {
-            type: Boolean,
-            default: false
-        },
-        extraIconApi: {
-            type: String,
-            default: 'https://io.cgy.design/icon/'
-        },*/
     },
     data() {return {
             
-        /**
-         * 覆盖 base-style 样式系统参数
-         */
-        styInit: {
-            class: {
-                //根元素
-                root: ['__PRE__-icon-wrapper'],
+        //覆盖 base-style 样式系统参数
+        sty: {
+            init: {
+                class: {
+                    root: ['__PRE__-icon'],
+                }
             },
-            style: {
-                //根元素
-                root: {},
+            prefix: 'icon',
+            sub: {
+                size: true,
+                color: true,
             },
-        },
-        styCssPre: 'icon',
-        styEnable: {
-            size: true,
-            color: true,
-            animate: false,
-        },
-        stySwitches: {
-            
-        },
-        styCsvKey: {
-            size: 'icon',
-            color: 'fc',
+            csvKey: {
+                size: 'icon',
+                color: 'fc',
+            },
         },
         
     }},
@@ -91,17 +83,35 @@ export default {
          */
         iconKey() {
             if (this.icon=='-empty-') return '-empty-';
-            //if (this.spin) return 'spiner-180-ring';
-            return this.icon;
+            let is = this.$is,
+                ui = this.$ui,
+                icon = this.icon,
+                shape = this.shape,
+                spin = this.spin,
+                //默认图标
+                dft = `md-${shape}`;
+            //如果指定了图标旋转
+            if (spin !== false) {
+                if (spin === true) return 'spinner-spin';
+                if (spin !== 'self') {
+                    dft = 'spinner';
+                }
+            }
+            //获取实际图标数据
+            let ico = ui.iconInSet(icon, dft);
+            if (is.plainObject(ico)) return ico.full;
+            return '-empty-';
         },
 
-        /**
-         * spin
-         */
+        //是否旋转当前图标，而不是使用自旋转图标
+        spinSelf() {
+            return this.spin === 'self';
+        },
+
         //计算 spin 中心坐标
         spinCenter() {
             let fsz = this.sizePropVal,
-                fsarr = this.sizeToArr(fsz),
+                fsarr = this.$ui.sizeToArr(fsz),
                 fszn = fsarr[0],
                 r = fszn/2;
             return ` ${r} ${r}`;
