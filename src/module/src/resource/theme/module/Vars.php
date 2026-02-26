@@ -102,8 +102,8 @@ class Vars extends Module
      * @param RowProcessor $rower 临时资源的 内容行处理器
      * @return RowProcessor
      */
-    //createScssContentRows
-    protected function createScssContentRows($ctx=[], &$rower)
+    //createScssDefineRows 仅生成 scss 变量定义语句
+    protected function createScssDefineRows($ctx=[], &$rower) 
     {
         // 0    生成 $foo-bar-jaz... 变量
         $flat = Arr::flat($ctx,"-");
@@ -129,11 +129,10 @@ class Vars extends Module
         //空行
         $rower->rowEmpty(1);
 
-        //SCSS 语句 需要包含 css 变量定义语句
-        return $this->createCssContentRows($ctx, $rower);
+        return $rower;
     }
-    //createCssContentRows
-    protected function createCssContentRows($ctx=[], &$rower)
+    //createCssDefineRows 仅生成 css 变量定义语句
+    protected function createCssDefineRows($ctx=[], &$rower) 
     {
         /**
          * 定义 css 尺寸变量语句
@@ -148,6 +147,20 @@ class Vars extends Module
         $rower->rowEmpty(1);
 
         return $rower;
+    }
+    //createScssContentRows
+    protected function createScssContentRows($ctx=[], &$rower)
+    {
+        //仅生成 scss 变量定义语句
+        $rower = $this->createScssDefineRows($ctx, $rower);
+
+        //SCSS 语句 需要包含 css 变量定义语句
+        return $this->createCssContentRows($ctx, $rower);
+    }
+    //createCssContentRows
+    protected function createCssContentRows($ctx=[], &$rower)
+    {
+        return $this->createCssDefineRows($ctx, $rower);
     }
 
 

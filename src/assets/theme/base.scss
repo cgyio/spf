@@ -12,15 +12,17 @@
  *      $colorAliasMap                      别面颜色 map (alias: 'color-key', ...)
  *      $typeList                           primary,danger,warn,success,info
  *      $effectList                         normal,fill,plain,popout
+ *      //$effectPropList                     effect 效果可自动计算的 颜色样式简称 bgc,fc,bdc...
  *      $sizeMap                            包含所有尺寸定义的 map
  *      $sizeShiftQueue                     xxs,xs,s,m,l,xl,xxl
  *      $sizeStrQueue                       huge,large,medium,normal,small,mini,tiny
  *      $sizeStrMap                         尺寸字符串 与 m|xl 映射 map  huge --> xxl
  *      $sizeKeyMap                         m|xl 与 尺寸字符串 映射 map  xxl --> huge
- *      $extra[Icon|Btn]SizeQueue           icon|btn 额外的尺寸序列 48,54,64,...,128
- *      $shapeList                          normal,pill,circle,sharp
- *      $stretchList                        square,normal,grow,row
- *      $tightnessList                      loose,normal,tight
+ *      $extra[Icon|Btn|Bar...]SizeQueue    icon|btn|bar... 额外的尺寸序列 48,56,64,...,128
+ *      $sizeCalcPropList                   可计算得到的尺寸样式简称 pd,rd,fs...
+ *      $shapeList                          sharp,round,pill,square,round-square,circle     默认使用第一个值
+ *      $stretchList                        auto,grow,row        默认使用第一个值
+ *      $tightnessList                      normal,loose,tight          默认使用第一个值
  *      $varsMap                            保存所有其他 css 变量的 map
  */
 
@@ -32,86 +34,148 @@ $is-patched: variable-exists(dartScssTypeList);
 
 /** SPF-Theme 主题变量 **/
 //status 状态可选列表
-$spfStatusList: normal,hover,active;
+$spfStatusList: normal,'hoverable:hover',active,disabled,pending,fullfilled;
+
+/** SPF-Theme 在 color|size 等主题变量循环时，动态生成 选择器名称 **/
+/**
+ *  color-shift 循环中动态生成 选择器名  <返回：string|list>
+ *  @param {String} $target 决定生成 当前类 或 后代类 的选择器
+ *  @param {String|List} $pre 指定类名前缀 
+ *  @param {String} $ck 在 $colorListBase 中定义的基础颜色键名  blue|red|...
+ *  @param {String} $cq 在 $colorShiftQueue 中定义的颜色 shift level
+ *  @param {Boolean} $is-dft 此颜色是否是此次颜色循环中的 默认颜色
+ */
+@function spf-clsn-color-shift($target: self, $pre: fc-, $ck: blue, $cq: m, $is-dft: false) {
+    //创建类名前缀 string|list
+    $clspre: clsp($target, $pre);
+    //获取当前颜色 key 可能存在的别名  blue --> primary
+    $alia: map-get-key($colorAliasMap, quote(to-string($ck)));
+    //准备选择器 list 默认生成 [&.|& .]pre-ck-cq  like: .pre-red-l2
+    $clsns: ();
+    @if $is-dft {
+        $clsns: push($clsns, clsf-l($clspre, '*-#{$cq}')...);
+        //m 级别颜色生成 2 个类名 .pre, .pre-m
+        @if $cq == m {
+            //去除 &.foo- 后缀 -
+            $clsns: push($clsns, clsf-l($clspre)...);
+        }
+    } @else {
+        $clsns: push($clsns, clsf-l($clspre, '*-#{$ck}-#{$cq}')...);
+        //m 级别颜色生成 2 个类名 .pre-red, .pre-red-m
+        @if $cq == m {
+            $clsns: push($clsns, clsf-l($clspre, '*-#{$ck}')...);
+        }
+    }
+    //如果存在 alia 别名，则增加别名类名 .pre-red, .pre-red-m  -->  .pre-red, .pre-red-m, .pre-danger, .pre-danger-m
+    @if is-nemstr($alia) {
+        //.pre-red-l1 + .pre-danger-l1
+        $clsns: push($clsns, clsf-l($clspre, '*-#{$alia}-#{$cq}')...);
+        //.pre-red-m + .pre-danger
+        @if $cq == m {
+            $clsns: push($clsns, clsf-l($clspre, '*-#{$alia}')...);
+        }
+    }
+    //返回
+    @return $clsns;
+}
+/**
+ *  effect-shift 循环中动态生成 选择器名  <返回：string|list>
+ *  @param {String} $target 决定生成 当前类 或 后代类 的选择器
+ *  @param {String|List} $pre 指定类名前缀 
+ *  @param {String} $ck 在 $colorListBase 中定义的 作为 effect 的基础颜色键名  blue|red|...
+ *  @param {String} $cq 在 $colorShiftQueue 中定义的颜色 shift level
+ *  @param {Boolean} $is-dft 此颜色是否是此次颜色循环中的 默认颜色
+ */
+@function spf-clsn-effect-shift($target: self, $pre: btn-, $ck: no-color) {
+    //effect 基础颜色的实际颜色值
+    $ci: null;
+    $alias: null;
+    @if $ck != no-color {
+        $ci: color-get(#{$ck}-m);
+        $alias: map-get-key($colorAliasMap, quote(to-string($ck)));
+    }
+    //类名前缀
+    $clspre: clsp($target, $pre);
+    //类名序列
+    $clsns: ();
+    @if is-null($ci) {
+        //未指定 effect 基础颜色 表示这是 默认 effect 效果
+        @if not & {
+            //不存在 & 则默认 effect 效果挂在 根类名下  例如：$pre == btn- 则 默认 effect 效果挂在 .btn 类下
+            //去除类名前缀末尾的 - 
+            $clsns: push($clsns, clsf-l($clspre)...);
+        } @else {
+            //存在 & 则默认 effect 效果挂在 & 下
+            //生成 &
+            $clsns: push($clsns, clsp-l($target)...);
+        }
+    } @else {
+        //指定了 effect 基础颜色 则 effect 效果挂在 [&.|& .]pre-[color|alias][-m] 类名下
+        $clsns: push($clsns, clsf-l($clspre, ('*-#{$ck}', '*-#{$ck}-m'))...);
+        @if is-nemstr($alias) {
+            //基本色存在 别名
+            $clsns: push($clsns, clsf-l($clspre, ('*-#{$alias}', '*-#{$alias}-m'))...);
+        }
+    }
+    //返回
+    @return $clsns;
+}
 
 /** SPF-Theme 主题变量计算函数 **/
-//根据 effect 类型，status 状态以及 bgk|fk|bdk 初始值，计算 bgk|fk|bdk 在各状态下的值  <返回：map|null>
-@function spf-effect-calc($effect: normal, $status: normal, $bgk: unset, $fk: unset, $bdk: unset) {
-    @if not is-string($effect, $status) or not has($effectList, $effect) or not has($spfStatusList, $status) {
-        @return null;
-    }
-
-    //status == normal 默认初始状态，直接返回
-    @if $status == normal {
-        @return (
-            bgk: $bgk,
-            fk: $fk,
-            bdk: $bdk
-        );
-    }
-
-    //status == hover 状态，所有颜色减淡一级
-    @if $status == hover {
-        $h-bgk: unset;
-        $h-fk:  unset;
-        $h-bdk: if($bdk == unset, unset, color-key-shift($bdk, l1));
-        @if $effect == popout {
-            //popout effect 情况下 
-            @if $fk == unset {
-                $h-bgk: primary-m;  //fc-m;
-            } @else {
-                $h-bgk: $fk;
-            }
-        } @else {
-            //正常的背景翻转，前景跟随
-            $h-bgk: if($bgk == unset, unset, color-key-shift($bgk, l1));
-            $h-fk: if($fk == unset, unset, color-key-shift($fk, l1));
-        }
-        @return (
-            bgk: if(is-nemstr($h-bgk), $h-bgk, unset),
-            fk: if(is-nemstr($h-fk), $h-fk, unset),
-            bdk: if(is-nemstr($h-bdk), $h-bdk, unset),
-        );
-    }
-
-    //status == active 选中状态，所有颜色加深一级
-    @if $status == active {
-        $a-bgk: unset;
-        $a-fk:  unset;
-        $a-bdk: if($bdk == unset, unset, color-key-shift($bdk, d1));
-        @if $effect == popout {
-            //popout effect 情况下
-            @if $fk == unset {
-                $a-bgk: primary-d1; //fc-d1;
-            } @else {
-                $a-bgk: color-key-shift($fk, d1);
-            }
-        } @else {
-            //正常的背景翻转，前景跟随
-            $a-bgk: if($bgk == unset, unset, color-key-shift($bgk, d1));
-            $a-fk: if($fk == unset, unset, color-key-shift($fk, d1));
-        }
-        @return (
-            bgk: if(is-nemstr($a-bgk), $a-bgk, unset),
-            fk: if(is-nemstr($a-fk), $a-fk, unset),
-            bdk: if(is-nemstr($a-bdk), $a-bdk, unset),
-        );
-    }
-
-    @return null;
+/** size 尺寸计算 **/
+//确保要计算的尺寸样式属性 在 $sizeCalcPropList 中定义了  <返回：boolean>
+@function spf-calc-props-has($calc...) {
+    @if is-empty($calc) {@return false;}
+    //确保传入的要计算的属性  都包含在 $sizeCalcPropList 中
+    $calc: mk($calc...);
+    @if not is-empty(remove($calc, $sizeCalcPropList...)) {@return false;}
+    @return true;
 }
-//根据传入的 size 尺寸键名，计算对应的 padding|radius|font-size 尺寸值  <返回：map(number)|null>
-@function spf-size-key-calc($skey: bar-m) {
+//$sizeCalcPropList 中定义的 样式属性尺寸值计算，根据传入的 number 计算对应样式属性的值  <返回：number|null>
+@function spf-calc-size-val($size, $calc...) {
+    //必须传入 number 类型的 size 值
+    @if not is-number($size) {@return null;}
+    //未传入 $calc 则使用 $sizeCalcPropList
+    @if is-empty($calc) {
+        $calc: mk($sizeCalcPropList...);
+    } @else {
+        //确保传入有效的 待计算的样式属性简称
+        @if spf-calc-props-has($calc...) != true {@return null;}
+    }
+    //准备要输出 计算结果
+    $rtn: (
+        sz: $size,
+    );
+    //依次计算传入的样式属性
+    @each $calci in $calc {
+        //自定义的计算函数名
+        $fn: 'spf-calc-size-#{$calci}';
+        //不存在计算函数 提前返回
+        @if not meta.function-exists($fn) {@return null;}
+        //调用计算函数  传入 size 作为计算参数
+        $sz: meta.call(meta.get-function($fn), $size);
+        //计算结果不合法 提前返回
+        @if not is-number($sz) {@return null;}
+        //写入 $rtn
+        $rtn: map.set($rtn, $calci, $sz);
+    }
+    //返回计算结果
+    @return $rtn;
+}
+//根据传入的 size 尺寸键名，计算对应的 $sizeCalcPropList 中定义的 样式属性 尺寸值  <返回：map(number)|null>
+@function spf-calc-size-key($skey: bar-m, $calc...) {
+    //如果传入的 不是有效的 size 键名
+    @if not is-string($skey) or not map.has-key($sizeMap, $skey) {@return null;}
+    //未传入 $calc 则使用 $sizeCalcPropList
+    @if is-empty($calc) {
+        $calc: mk($sizeCalcPropList...);
+    } @else {
+        //确保传入有效的 待计算的样式属性简称
+        @if spf-calc-props-has($calc...) != true {@return null;}
+    }
     //读取基础尺寸值
     $sz: size-get($skey);
     @if not is-number($sz) {@return null;}
-    $rtn: (
-        sz: $sz,
-        pd: null,
-        rd: null,
-        fs: null
-    );
-
     //解析尺寸键名，按规则调用对应的 $sizeMap 值
     //btn-xxl  -->  (btn-xxl, btn, xxl, l, 3, size)
     $skl: key-parse($skey, true);
@@ -122,77 +186,103 @@ $spfStatusList: normal,hover,active;
     $stp: nth($skl, 4);     // s|m|l
     $lvl: nth($skl, 5);     // 0|1|2|3|4
 
-    //首先尝试读取 btn-[pd|rd|fs]-[m|xs|xxl]
-    $pd: size-get(#{$ztp}-pd-#{$sfx});
-    $rd: size-get(#{$ztp}-rd-#{$sfx});
-    $fs: size-get(#{$ztp}-fs-#{$sfx});
-    //未获取到则尝试使用 默认的 [pd|rd]-[m|xs|xxl]
-    @if not is-number($pd) {$pd: size-get(pd-#{$sfx});}
-    @if not is-number($rd) {$rd: size-get(rd-#{$sfx});}
-    //字号计算使用单独逻辑
-    @if not is-number($fs) {
-        //根据 传入尺寸偏移量 不同，额外计算 fs 字体尺寸的 尺寸偏移量
-        //0|1|2|3|4 --> 0|0|1|1|2
-        $nlvl: sub(ceil(div(add($lvl, 1), 2)), 1);
-        $nlvl: n-clamp(0, $nlvl, 5);
-        //0|1|2|3|4 --> 0|0|1|1|2 --> ''|''|l1|s1|l2
-        $nsfx: if($nlvl == 0, '', #{$stp}#{$nlvl});
-        //实际 fs 尺寸对应的 键名
-        $fsk: if($nsfx == '', fs-m, key-shift(fs-m, $nsfx, true));
-        $fs: size-get($fsk);
-    }
-    //!! 有任何一个不成功，输出 null
-    @if is-number($pd, $rd, $fs) {
-        $rtn: map.set($rtn, pd, $pd);
-        $rtn: map.set($rtn, rd, $rd);
-        $rtn: map.set($rtn, fs, $fs);
-        @return $rtn;
-    }
-    @return null;
-}
-//根据单行元素的 height 计算 padding|radius|font-size  <返回：map|null>
-@function spf-bar-size-calc($size: btn-m) {
-    $sz: size-get($size);
-    @if not is-number($sz) {@return null;}
+    //准备输出结果
+    $rtn: (
+        sz: $sz,
+    );
 
+    //计算传入的 样式属性值
+    @each $calci in $calc {
+        @if $calci != fs {
+            //处理 pd|rd 从 $sizeMap 中读取对应的 尺寸值
+            $cv: size-get(#{$ztp}-#{$calci}-#{$sfx});
+            @if not is-number($cv) {$cv: size-get(#{$calci}-#{$sfx});}
+            //出错 提前返回
+            @if not is-number($cv) {@return null;}
+            //写入 $rtn
+            $rtn: map.set($rtn, $calci, $cv);
+        } @else {
+            //单独处理 fs 字号
+            $fs: size-get(#{$ztp}-fs-#{$sfx});
+            //字号计算使用单独逻辑
+            @if not is-number($fs) {
+                //根据 传入尺寸偏移量 不同，额外计算 fs 字体尺寸的 尺寸偏移量
+                //0|1|2|3|4 --> 0|0|1|1|2
+                $nlvl: sub(ceil(div(add($lvl, 1), 2)), 1);
+                $nlvl: n-clamp(0, $nlvl, 5);
+                //0|1|2|3|4 --> 0|0|1|1|2 --> ''|''|l1|s1|l2
+                $nsfx: if($nlvl == 0, '', #{$stp}#{$nlvl});
+                //实际 fs 尺寸对应的 键名
+                $fsk: if($nsfx == '', fs-m, key-shift(fs-m, $nsfx, true));
+                $fs: size-get($fsk);
+            }
+            //出错 提前返回
+            @if not is-number($fs) {@return null;}
+            //写入 $rtn
+            $rtn: map.set($rtn, fs, $fs);
+        }
+    }
+
+    //返回计算结果 包含 sz(基础尺寸值) 以及 所有传入的 样式属性
+    @return $rtn;
+}
+//根据 基础尺寸值(可以是 尺寸键名 或 number 尺寸值) 计算 $sizeCalcPropList 中定义的 样式属性  <返回：map|null>
+@function spf-calc-size($size: btn-m, $calc...) {
+    //未传入 $calc 则使用 $sizeCalcPropList
+    @if is-empty($calc) {
+        $calc: mk($sizeCalcPropList...);
+    } @else {
+        //确保传入有效的 待计算的样式属性简称
+        @if spf-calc-props-has($calc...) != true {@return null;}
+    }
     //如果直接传入 number 尺寸值，直接返回自动计算结果
     @if is-number($size) {
-        @return (
-            sz: $sz,
-            pd: round(div($sz, 2)),
-            rd: round(div($sz, 5)),
-            fs: round(div($sz, 2.3))
-        );
+        @return spf-calc-size-val($size, $calc...);
     }
-
     //如果传入了尺寸键名，则根据尺寸键名，解析最终尺寸值
-    @return spf-size-key-calc($size);
+    @return spf-calc-size-key($size, $calc...);
+}
+
+//!! SPF-Theme 主题尺寸变量计算函数，可通过配置 *.theme.json 配置文件中的相关参数 来调整计算参数
+//!! 也可以直接修改此处的计算函数本身
+//根据 $sizeCalcPropList 中定义的样式属性简称 定义对应的计算函数  <返回：number|null>
+@function spf-calc-size-pd($size) {
+    //@if not is-number($size) {@return null;}
+    @return round(div($size, 2));
+}
+@function spf-calc-size-rd($size) {
+    //@if not is-number($size) {@return null;}
+    @return round(div($size, 5));
+}
+@function spf-calc-size-fs($size) {
+    //@if not is-number($size) {@return null;}
+    @return round(div($size, 2.3));
 }
 
 
-/** 通用样式注入 mixins **/
 
+/** 通用基础样式注入 mixins **/
 /** 基础样式注入 position|width|padding|overflow ... **/
-@mixin spf-po($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $t: unset, $r: unset, $b: unset, $l: unset, $ov: unset) {
+@mixin spf-po($po: relative, $w: unset, $h: unset, $mg: unset, $pd: unset, $t: unset, $r: unset, $b: unset, $l: unset, $ov: unset) {
     position: $po;
-    @if $w != unset { width: size-get($w); }
-    @if $h != unset { height: size-get($h); }
+    @if $w  != unset { width: size-get($w); }
+    @if $h  != unset { height: size-get($h); }
     @if $mg != unset { margin: size-get($mg); }
     @if $pd != unset { padding: size-get($pd); }
-    @if $l != unset { left: size-get($l); }
-    @if $r != unset { right: size-get($r); }
-    @if $t != unset { top: size-get($t); }
-    @if $b != unset { bottom: size-get($b); }
+    @if $l  != unset { left: size-get($l); }
+    @if $r  != unset { right: size-get($r); }
+    @if $t  != unset { top: size-get($t); }
+    @if $b  != unset { bottom: size-get($b); }
     @if $ov != unset { overflow: $ov; }
     box-sizing: border-box;
 }
-@mixin spf-po-ov($po: relative, $w: 100%, $h: unset, $mg: 0, $pd: 0, $t: unset, $r: unset, $b: unset, $l: unset, $ov: hidden) {
+@mixin spf-po-ov($po: relative, $w: unset, $h: unset, $mg: unset, $pd: unset, $t: unset, $r: unset, $b: unset, $l: unset, $ov: hidden) {
     @include spf-po($po, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
 }
-@mixin spf-po-abs($w: 100%, $h: unset, $mg: 0, $pd: 0, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
+@mixin spf-po-abs($w: unset, $h: unset, $mg: unset, $pd: unset, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
     @include spf-po(absolute, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
 }
-@mixin spf-po-fix($w: 100%, $h: unset, $mg: 0, $pd: 0, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
+@mixin spf-po-fix($w: unset, $h: unset, $mg: unset, $pd: unset, $t: 0, $r: unset, $b: unset, $l: 0, $ov: hidden) {
     @include spf-po(fixed, $w, $h, $mg, $pd, $t, $r, $b, $l, $ov);
 }
 /** 基础样式注入 根据输入的 trbl 设置不同 position 位置的 padding/margin/border-width size **/
@@ -201,24 +291,24 @@ $spfStatusList: normal,hover,active;
     $size:      unset,              //要设置的尺寸 
     $p:         '',                 //要设置尺寸值的 position 位置，可选值：$trblQueue，默认不指定，表示所有位置
     $prop:      padding,            //要设置尺寸值的 css 属性，默认 padding，可选 padding/margin/border-width
-    $important: false               //是否增加 important
+    //$important: false               //是否增加 important
 ) {
     @if $p != '' {
         $pa: trbl($p);
         $pov: set-trbl($pa, $size);
         @if is-nemlist($pov) {
-            @if $important == true {
-                #{$prop}: #{$pov} !important;
-            } @else {
+            //@if $important == true {
+            //    #{$prop}: #{$pov} !important;
+            //} @else {
                 #{$prop}: #{$pov};
-            }
+            //}
         }
     } @else {
-        @if $important == true {
-            #{$prop}: $size !important;
-        } @else {
+        //@if $important == true {
+        //    #{$prop}: $size !important;
+        //} @else {
             #{$prop}: $size;
-        }
+        //}
     }
 }
 /** 基础样式注入 根据输入的 corner 设置不同位置的 radius size **/
@@ -226,24 +316,24 @@ $spfStatusList: normal,hover,active;
 @mixin spf-size-rd(
     $size:      unset,              //要设置的尺寸 
     $r:         '',                 //要设置尺寸值的 corner 位置，可选值：$cornerQueue，默认不指定，表示所有位置
-    $important: false               //是否增加 important
+    //$important: false               //是否增加 important
 ) {
     @if $r != '' {
         $ra: corner($r);
         $rav: set-corner($ra, $size);
         @if is-nemlist($rav) {
-            @if $important == true {
-                border-radius: #{$rav} !important;
-            } @else {
+            //@if $important == true {
+            //    border-radius: #{$rav} !important;
+            //} @else {
                 border-radius: #{$rav};
-            }
+            //}
         }
     } @else {
-        @if $important == true {
-            border-radius: $size !important;
-        } @else {
+        //@if $important == true {
+        //    border-radius: $size !important;
+        //} @else {
             border-radius: $size;
-        }
+        //}
     }
 }
 /** 基础样式注入 flex 布局 **/
@@ -331,7 +421,7 @@ $spfStatusList: normal,hover,active;
     @include spf-flex(column, $x, $y, $gap, false);
 }
 /** 基础样式注入 链接样式 **/
-@mixin spf-a($base: primary, $important: false) {
+@mixin spf-a($base: primary, /*$important: false*/) {
     text-decoration: underline;
     text-underline-offset: 0.3em;
     transition: color $ani-dura,
@@ -346,15 +436,15 @@ $spfStatusList: normal,hover,active;
     $hc: color-get(color-key-shift($bk, l1));
     $ac: color-get(color-key-shift($bk, d1));
     @if is-color($bc, $hc, $ac) {
-        @if $important == true {
-            color: $bc !important;
-            &:hover {
-                color: $hc !important;
-            }
-            &:visited, &[class*=active] {
-                color: $ac !important;
-            }
-        } @else {
+        //@if $important == true {
+        //    color: $bc !important;
+        //    &:hover {
+        //        color: $hc !important;
+        //    }
+        //    &:visited, &[class*=active] {
+        //        color: $ac !important;
+        //    }
+        //} @else {
             color: $bc;
             &:hover {
                 color: $hc;
@@ -362,7 +452,7 @@ $spfStatusList: normal,hover,active;
             &:visited, &[class*=active] {
                 color: $ac;
             }
-        }
+        //}
     }
 }
 /** 基础样式注入 text-ellipsis 样式 **/
@@ -415,236 +505,15 @@ $spfStatusList: normal,hover,active;
     /* 可选：隐藏系统默认箭头按钮 */
     //scrollbar-width: none;   /* Firefox 直接变窄，不占位 */
 }
-/** 复合样式注入 注入 effect 样式的实际 background-color|border-color|color 样式值 **/
-@mixin spf-set-effect(
-    $bgk:       unset,              //背景色 实际样式值  string 类型颜色键名 | unset
-    $fk:        unset,              //前景色 实际样式值  string 类型颜色键名 | unset
-    $bdk:       unset,              //边框色 实际样式值  string 类型颜色键名 | unset
-) {
-    $bgc: null;
-    $fc: null;
-    $bdc: null;
-    //background-color
-    @if $bgk != unset {
-        $tc: color-get($bgk);
-        @if is-color($tc) {$bgc: $tc;}
-    }
-    //color
-    @if $fk == unset {
-        $tc: null;
-        @if is-color($bgc) and $bgc != transparent {
-            $tc: fore-color($bgc, 0.8);
-        } @else {
-            $tc: color-get(fc-m);
-        }
-        @if is-color($tc) {$fc: $tc;}
-    } @else {
-        $tc: color-get($fk);
-        @if is-color($tc) {$fc: $tc;}
-    }
-    //border-color
-    @if $bdk != unset {
-        $tc: color-get($bdk);
-        @if is-color($tc) {$bdc: $tc;}
-    }
-    //设置样式
-    @if is-color($bgc) {background-color: $bgc;}
-    @if is-color($fc) {
-        color: $fc;
-        //后代样式
-        &>svg[class*=icon] {
-            color: $fc;
-        }
-    }
-    @if is-color($bdc) {
-        border: {
-            style: solid;
-            width: $size-bd-m;
-            color: $bdc;
-        }
-    } @else {
-        border: {
-            style: solid;
-            width: 0;
-            color: transparent;
-        }
-    }
-}
-/** 复合样式注入 注入 单行元素的 size 相关样式 **/
-@mixin spf-set-bar-size($pre: bar-, $sz, $pd, $rd, $fs) {
-    //pd 值作为间距
-    $pd-20x: round(mul($pd, 2));
-    $pd-05x: round(div($pd, 2));
 
-    //注入默认样式
-    height: $sz;
-    padding: 0 $pd;
-    font-size: $fs;
-    //默认 shape
-    border-radius: $rd;
-    //默认 stretch
-    min-width: $sz;
 
-    //默认后代元素
-    &>*:not(:first-child) {
-        //内部元素间距
-        margin-left: $pd-05x;
-    }
-    //内部图标
-    //&>svg[class*=icon] {
-        //font-size: round(mul($fs, 1.2));
-        //&:first-child {
-        //    margin-left: mul($pd-05x, -1);
-        //}
-        //&:last-child {
-        //    margin-right: mul($pd-05x, -1);
-        //}
-    //}
 
-    //同级元素间距
-    &+*[class*=#{$pre}] {
-        margin-left: $pd-05x;
-    }
-}
-@mixin spf-set-bar-size-static($pre: bar-) {
-    width: unset;
-    //默认后代元素
-    &>*:first-child {
-        margin-left: 0;
-        margin-right: 0;
-    }
-    &>*:not(:first-child) {
-        margin-right: 0;
-    }
+/** 通用复合样式注入 mixins **/
 
-    //同级元素间距
-    &+*[class*=#{$pre}] {
-        margin-right: 0;
-    }
-}
-/** 复合样式注入 注入 单行元素的 shape 相关样式 **/
-@mixin spf-set-bar-shape($pre: bar-, $sz, $pd, $rd, $fs) {
-    //尺寸计算
-    $sz-05x: round(div($sz, 2));
-
-    //构建当前 size 下的 border-radius 样式值
-    $rds: (
-        normal: $rd,
-        pill:   $sz-05x,
-        circle: $sz-05x,
-        sharp:  0,
-    );
-    //循环 shapeList
-    @each $spi in $shapeList {
-        $rdi: map.get($rds, $spi);
-        @if is-number($rdi) {
-            //定义 shape-* 类  覆盖 stretch-*
-            &.#{$pre}shape-#{$spi} {
-                border-radius: $rdi;
-                @if $spi == circle {
-                    &.#{$pre}stretch-normal, &.#{$pre}stretch-grow, &.#{$pre}stretch-row {
-                        width: $sz;
-                    }
-                }
-            }
-        }
-    }
-}
-@mixin spf-set-bar-shape-static($pre: bar-) {
-    &.#{$pre}shape-circle {
-        //覆盖 stretch-*
-        &.#{$pre}stretch-normal, &.#{$pre}stretch-grow, &.#{$pre}stretch-row {
-            padding: 0;
-            //水平|垂直 居中
-            align-items: center;
-            justify-content: center;
-            //内部
-            &>* {margin: 0;}
-        }
-        //覆盖 tightness-*
-        &.#{$pre}tightness-normal, &.#{$pre}tightness-loose, &.#{$pre}tightness-tight {
-            padding: 0;
-            //内部
-            &>* {margin: 0;}
-        }
-    }
-}
-/** 复合样式注入 注入 单行元素的 stretch 相关样式 **/
-@mixin spf-set-bar-stretch($pre: bar-, $sz, $pd, $rd, $fs) {
-    //stretch == normal
-    &.#{$pre}stretch-normal {
-        min-width: $sz;
-    }
-    //stretch == square
-    &.#{$pre}stretch-square {
-        width: $sz;
-    }
-}
-@mixin spf-set-bar-stretch-static($pre: bar-) {
-    //stretch == normal
-    &.#{$pre}stretch-normal {
-        width: unset;
-    }
-    //stretch == square
-    &.#{$pre}stretch-square {
-        padding: 0;
-        //水平|垂直 居中
-        align-items: center;
-        justify-content: center;
-        //内部
-        &>* {margin: 0;}
-    }
-    //stretch == grow 自动占满剩余空间
-    &.#{$pre}stretch-grow {
-        width: unset;
-        flex: 1;
-    }
-    //stretch == row 整行
-    &.#{$pre}stretch-row {
-        width: 100%;
-        justify-content: flex-start;
-    }
-}
-/** 复合样式注入 注入 单行元素的 tightness 相关样式 **/
-@mixin spf-set-bar-tightness($pre: bar-, $sz, $pd, $rd, $fs) {
-    $pd-20x: round(mul($pd, 2));
-    $pd-05x: round(div($pd, 2));
-
-    //构建 tightness 与 padding值的 map 映射
-    $pds: (
-        loose: $pd-20x,
-        normal: $pd,
-        tight: $pd-05x,
-    );
-    //tightness 循环
-    @each $ti in $tightnessList {
-        $pdv: map.get($pds, $ti);
-        $pdv-05x: round(div($pdv, 2));
-        @if is-number($pdv) {
-            &.#{$pre}tightness-#{$ti} {
-                padding: 0 $pdv;
-                //内部元素间距
-                &>*:not(:first-child) {
-                    margin-left: $pdv-05x;
-                }
-                //外部同级元素间距
-                &+*[class*=#{$pre}] {
-                    &:not([class*=stretch-row]) {
-                        margin-left: $pdv-05x;
-                    }
-                }
-            }
-        }
-    }
-}
-@mixin spf-set-bar-tightness-static($pre: bar-) {
-
-}
 
 
 
 /** 批量注入样式 **/
-
 /** 根据 $list 颜色名称数组，为 当前类 或 后代类 指定颜色样式
     例如：
     .foo {
@@ -710,51 +579,34 @@ $spfStatusList: normal,hover,active;
 
     //样式类前缀
     //$clspre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
-    $clspre: cls-pre($target, $pre);
+    //$clspre: clsp($target, $pre);
     //可能存在的 传入 mixin 名称
     $mixn: 'spf-color-shift-mix-' + $prop;
 
     @each $c in $list {
-        //获取当前颜色 key 可能存在的别名  blue --> primary
-        $alia: map-get-key($colorAliasMap, quote(to-string($c)));
         @each $cq in $cque {
-            //针对 $pre 与 颜色名称相同的 情况
-            //例如 $pre = fc- 颜色列表中又包含了 fc-m 颜色，则会生成 .fc-fc-m 颜色类
-            //此处解决这个问题
-            $ck: '';
-            $ci: null;
-            //$clsn: '';
-            $clsns: ();
-            @if $ckey == $c {
-                $ck: #{$cq};
-                $ci: color-get(#{$c}-#{$cq}, null, $cmap);
-                //m 级别颜色生成 2 个类名 .pre, .pre-m
-                @if $cq == m {
-                    $clsns: push($clsns, str-sub($clspre, 1, -2));
-                }
-            } @else {
-                $ck: #{$c}-#{$cq};
-                $ci: color-get($ck, null, $cmap);
-                //m 级别颜色生成 2 个类名 .pre-red, .pre-red-m
-                @if $cq == m {
-                    $clsns: push($clsns, #{$clspre}#{$c});
-                }
-            }
-            $clsns: push($clsns, #{$clspre}#{$ck});
-            //如果存在 alia 别名，则增加别名类名 .pre-red, .pre-red-m  -->  .pre-red, .pre-red-m, .pre-danger, .pre-danger-m
-            @if is-nemstr($alia) {
-                @if $cq == m {
-                    $clsns: push($clsns, #{$clspre}#{$alia});
-                }
-                $clsns: push($clsns, #{$clspre}#{$alia}-#{$cq});
-            }
+            //获取实际颜色值
+            $ci: color-get(#{$c}-#{$cq}, null, $cmap);
             @if is-color($ci) {
+                //生成 选择器
+                $clsns: spf-clsn-color-shift($target, $pre, $c, $cq, $ckey == $c);
                 #{$clsns} {
                     @if meta.mixin-exists($mixn) {
                         //传入了 mixin 则应用此 mixin 并传入 参数
                         @include meta.apply(meta.get-mixin($mixn), $pre, $ci, #{$c}-#{$cq});
                     } @else {
-                        #{$prop}: #{$ci} !important;
+                        #{$prop}: #{$ci};   //!important;
+
+                        //下级类名前缀
+                        $subpre: clsp(self, $pre);
+
+                        // 针对 background-color 样式，增加前景色样式类
+                        @if $prop == 'background-color' {
+                            //#{$subpre}fc {
+                            #{clsf($subpre, '*-fc')} {
+                                color: fore-color($ci, 0.8);    //!important;
+                            }
+                        }
 
                         // 针对 color-m 级别的颜色 
                         @if $cq == 'm' {
@@ -764,12 +616,13 @@ $spfStatusList: normal,hover,active;
                             // visited 默认使用 color-d1 级颜色
                             $ci-act: color-get(#{$c}-d1, null, $cmap);
                             @if is-color($ci-hov, $ci-act) {
-                                &.#{$pre}hoverable {
+                                //#{$subpre}hoverable {
+                                #{clsf($subpre, '*-hoverable')} {
                                     &:hover {
-                                        #{$prop}: #{$ci-hov} !important; 
+                                        #{$prop}: #{$ci-hov};   //!important; 
                                     }
                                     &:visited {
-                                        #{$prop}: #{$ci-act} !important; 
+                                        #{$prop}: #{$ci-act};   //!important; 
                                     }
                                 }
                             }
@@ -778,140 +631,17 @@ $spfStatusList: normal,hover,active;
                             @if $opa == true and not has-alpha($ci) {
                                 //从 0.1~0.9 循环生成透明度颜色值
                                 @for $i from 1 through 9 {
-                                    $alpha: mul($i, 0.1);
-                                    //$alhex: to-hex(round(mul($alpha, 255)));
-                                    //$alhex: if(str-len($alhex) == 1, '0' + $alhex, $alhex);
                                     //新颜色
-                                    $nci: set-alpha($ci, $alpha);
+                                    $nci: set-alpha($ci, mul($i, 0.1));
 
-                                    &.#{$pre}a#{$i} {
-                                        #{$prop}: #{$nci} !important;
+                                    //#{$subpre}a#{$i} {
+                                    #{clsf($subpre, '*-a#{$i}')} {
+                                        #{$prop}: #{$nci};  //!important;
                                     }
                                 }
                             }
                         }
                         
-                    }
-                }
-            }
-        }
-    }
-}
-/** size-shift **/
-/** 根据 $list 可选尺寸数组(如：xs,s,m,l,xl)，为 当前类 或 后代类 指定尺寸样式 **/
-@mixin spf-size-shift(
-    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
-    $pre:       pd-,                //样式类前缀，如：pd- 则生成类：.foo.pd-xxl | .foo .pd-xs
-    $prop:      padding,            //要设置尺寸的 css 属性，可选 padding/margin/font-size/border-width/border-radius... 默认 padding
-                                    //!! 也可以传入自定义的 mixin 必须接受 3 个参数：
-                                    //!! pre 类名前缀，size 尺寸值，skey 尺寸键名(btn-xxl)
-                                    //!! 自定义的 mixin 名称必须以 spf-size-shift-mix- 开头 只需要传入结尾部分字符串
-                                    //!! 例如：spf-size-shift-mix-foo-bar 只需传入 foo-bar
-    $skey:      pd,                 //在尺寸 map 中的键名前缀，如 fs|pd|mg|rd|btn...
-    $manual:    null,               //手动通过数值指定尺寸 list 如：24,32,48,54
-    $trbl:      true,               //是否自动循环输出 trbl position 参数
-    //$filter:    null,               //!! 自动根据 $skey 筛选 不需要手动提供
-    $que:       null,               //可以手动指定 sizeShiftQueue 只循环部分尺寸
-) {
-    //需要执行 位置循环的 $prop list
-    $props: padding,margin,border-width,border-radius;
-    //$sizeShiftQueue
-    $sque: mk($sizeShiftQueue...);
-    @if is-nemlist($que) {$sque: inter($sque, $que);}
-    //根据 $skey 筛选 $sizeMap
-    $smap: map-filter-keys($sizeMap, $skey);
-    //类名前缀
-    //$clspre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
-    $clspre: cls-pre($target, $pre);
-    //可能存在的 传入 mixin 名称
-    $mixn: 'spf-size-shift-mix-' + $prop;
-
-    @each $sz in $sque {
-        //类名 .pre-xxl
-        $clsns: mk(#{$clspre}#{$sz});
-        //在 $sizeKeyMap 中  xxl: huge
-        $ski: map.get($sizeKeyMap, $sz);
-        //增加语义类名 .pre-xxl  -->  .pre-xxl, .pre-huge
-        @if is-nemstr($ski) {
-            $clsns: push($clsns, #{$clspre}#{$ski});
-        }
-        $si: size-get(#{$skey}-#{$sz}, null, $smap);
-        @if is-number($si) {
-            #{$clsns} {
-                @if meta.mixin-exists($mixn) {
-                    //如果传入 mixin 则应用此 mixin 并传入参数
-                    @include meta.apply(meta.get-mixin($mixn), $pre, $si, #{$skey}-#{$sz});
-                } @else {
-                    #{$prop}: $si !important;
-                    
-                    // 对于某些 prop 还需要执行 位置循环
-                    @if $trbl == true and has($props, $prop, true) {
-                        @if $prop == border-radius {
-                            // 针对 radius 执行特殊循环
-                            @each $ri in $cornerQueue {
-                                // .pre-rd-trbl
-                                $rdclsn: if($pre == rd-, #{$pre}po-#{$ri}, #{$pre}rd-#{$ri});
-                                &.#{$rdclsn} {
-                                    //#{$prop}: 0 !important;
-                                    @include spf-size-rd($si, $ri, true);
-                                }
-                            }
-                        } @else {
-                            // 正常的 trbl 循环
-                            @each $pi in $trblQueue {
-                                // .pre-po-trbl
-                                &.#{$pre}po-#{$pi} {
-                                    //#{$prop}: 0 !important;
-                                    @include spf-size-po($si, $pi, $prop, true);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    //通过手动传入尺寸值，来设置尺寸样式
-
-    //主题系统生成的 sizeMap 一定包含 -m 原始尺寸
-    $msz: size-get(#{$skey}-m, null, $smap);
-    //获取当前尺寸值序列的单位 如：px 主题系统生成的 sizeMap 相同键名一定拥有相同单位
-    $mu: if(is-number($msz), unit($msz), '');
-
-    @if is-nemlist($manual) {
-        @each $sz in $manual {
-            @if is-number($sz) {
-                $sz: set-unit($sz, $mu);
-                // .pre-10px
-                #{$clspre}#{$sz} {
-                    @if meta.mixin-exists($mixn) {
-                        //如果传入 mixin 则应用此 mixin 并传入参数
-                        @include meta.apply(meta.get-mixin($mixn), $pre, $sz, manual);
-                    } @else {
-                        #{$prop}: $sz !important;
-    
-                        // 对于某些 prop 还需要执行 位置循环
-                        @if $trbl == true and has($props, $prop, true) {
-                            @if $prop == border-radius {
-                                // 针对 radius 执行特殊循环
-                                @each $ri in $cornerQueue {
-                                    // .pre-rd-trbl
-                                    $rdclsn: if($pre == rd-, #{$pre}po-#{$ri}, #{$pre}rd-#{$ri});
-                                    &.#{$rdclsn} {
-                                        @include spf-size-rd($sz, $ri, true);
-                                    }
-                                }
-                            } @else {
-                                // 正常的 trbl 循环
-                                @each $pi in $trblQueue {
-                                    // .pre-po-trbl
-                                    &.#{$pre}po-#{$pi} {
-                                        @include spf-size-po($sz, $pi, $prop, true);
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -943,36 +673,20 @@ $spfStatusList: normal,hover,active;
         $list: unique(push($list, $filter...));
     }
     //样式类前缀
-    $clspre: cls-pre($target, $pre);
+    //$clspre: clsp($target, $pre);
 
     @each $c in $list {
         //获取当前颜色 key 可能存在的别名  blue --> primary
-        $alia: map-get-key($colorAliasMap, quote(to-string($c)));
+        //$alia: map-get-key($colorAliasMap, quote(to-string($c)));
         @each $cq in $cque {
             $ck: '';
-            //$clsn: '';
-            $clsns: ();
             @if $ckey == $c {
                 $ck: #{$cq};
-                //m 级别颜色生成 2 个类名 .pre, .pre-m
-                @if $cq == m {
-                    $clsns: push($clsns, str-sub($clspre, 1, -2));
-                }
             } @else {
                 $ck: #{$c}-#{$cq};
-                //m 级别颜色生成 2 个类名 .pre-red, .pre-red-m
-                @if $cq == m {
-                    $clsns: push($clsns, #{$clspre}#{$c});
-                }
             }
-            $clsns: push($clsns, #{$clspre}#{$ck});
-            //如果存在 alia 别名，则增加别名类名 .pre-red, .pre-red-m  -->  .pre-red, .pre-red-m, .pre-danger, .pre-danger-m
-            @if is-nemstr($alia) {
-                @if $cq == m {
-                    $clsns: push($clsns, #{$clspre}#{$alia});
-                }
-                $clsns: push($clsns, #{$clspre}#{$alia}-#{$cq});
-            }
+            //生成 选择器
+            $clsns: spf-clsn-color-shift($target, $pre, $c, $cq, $ckey == $c);
             //执行 extend 
             #{$clsns} {
                 //!! optional 必须
@@ -981,100 +695,131 @@ $spfStatusList: normal,hover,active;
         }
     }
 }
-/** 为 当前类 或 后代类 指定 通用的 effect 样式 **/
-@mixin spf-effect-shift(
-    $target:    self,               //此 effect 样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
-    $pre:       bar-,               //样式类前缀，如：bar- 则生成类：.bar-red.bar-effect-normal|fill|plain|popout
-    $mixin:     null,               //!! 可以传入自定义的 mixin 必须接受 5 个参数： 
-                                    //!! pre 类名前缀，effect 类型，bgk 背景色键，fk 前景色键，bdk 边框色键
-                                    //!! 自定义的 mixin 名称必须以 spf-effect-shift-mix- 开头 只需要传入结尾部分字符串
-                                    //!! 例如：spf-effect-shift-mix-foo-bar 只需传入 foo-bar
-                                    //!! 默认 spf-effect-shift-mix-default
+/** size-shift **/
+/** 根据 $list 可选尺寸数组(如：xs,s,m,l,xl)，为 当前类 或 后代类 指定尺寸样式 **/
+@mixin spf-size-shift(
+    $target:    self,               //此颜色样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $pre:       pd-,                //样式类前缀，如：pd- 则生成类：.foo.pd-xxl | .foo .pd-xs
+    $prop:      padding,            //要设置尺寸的 css 属性，可选 padding/margin/font-size/border-width/border-radius... 默认 padding
+                                    //!! 也可以传入自定义的 mixin 必须接受 3 个参数：
+                                    //!! pre 类名前缀，size 尺寸值，skey 尺寸键名(btn-xxl)
+                                    //!! 自定义的 mixin 名称必须以 spf-size-shift-mix- 开头 只需要传入结尾部分字符串
+                                    //!! 例如：spf-size-shift-mix-foo-bar 只需传入 foo-bar
+    $skey:      pd,                 //在尺寸 map 中的键名前缀，如 fs|pd|mg|rd|btn...
+    $manual:    null,               //手动通过数值指定尺寸 list 如：24,32,48,54
+    $trbl:      true,               //是否自动循环输出 trbl position 参数
+    //$filter:    null,               //!! 自动根据 $skey 筛选 不需要手动提供
+    $que:       null,               //可以手动指定 sizeShiftQueue 只循环部分尺寸
 ) {
-    $list:      $colorListBase;     //颜色名称 list 数组，默认 $colorListBase 基础通用色
-    //从 base 颜色中去除 alias 别名颜色后 作为颜色循环的数据源
-    $list: remove($list, $colorListAlias...);
-    //将 no-color 添加到颜色 list 头部(无法查询到颜色)，作为默认 effect 基础色
-    $list: unshift($list, 'no-color');
+    //需要执行 位置循环的 $prop list
+    $props: padding,margin,border-width,border-radius;
+    //$sizeShiftQueue
+    $sque: mk($sizeShiftQueue...);
+    @if is-nemlist($que) {$sque: inter($sque, $que);}
+    //根据 $skey 筛选 $sizeMap
+    $smap: map-filter-keys($sizeMap, $skey);
+    //类名前缀
+    //$clspre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
+    $clspre: clsp($target, $pre);
+    //可能存在的 传入 mixin 名称
+    $mixn: 'spf-size-shift-mix-' + $prop;
 
-    //当前类|后代类 的 类名前缀
-    $clspre: cls-pre($target, $pre);
-
-    //mixin 名称
-    $mixn: if(is-nemstr($mixin), $mixin, 'default');
-    $mixn: spf-effect-shift-mix-#{$mixn};
-    //mixin 必须存在
-    @if meta.mixin-exists($mixn) {
-        //获取 mixin
-        $mix: meta.get-mixin($mixn);
-
-        //颜色循环
-        @each $base in $list {
-            //颜色值
-            $ci: null;
-            //颜色别名
-            $alias: null;
-            @if $base != 'no-color' {
-                $ci: color-get(#{$base}-m);
-                $alias: map-get-key($colorAliasMap, quote(to-string($base)));
-            }
-
-            //根据 base 基础颜色 以及 effect 类型，确定 bgk|fk|bdk 的初始状态值
-            $normal-ks: null;
-            $fill-ks:   null;
-            $plain-ks:  null;
-            $popout-ks: null;
-            @if is-null($ci) {
-                //未指定 base 基础颜色键名  使用默认颜色
-                $normal-ks: (   bgk: bgc-m,     fk: fc-m,   bdk: bdc-m  );
-                $fill-ks:   (   bgk: gray-m,    fk: unset,  bdk: unset  );
-                $plain-ks:  (   bgk: white-m,   fk: fc-m,   bdk: bdc-m  );
-                $popout-ks: (   bgk: transparent,   fk: unset,   bdk: unset  );
-            } @else {
-                $bk: #{$base}-m;
-                $normal-ks: (   bgk: #{$base}-l2,   fk: unset,  bdk: #{$base}-l1    );
-                $fill-ks:   (   bgk: $bk,           fk: unset,  bdk: unset  );
-                $plain-ks:  (   bgk: white-m,       fk: $bk,    bdk: $bk    );
-                $popout-ks: (   bgk: transparent,   fk: $bk,    bdk: unset  );
-            }
-            //构建 不同 effect 类型下的 颜色键名 map
-            $ks: (
-                normal: $normal-ks,
-                fill:   $fill-ks,
-                plain:  $plain-ks,
-                popout: $popout-ks,
-            );
-
-            //类名序列
-            $clsns: ();
-            @if is-null($ci) {
-                //$base == null 默认 effect 效果
-                @if not & {
-                    $clsns: push($clsns, str-sub($clspre, 1, -2));
-                } @else {
-                    $clsns: push($clsns, cls-pre($target, ''));
-                }
-            } @else {
-                //指定了 $base 基本色
-                $clsns: push($clsns, #{$clspre}#{$base}-m);
-                @if is-nemstr($alias) {
-                    //基本色存在 别名
-                    $clsns: push($clsns, #{$clspre}#{$alias}-m);
-                }
-            }
-
+    @each $sz in $sque {
+        //类名 .pre-xxl
+        $clsns: clsf-l($clspre, '*-#{$sz}');
+        //在 $sizeKeyMap 中  xxl: huge
+        $ski: map.get($sizeKeyMap, $sz);
+        //增加语义类名 .pre-xxl  -->  .pre-xxl, .pre-huge
+        @if is-nemstr($ski) {
+            $clsns: push($clsns, clsf-l($clspre, '*-#{$ski}')...);
+        }
+        $si: size-get(#{$skey}-#{$sz}, null, $smap);
+        @if is-number($si) {
             #{$clsns} {
-                //effect 循环
-                @each $efi in $effectList {
-                    $ksmap: map.get($ks, $efi);
-                    @if is-nemmap($ksmap) {
-                        $bgk:   map.get($ksmap, bgk);
-                        $fk:    map.get($ksmap, fk);
-                        $bdk:   map.get($ksmap, bdk);
+                @if meta.mixin-exists($mixn) {
+                    //如果传入 mixin 则应用此 mixin 并传入参数
+                    @include meta.apply(meta.get-mixin($mixn), $pre, $si, #{$skey}-#{$sz});
+                } @else {
+                    #{$prop}: $si;      //!important;
+                    
+                    //下级类名前缀
+                    $subpre: clsp(self, $pre);
+                    
+                    // 对于某些 prop 还需要执行 位置循环
+                    @if $trbl == true and has($props, $prop, true) {
+                        @if $prop == border-radius {
+                            // 针对 radius 执行特殊循环
+                            @each $ri in $cornerQueue {
+                                // .pre-rd-trbl
+                                //$rdclsn: if($pre == rd-, #{$subpre}po-#{$ri}, #{$subpre}rd-#{$ri});
+                                $rdclsn: clsf($subpre, if($pre == rd-, '*-po-#{$ri}', '*-rd-#{$ri}'));
+                                #{$rdclsn} {
+                                    //#{$prop}: 0 !important;
+                                    @include spf-size-rd($si, $ri /*, true*/);
+                                }
+                            }
+                        } @else {
+                            // 正常的 trbl 循环
+                            @each $pi in $trblQueue {
+                                // .pre-po-trbl
+                                //#{$subpre}po-#{$pi} {
+                                #{clsf($subpre, '*-po-#{$pi}')} {
+                                    //#{$prop}: 0 !important;
+                                    @include spf-size-po($si, $pi, $prop /*, true*/);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
-                        &.#{$pre}effect-#{$efi} {
-                            //应用 mixin
-                            @include meta.apply($mix, $pre, $efi, $bgk, $fk, $bdk);
+    //通过手动传入尺寸值，来设置尺寸样式
+
+    //主题系统生成的 sizeMap 一定包含 -m 原始尺寸
+    $msz: size-get(#{$skey}-m, null, $smap);
+    //获取当前尺寸值序列的单位 如：px 主题系统生成的 sizeMap 相同键名一定拥有相同单位
+    $mu: if(is-number($msz), unit($msz), '');
+
+    @if is-nemlist($manual) {
+        @each $sz in $manual {
+            @if is-number($sz) {
+                $sz: set-unit($sz, $mu);
+                // .pre-10px
+                //#{$clspre}#{$sz} {
+                #{clsf($clspre, '*-#{$sz}')} {
+                    @if meta.mixin-exists($mixn) {
+                        //如果传入 mixin 则应用此 mixin 并传入参数
+                        @include meta.apply(meta.get-mixin($mixn), $pre, $sz, manual);
+                    } @else {
+                        #{$prop}: $sz;  //!important;
+                        
+                        //下级类名前缀
+                        $subpre: clsp(self, $pre);
+    
+                        // 对于某些 prop 还需要执行 位置循环
+                        @if $trbl == true and has($props, $prop, true) {
+                            @if $prop == border-radius {
+                                // 针对 radius 执行特殊循环
+                                @each $ri in $cornerQueue {
+                                    // .pre-rd-trbl
+                                    //$rdclsn: if($pre == rd-, #{$subpre}po-#{$ri}, #{$subpre}rd-#{$ri});
+                                    $rdclsn: clsf($subpre, if($pre == rd-, '*-po-#{$ri}', '*-rd-#{$ri}'));
+                                    #{$rdclsn} {
+                                        @include spf-size-rd($sz, $ri /*, true*/);
+                                    }
+                                }
+                            } @else {
+                                // 正常的 trbl 循环
+                                @each $pi in $trblQueue {
+                                    // .pre-po-trbl
+                                    //#{$subpre}po-#{$pi} {
+                                    #{clsf($subpre, '*-po-#{$pi}')} {
+                                        @include spf-size-po($sz, $pi, $prop /*, true*/);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1082,10 +827,112 @@ $spfStatusList: normal,hover,active;
         }
     }
 }
+
+
+
+/** 在 *-shift mixin 中应用的 *-shift-mix-* mixins **/
+/** 批量设置 单行 btn 元素 size 相关的样式 min-height|font-size **/
+@mixin spf-size-shift-mix-btn-size($pre: btn-, $size: 0, $skey: manual) {
+    //计算单行元素 size 尺寸值
+    $szmap: null;
+    @if $skey == manual {
+        //手动指定的 尺寸值
+        $szmap: spf-calc-size($size, pd, fs);
+    } @else {
+        //从 sizeMap 读取的尺寸值
+        $szmap: spf-calc-size($skey, pd, fs);
+    }
+    //$szm-str: if(is-nemmap($szmap), map.keys($szmap), if(is-string($szmap), $szmap, 'no-sz-map'));
+    //content: '#{$size} | #{$skey} | #{$szm-str}';
+    //必须得到正确的尺寸值
+    @if is-nemmap($szmap) {
+        //读取计算得到的实际尺寸值
+        $sz: map.get($szmap, sz);
+        $pd: map.get($szmap, pd);
+        $fs: map.get($szmap, fs);
+        @if is-number($sz, $pd, $fs) {
+            $pd-05x: div($pd, 2);
+            //注入实际尺寸样式
+            height: $sz;
+            min-height: $sz;
+            min-width: $sz;
+            padding: 0 $pd;
+            font-size: $fs;
+            
+            //默认后代元素
+            &>*:not(:first-child) {
+                //内部元素间距
+                margin-left: $pd-05x;
+            }
+            //同级元素间距
+            &+* {
+                margin-left: $pd-05x;
+            }
+        }
+    }
+}
+/** 批量设置各 status 下的 effect 样式值 **/
+@mixin spf-effect-shift-mix-default($pre: bar-, $effect: normal, $base: no-color, $elm: null) {
+    //status 状态循环
+    @each $status in $spfStatusList {
+        //计算 $status 状态下的 bgk|fk|bdk 值
+        $kmap: spf-calc-elm-effect($base, $elm, $effect, $status);
+        @if is-nemmap($kmap) {
+            //读取
+            $s-bgk: map.get($kmap, bgk);
+            $s-fk: map.get($kmap, fk);
+            $s-bdk: map.get($kmap, bdk);
+
+            //应用样式
+            @if $status == 'normal' {
+                //默认状态下 应用默认样式
+                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+            } @else {
+                //特殊状态下
+                &.#{$status} {
+                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                    @if $status != 'hoverable:hover' {
+                        //非 hover 状态 需要覆盖
+                        &.hoverable:hover {
+                            @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+/** 批量设置 多行元素 size **/
+@mixin spf-size-shift-mix-win-size($pre: win-, $size: 0, $skey: manual) {
+    //计算单行元素 size 尺寸值
+    $szmap: null;
+    @if $skey == manual {
+        //手动指定的 尺寸值
+        $szmap: spf-calc-win-size($size);
+    } @else {
+        //从 sizeMap 读取的尺寸值
+        $szmap: spf-calc-win-size($skey);
+    }
+    //必须得到正确的尺寸值
+    @if is-nemmap($szmap) {
+        //读取计算得到的实际尺寸值
+        $sz: map.get($szmap, sz);
+        $pd: map.get($szmap, pd);
+        $rd: map.get($szmap, rd);
+        @if is-number($sz, $pd, $rd) {
+            //注入实际尺寸样式
+            @include spf-set-win-dynamic-size($sz, $pd, $rd);
+        }
+    }
+}
+
+
+
+/** 其他 批量样式注入 mixins **/
 /** 为 当前类 或 后代类 指定 通用的字体样式 **/
 @mixin spf-fo-shift($target: self, $manual: $extraFsSizeQueue) {
     //$prop-pre: if($target == self, unquote("&."), unquote("& ."));
-    $prop-pre: cls-pre($target, '.');
+    $prop-pre: clsp($target, '.');
     //颜色循环 .fc-red-m .fc-primary-d3  额外增加 黑白色
     @include spf-color-shift($target, 'fc-', color, fc, false, (white, black));
     //尺寸循环 .fs-m .fs-xl .fs-32px 
@@ -1093,9 +940,9 @@ $spfStatusList: normal,hover,active;
     //字重循环 .fw-xl .fw-m
     @include spf-size-shift($target, 'fw-', font-weight, fw, (100,200,300,400,500,600,700,800,900), false);
     //字重快捷类 .fw-normal|bold|thin
-    #{$prop-pre}fw-normal { font-weight: $size-fw-m !important; }
-    #{$prop-pre}fw-bold { font-weight: $size-fw-xl !important; }
-    #{$prop-pre}fw-thin { font-weight: $size-fw-xs !important; }
+    #{$prop-pre}fw-normal { font-weight: $size-fw-m; /*!important;*/ }
+    #{$prop-pre}fw-bold { font-weight: $size-fw-xl; /*!important;*/ }
+    #{$prop-pre}fw-thin { font-weight: $size-fw-xs; /*!important;*/ }
     //字体族 .fml-default|code...
     $fmls: map-filter-keys($varsMap, font-fml);
     $fmlks: map.keys($fmls);
@@ -1103,7 +950,7 @@ $spfStatusList: normal,hover,active;
         //font-fml-foobar --> fml-foobar
         $ki: str-sub($k, 6);
         $kv: map.get($fmls, $k);
-        #{$prop-pre}#{$ki} {font-family: unquote($kv) !important;}
+        #{$prop-pre}#{$ki} {font-family: unquote($kv); /*!important;*/}
     }
 
     //其他通用字体样式
@@ -1114,18 +961,18 @@ $spfStatusList: normal,hover,active;
     //高亮字体 .f-highlight
     #{$prop-pre}f-highlight {
         box-sizing: border-box;
-        padding: .2em .3em !important;
-        margin: 0 .3em !important;
+        padding: .2em .3em; //!important;
+        margin: 0 .3em; //!important;
         border: {
-            radius: .2em !important;
-            width: 0 !important;
+            radius: .2em; //!important;
+            width: 0; //!important;
         }
-        background-color: $color-warn-l3 !important;
-        color: fore-color($color-warn-l3, 0.8) !important;
+        background-color: $color-warn-l3; //!important;
+        color: fore-color($color-warn-l3, 0.8); //!important;
         &.hl-border {
             border: {
-                width: 1px !important;
-                color: $color-warn-l2 !important;
+                width: 1px; //!important;
+                color: $color-warn-l2; //!important;
             }
         }
         @each $hc in $typeList {
@@ -1134,10 +981,10 @@ $spfStatusList: normal,hover,active;
             $hbcv: color-get(#{$hc}-l2);
             @if $hcv != null {
                 &.hl-#{$hc} {
-                    background-color: $hcv !important;
-                    color: $hfcv !important;
+                    background-color: $hcv; //!important;
+                    color: $hfcv; //!important;
                     &.hl-border {
-                        border-color: $hbcv !important;
+                        border-color: $hbcv; //!important;
                     }
                 }
             }
@@ -1145,14 +992,14 @@ $spfStatusList: normal,hover,active;
     }
     //codex 代码字体
     #{$prop-pre}f-code {
-        padding: .2em .3em !important;
-        margin: 0 .3em !important;
+        padding: .2em .3em; //!important;
+        margin: 0 .3em; //!important;
         border: {
-            radius: .2em !important;
-            width: 0 !important;
+            radius: .2em; //!important;
+            width: 0; //!important;
         }
-        background-color: $color-gray-l3 !important;
-        color: $color-primary-d3 !important;
+        background-color: $color-gray-l3; //!important;
+        color: $color-primary-d3; //!important;
         font-family: $font-fml-code;
     }
     //.f-ellipsis
@@ -1161,42 +1008,44 @@ $spfStatusList: normal,hover,active;
     }
 }
 /** 为 当前类 或 后代类 指定 通用的边框样式 可手动指定 border-width|radius 尺寸 list **/
-@mixin spf-bd-shift($target: self, $width: null, $radius: null) {
+@mixin spf-bd-shift($target: self, $width: $extraBdSizeQueue, $radius: $extraRdSizeQueue) {
     //$prop-pre: if($target == self, unquote("&"), unquote("& "));
-    $prop-pre: cls-pre($target);
-    //颜色循环 .bdc-red-d2 .bdc-m 额外增加 黑白色
-    @include spf-color-shift($target, 'bdc-', border-color, bdc, false, (white, black));
+    $prop-pre: clsp($target);
+    //默认 border 样式
     #{$prop-pre}[class*=bdc-] {
         border: {
             style: solid;
             width: $size-bd-m;
         }
     }
-    //尺寸循环|位置循环 .bd-m .bd-m.bd-rl .bd-m.bd-xy
-    @include spf-size-shift($target, 'bd-', border-width, bd, $width);
     #{$prop-pre}[class*=bd-] {
         border: {
             style: solid;
             color: $color-bdc-m;
         }
     }
+
+    //颜色循环 .bdc-red-d2 .bdc-m 额外增加 黑白色
+    @include spf-color-shift($target, 'bdc-', border-color, bdc, false, (white, black));
+    //尺寸循环|位置循环 .bd-m .bd-m.bd-po-rl .bd-m.bd-po-xy
+    @include spf-size-shift($target, 'bd-', border-width, bd, $width);
     //圆角循环 .rd-m|xl..
     @include spf-size-shift($target, 'rd-', border-radius, rd, $radius);
 }
 /** 为 当前类 或 后代类 指定 通用的 padding 样式 **/
-@mixin spf-pd-shift($target: self, $manual: null) {
+@mixin spf-pd-shift($target: self, $manual: $extraPdSizeQueue) {
     //尺寸循环|位置循环 .pd-m .pd-s.pd-rl .pd-xl.pd-xy
     @include spf-size-shift($target, 'pd-', padding, pd, $manual);
 }
 /** 为 当前类 或 后代类 指定 通用的 margin 样式 **/
-@mixin spf-mg-shift($target: self, $manual: null) {
+@mixin spf-mg-shift($target: self, $manual: $extraMgSizeQueue) {
     //尺寸循环|位置循环 .mg-m .mg-s.mg-rl .mg-xl.mg-xy
     @include spf-size-shift($target, 'mg-', margin, mg, $manual);
 }
 /** 为 当前类 或 后代类 指定 通用的 background 样式 **/
 @mixin spf-bg-shift($target: self, $blur: null) {
     //$prop-pre: if($target == self, unquote("&."), unquote("& ."));
-    $prop-pre: cls-pre($target, '.');
+    $prop-pre: clsp($target, '.');
     //颜色循环|透明度循环 .bgc-red-d2 .bgc-m .bgc-primary-l1.bgc-a6
     @include spf-color-shift($target, 'bgc-', background-color, bgc, true, (white, black));
     //backdrop-filter: blur()
@@ -1209,20 +1058,20 @@ $spfStatusList: normal,hover,active;
 /** 为 当前类 或 后代类 指定 通用的 opacity 样式 **/
 @mixin spf-opa-shift($target: self) {
     //$prop-pre: if($target == self, unquote("&."), unquote("& ."));
-    $prop-pre: cls-pre($target, '.');
+    $prop-pre: clsp($target, '.');
     @for $opi from 1 through 10 {
         $opik: $opi * 10;
         $opiv: $opi / 10;
         //.opa-10|20|100...
         #{$prop-pre}opa-#{$opik} {
-            opacity: $opiv !important;
+            opacity: $opiv;     //!important;
         }
     }
 }
 /** 为 当前类 或 后代类 指定 通用的 shadow 样式 **/
 @mixin spf-shadow-shift($target: self, $pre: shadow-, $prop: box-shadow, $color: null) {
     //$prop-pre: if($target == self, unquote("&.#{$pre}"), unquote("& .#{$pre}"));
-    $prop-pre: cls-pre($target, $pre);
+    $prop-pre: clsp($target, $pre);
     //阴影颜色固定 可手动通过 color 参数指定
     $oc: if(is-color($color), $color, $color-shadow-m);
     //阴影浓度由 alpha 决定，范围 0.15~0.6 间隔 0.15
@@ -1242,12 +1091,14 @@ $spfStatusList: normal,hover,active;
                 $alpha: mul($i, $step);
                 $nc: set-alpha($oc, $alpha);
                 //样式子类 .pre-[xxl~m~xxs]-[a1~a4]
-                $clsns: mk(#{$prop-pre}#{$qi}-a#{$i});
+                //$clsns: mk(#{$prop-pre}#{$qi}-a#{$i});
+                $clsns: clsf-l($prop-pre, '*-#{$qi}-a#{$i}');
 
                 //默认阴影样式 size = m  alpha = 0.3
                 @if $qi == m and $i == 2 {
-                    //默认样式类 .pre
-                    $clsns: push($clsns, str-sub($prop-pre, 1, -2));
+                    //默认样式类 .pre-  --> .pre
+                    //$clsns: push($clsns, str-sub($prop-pre, 1, -2));
+                    $clsns: push($clsns, clsf-l($prop-pre)...);
                 }
 
                 #{$clsns} {
@@ -1260,110 +1111,1105 @@ $spfStatusList: normal,hover,active;
 
 
 
-/** 在 *-shift mixin 中应用的 *-shift-mix-* mixins **/
+/**
+ *  SPF-Theme 主题系统  module 样式子模块  effect|shape|tightness ...
+ *  定义一个 module 样式子模块：
+ *      0   在 $spfModuleMap 中定义子模块参数，type|types 必须指定
+ *      1   必须定义 spf-[module]-shifter 子 mixin   接受 3 个参数：
+ *              $base       基础尺寸(值|键名)  或  基础颜色键名
+ *              $clsn       list，子模块类具体样式的所在类名 list   例如：&.btn-xl|& .bar-small|.btn-red|.btn-danger-m ...
+ *              $opts       map，通过 spf-module-apply mixin 传递进来的 子模块额外参数，以及自动生成的 子模块自身的参数
+ *          此 mixin 将根据传入的 基础尺寸|颜色 计算生成子模块自定义的样式定义，挂到 $clsn 类名下
+ *          此 mixin 可使用自定义的 名称，需要在 子模块参数 shifter 中指定
+ *      2   根据 spf-[module]-shifter 子 mixin 的实际需求，可定义 spf-[module]-shift-mix-[module-type] 子 mixin
+ *          此 mixin 接受参数由子模块自定义，但是最后一个参数必须是 外部传入的 $opts map
+ *      3   可根据实际需求 定义 spf-[module]-shifter-extra 子 mixin 处理 不依赖 基础尺寸|颜色 的 子模块样式定义，2 个参数
+ *              $clsn       list，所有已生成的 样式类名称序列
+ *              $opts       map，通过 spf-module-apply mixin 传递进来的 子模块额外参数，以及自动生成的 子模块自身的参数
+ *          此 mixin 的名称 一定是 [shifter-mixin-name]-extra
+ *      4   可根据实际需求 定义 spf-calc-[module] 计算函数 function，接受至少一个参数：
+ *              $base       基础尺寸(值|键名)  或  基础颜色键名
+ *              可以接受其他任意参数，在 spf-[module]-shifter 中调用并传入
+ *          此 function 固定返回 map  包含所有 当前子模块样式必须的 实际尺寸|颜色 值|键名
+ *          此 function 名称可自定义，在 spf-[module]-shifter 中调用对应名称即可
+ */
+//定义启用的 SPF-Theme 样式子模块参数
+$spfModuleMap: (
+    //默认子模块参数格式，用以填充参数默认值
+    _default: (
+        //子模块类型 size|color 将执行对应的参数值循环操作
+        type: size,
+        //子模块可选的 类型序列 list
+        types: (),
+        //子模块 迭代 mixin 名
+        shifter: 'spf-{module-name}-shifter',
+        //如果 子模块 type == size 则需要指定其在 $sizeMap 中的默认尺寸值的 键名前缀
+        sz-key: '',
+    ),
+    //effect 子模块
+    effect: (
+        type: color,
+        types: $effectList,
+    ),
+    //stretch 子模块
+    stretch: (
+        type: size,
+        types: $stretchList,
+        //!! 不指定 基础尺寸键名，因为 stretch 所有样式都不依赖基础尺寸
+        sz-key: '',
+    ),
+    //tightness 子模块
+    tightness: (
+        type: size,
+        types: $tightnessList,
+        sz-key: pd,
+    ),
+    //shape 子模块
+    shape: (
+        type: size,
+        types: $shapeList,
+        sz-key: rd,
+    ),
+    //!! 新增 子模块，必须在此处定义子模块参数 ...
+);
+/**
+ *  针对任意元素 应用样式子模块   可以应用在 元素自身|后代元素
+ *  子模块样式将被包裹在 .元素-子模块名 类名下，例如：
+ *      元素：btn   子模块：effect   则所有 effect 子模块样式都被挂载到 .btn-effect 类名下
+ *  !! 如果不指定元素，则子模块样式将被挂载到 .子模块名-子模块基础参数 类名下，例如：
+ *      未指定元素  子模块：shape   则所有 shape 子模块样式被挂载到 .shape-[..xs,s,m,l,xl..] 类名下
+ *  !! 不指定元素的样式子模块，将被作为原子样式
+ */
+@mixin spf-module-apply(
+    $target:    self,               //此 子模块样式应用到 self(当前引用的类) 或 child(当前引用类的后代类)，默认 self
+    $elm:       btn,                //此子模块样式是否应用到某个具体元素，将生成对应的 外部包裹类名 .$elm-$module
+    $module:    effect,             //子模块名称，必须在 $spfModuleMap 中定义
+    $opts:      null,               //子模块调用的 额外参数 map
+) {
+    //是否未指定 子模块样式应用到的具体元素，未指定则最终生成 原子样式
+    $noelm: not is-nemstr($elm);
+    //确认传入的 子模块 存在
+    $has-mod: is-nemstr($module) and map.has-key($spfModuleMap, $module) == true;
+    @if $has-mod {
+        //获取 子模块参数 在 $spfModuleMap 中定义
+        $modc: map.get($spfModuleMap, $module);
+        @if is-nemmap($modc) {
+            //填充 子模块默认参数 
+            $modc: map.deep-merge(map.get($spfModuleMap, _default), $modc);
+            //获取必须的 子模块参数值
+            //子模块类型，size|color 决定使用 size|color 循环
+            $mod-type: map.get($modc, type);
+            //可选是子模块值 通常在 $[module-name]List 中定义 list
+            $mod-types: map.get($modc, types);
+            //子模块 shift 迭代 mixin 名称  默认 spf-$module-shifter
+            $mod-shifter: str-replace(map.get($modc, shifter), '{module-name}', $module);
+            //确认子模块参数合法
+            $mod-type-ok: is-nemstr($mod-type) and has((size,color), $mod-type);
+            $mod-types-ok: is-nemlist($mod-types);
+            $mod-shifter-ok: is-nemstr($mod-shifter) and meta.mixin-exists($mod-shifter);
+            @if $mod-type-ok and $mod-types-ok and $mod-shifter-ok {
+                //外部包裹类名，[&.|& .|.]$elm-$module 如果 $elm 未指定 则为 [&|& |'']
+                $clspre: if(    //!! 一定是 string
+                    $noelm,
+                    clsp($target, ''),
+                    clsf(clsp($target, $elm), '*-#{$module}')
+                );
+                //子模块样式的 具体类名前缀  $module-[xl,m,xxs | red,danger,red-m]
+                $mod-clsn: if(  //!! 一定是 string
+                    $noelm,
+                    $module,
+                    $elm
+                );
 
-/** 批量设置 单行组件 size **/
-@mixin spf-size-shift-mix-bar-size($pre: bar-, $size: 0, $skey: manual) {
-    //计算单行元素 size 尺寸值
-    $szmap: null;
-    @if $skey == manual {
-        //手动指定的 尺寸值
-        $szmap: spf-bar-size-calc($size);
-    } @else {
-        //从 sizeMap 读取的尺寸值
-        $szmap: spf-bar-size-calc($skey);
-    }
-    //必须得到正确的尺寸值
-    @if is-nemmap($szmap) {
-        //读取计算得到的实际尺寸值
-        $sz: map.get($szmap, sz);
-        $pd: map.get($szmap, pd);
-        $rd: map.get($szmap, rd);
-        $fs: map.get($szmap, fs);
-        @if is-number($sz, $pd, $rd, $fs) {
-            //注入实际尺寸样式
-            @include spf-set-bar-size($pre, $sz, $pd, $rd, $fs);
-            @include spf-set-bar-shape($pre, $sz, $pd, $rd, $fs);
-            @include spf-set-bar-stretch($pre, $sz, $pd, $rd, $fs);
-            @include spf-set-bar-tightness($pre, $sz, $pd, $rd, $fs);
+                //处理传入的 $opts 额外参数 map
+                @if not is-nemmap($opts) {$opts: ();}
+                //默认 $opts
+                $opts: map.deep-merge((
+                    //可指定作为基础尺寸的 $sizeMap 中的键名前缀  bar|btn...
+                    sz-key: null,
+                    //可裁剪 size|color 循环的 序列  例如：xs,s,m,l,xl | red,blue,green 
+                    que: null,
+                    //手动指定额外的 size|color 循环序列  例如：48,56,64,72 | white,black
+                    manual: null,
+                    //可手动指定 子模块可选类型序列，将只循环这些可选类型  例如：shape 子模块，可指定：sharp,round,pill
+                    types-que: null,
+                    //!! 可以有其他任意 参数，将被传递给 $mod-shifter[-extra]-mix 子 mixin
+                    //!! ...
+                ), $opts);
+                //缓存当前的状态参数到 $opts
+                //noelm
+                $opts: map.set($opts, noelm, $noelm);
+                //clspre
+                $opts: map.set($opts, clspre, $clspre);
+
+                //获取 shifter mixin
+                $mod-shifter-mix: meta.get-mixin($mod-shifter);
+                //获取 shifter-extra mixin 针对不需要基础 尺寸|颜色 参与的 样式设置 mixin
+                $mod-shifter-extra: #{$mod-shifter}-extra;
+                $mod-shifter-extra-mix: null;
+                @if meta.mixin-exists($mod-shifter-extra) {
+                    $mod-shifter-extra-mix: meta.get-mixin($mod-shifter-extra);
+                } @else {
+                    $mod-shifter-extra: null;
+                }
+
+                //根据子模块类型，决定使用 size|color 循环
+                //指定 shiftQueue
+                $mod-que: ();
+                //指定 手动循环 manualShiftQueue
+                $mod-manual-que: ();
+                //可指定只循环的 子模块可选类型
+                $mod-types-que: ();
+                //如果 size 类型子模块，还需要指定作为基础尺寸的 尺寸键名前缀
+                $mod-sz-key: null;
+                @if $mod-type == size {
+                    //尺寸循环
+                    $mod-que: $sizeShiftQueue;
+                    //根据传入的 $opts 中的 que 参数，裁剪循环 list
+                    @if is-nemlist(map.get($opts, que)) {
+                        $mod-que: inter($mod-que, map.get($opts, que));
+                    }
+                    //作为基础尺寸的 尺寸键名
+                    @if $noelm {
+                        //未指定 elm 直接读取 $modc 参数
+                        $mod-sz-key: map.get($modc, sz-key);
+                    } @else {
+                        //指定了 $elm 则首先尝试读取 $opts 中的 sz-key 失败则使用 $elm 作为 sz-key
+                        $mod-sz-key: if(
+                            map.has-key($opts, sz-key) and is-nemstr(map.get($opts, sz-key)),
+                            map.get($opts, sz-key),
+                            $elm
+                        );
+                    }
+                } @else {
+                    //颜色循环
+                    $mod-que: $colorListBase;     //颜色名称 list 数组，默认 $colorListBase 基础通用色
+                    //从 base 颜色中去除 alias 别名颜色后 作为颜色循环的数据源
+                    $mod-que: remove($mod-que, $colorListAlias...);
+                    //根据传入的 $opts 中的 que 参数，裁剪循环 list
+                    @if is-nemlist(map.get($opts, que)) {
+                        $mod-que: inter($mod-que, map.get($opts, que));
+                    }
+                    //将 no-color 添加到颜色 list 头部(无法查询到颜色)，作为默认 子模块 基础色
+                    $mod-que: unshift($mod-que, 'no-color');
+                }
+                //手动 size|color 循环
+                @if is-nemlist(map.get($opts, manual)) {
+                    $mod-manual-que: map.get($opts, manual);
+                }
+                //如果是 color 循环 则将手动序列，合并到 自动序列中
+                @if $mod-type == color and is-nemlist($mod-manual-que) {
+                    //合并，去重
+                    $mod-que: unique(push($mod-que, $mod-manual-que...));
+                    //释放 $mod-manual-que
+                    $mod-manual-que: ();
+                }
+                //处理 子模块可选类型循环序列
+                @if is-nemlist(map.get($opts, types-que)) {
+                    $mod-types-que: inter($mod-types, map.get($opts, types-que));
+                } @else {
+                    $mod-types-que: $mod-types;
+                }
+
+                //缓存 处理后的子模块参数 到 $opts
+                $opts: map.merge($opts, (
+                    mod-type:       $mod-type,
+                    mod-types:      $mod-types,
+                    mod-shifter:    $mod-shifter,
+                    mod-que:        $mod-que,
+                    mod-manual:     $mod-manual-que,
+                    mod-types-que:  $mod-types-que,
+                    mod-sz-key:     $mod-sz-key,
+                    mod-clsn:       $mod-clsn,
+                ));
+
+                //缓存所有生成 类名，用于执行 不依赖基础 尺寸|颜色 的 子 mixin
+                $clsn-all: ();
+
+                //开始执行 size|color 循环，调用 module-shifter 
+                //!! 如果 $mod-type == size 且 $mod-sz-key == '' 则不执行此循环
+                @if is-nemlist($mod-que) and ($mod-type != size or is-nemstr($mod-sz-key)) {
+                    @each $qi in $mod-que {
+                        //作为基础 尺寸|颜色 的键名
+                        $base: if(
+                            $mod-type == size,
+                            #{$mod-sz-key}-#{$qi},
+                            $qi
+                            /*if(
+                                $qi == no-color,
+                                $qi,
+                                #{$qi}-m
+                            )*/
+                        );
+                        //生成 类名序列
+                        $clsn: ();
+                        @if $mod-type == size {
+                            //size 类型的 子模块样式的 类名序列
+                            $clsn: push($clsn, unquote("#{$clspre}.#{$mod-clsn}-#{$qi}"));
+                            //size key 别名     xl --> large
+                            $alia: map.get($sizeKeyMap, $qi);
+                            @if is-nemstr($alia) {
+                                $clsn: push($clsn, unquote("#{$clspre}.#{$mod-clsn}-#{$alia}"));
+                            }
+                        } @else {
+                            //color 类型的 子模块样式的 类名序列
+                            @if $qi == no-color {
+                                //未指定颜色
+                                $clsn: push($clsn, unquote("#{$clspre}.#{$mod-clsn}"));
+                            } @else {
+                                //指定了基础颜色
+                                $clsn: push($clsn, 
+                                    unquote("#{$clspre}.#{$mod-clsn}-#{$qi}"),
+                                    unquote("#{$clspre}.#{$mod-clsn}-#{$qi}-m")
+                                );
+                                //颜色别名      red --> danger
+                                $alia: map-get-key($colorAliasMap, quote(to-string($qi)));
+                                @if is-nemstr($alia) {
+                                    $clsn: push($clsn, 
+                                        unquote("#{$clspre}.#{$mod-clsn}-#{$alia}"),
+                                        unquote("#{$clspre}.#{$mod-clsn}-#{$alia}-m")
+                                    );
+                                }
+                            }
+                        }
+                        //缓存生成的 类名
+                        $clsn-all: push($clsn-all, $clsn...);
+
+                        //调用 shifter mixin 传入参数：$base 基础尺寸|颜色，$clsn 类名序列，$opts 子模块额外调用参数
+                        @include meta.apply($mod-shifter-mix, $base, $clsn, $opts);
+                    }
+                }
+
+                //针对 size 类型的 子模块，再执行一次 manual 手动尺寸循环
+                @if $mod-type == size and is-nemstr($mod-sz-key) and is-nemlist($mod-manual-que) {
+                    //读取默认尺寸值，获取其单位
+                    $dsz: size-get(#{$mod-sz-key}-m);  //!! 肯定存在
+                    $szu: unit($dsz);
+                    @each $szi in $mod-manual-que {
+                        //基础尺寸值
+                        $base: set-unit($szi, $szu);
+                        //类名序列
+                        $clsn: ();
+                        $clsn: push($clsn, unquote("#{$clspre}.#{$mod-clsn}-#{$base}"));
+                        //缓存生成的 类名
+                        $clsn-all: push($clsn-all, $clsn...);
+
+                        //调用 shifter mixin 传入参数：$base 基础尺寸，$clsn 类名序列，$opts 子模块额外调用参数
+                        @include meta.apply($mod-shifter-mix, $base, $clsn, $opts);
+                    }
+                }
+
+                //执行不依赖 基础尺寸|颜色 的 子模块样式设置 mixin
+                @if is-nemstr($mod-shifter-extra) {
+                    @if not is-nemlist($clsn-all) {
+                        //未收集到类名 list 表示前面的 size|color 循环未执行（例如：stretch 子模块）
+                        //插入 $clspre
+                        @if is-nemstr($clspre) {
+                            $clsn-all: push($clspre);
+                        }
+                    }
+                    //调用 shifter-extra mixin 传入参数 $clsn 所有生成的类名，$opts 子模块额外参数
+                    @include meta.apply($mod-shifter-extra-mix, $clsn-all, $opts);
+                }
+            }
         }
     }
 }
-/** 批量设置各 status 下的 effect 样式值 **/
-@mixin spf-effect-shift-mix-default($pre: bar-, $effect: normal, $bgk: unset, $fk: unset, $bdk: unset) {
-    //缓存 normal|active 状态下的 值 map
-    $n-map: null;
-    $a-map: null;
 
-    //status 状态循环
-    @each $status in $spfStatusList {
-        //计算 $status 状态下的 bgk|fk|bdk 值
-        $kmap: spf-effect-calc($effect, $status, $bgk, $fk, $bdk);
-        @if is-nemmap($kmap) {
-            //读取
-            $s-bgk: map.get($kmap, bgk);
-            $s-fk: map.get($kmap, fk);
-            $s-bdk: map.get($kmap, bdk);
 
-            //应用样式
-            @if $status == normal {
-                //缓存
-                $n-map: map.merge((), $kmap);
-                //普通状态 直接写样式
-                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
-            } @else if $status == hover {
-                //hover 状态要增加子样式类
-                &.#{$pre}hoverable:hover {
-                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
-                }
-            } @else if $status == active {
-                //缓存
-                $a-map: map.merge((), $kmap);
-                //active 状态要增加子样式类
-                &.#{$pre}active {
-                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
-                    //active 状态下需要覆盖 hover 翻转
-                    &.#{$pre}hoverable:hover {
-                        @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+/** effect 子模块 **/
+//!! 必须定义 effect-shifter
+@mixin spf-effect-shifter($base, $clsn, $opts: null) {
+    //处理外部传入的 子模块参数 map
+    @if not is-nemmap($opts) {$opts: ();}
+    //合并标记默认值
+    $opts: map.deep-merge((
+        //需要标记是否定义了 具体的元素
+        noelm: false,
+        //外部可传入当前 effect 样式使用的 计算类型 $eftype
+        ef-type: default,
+        //需要标记是否多行
+        //multi-rows: false,
+        //实际需要循环的 effect 可选类型序列
+        mod-types-que: (),
+        //实际需要循环的 status 可选类型序列
+        status-que: (),
+    ), $opts);
+    //读取标记
+    $noelm: map.get($opts, noelm);
+    //当前 effect 子模块所使用的 effect 样式计算类型 $eftype
+    $eftype: map.get($opts, ef-type);
+    //$eftype 对应的 calc function
+    $fn: spf-calc-effect-#{$eftype}-map;
+    $calc-fn: if(meta.function-exists($fn), meta.get-function($fn), meta.get-function('spf-calc-effect-default-map'));
+    //$eftype 对应的 setter mixin
+    $mixn: spf-effect-#{$eftype}-setter;
+    $set-mix: if(meta.mixin-exists($mixn), meta.get-mixin($mixn), meta.get-mixin('spf-effect-default-setter'));
+    //实际需要循环的 $effectList
+    $mod-types-que: map.get($opts, mod-types-que);
+    @if not is-nemlist($mod-types-que) {
+        $mod-types-que: $effectList;
+    }
+    //实际需要循环的 $spfStatusList
+    $status-que: map.get($opts, status-que);
+    @if not is-nemlist($status-que) {
+        //未指定，直接使用 $spfStatusList
+        $status-que: $spfStatusList;
+    } @else {
+        //指定了，使用 交集
+        $status-que: inter($spfStatusList, $status-que);
+    }
+    
+    //循环 effectList
+    @each $efi in $mod-types-que {
+        //拼接当前 effect 类型的样式类名
+        #{clsf($clsn, '*.effect-#{$efi}')} {
+            //status 状态循环
+            @each $status in $status-que {
+                //计算 当前 effect 类型 和 status 状态下的 effect 颜色样式值
+                $efmap: meta.call($calc-fn, $base, $efi, $status);
+                //!! forDev:
+                //$efmstr: if(is-nemmap($efmap), map.values($efmap), 'no-ef-map');
+                //content: '#{$base} | #{$efi} | #{$status} | #{$efmstr}';
+                @if is-nemmap($efmap) {
+                    //应用样式
+                    @if $status == 'normal' {
+                        //默认状态下 应用默认样式
+                        @include meta.apply($set-mix, $efmap, $efi, $status);
+                    } @else {
+                        //特殊状态下
+                        &.#{$status} {
+                            @include meta.apply($set-mix, $efmap, $efi, $status);
+                            @if $status != 'hoverable:hover' {
+                                //非 hover 状态 需要覆盖
+                                &.hoverable:hover {
+                                    @include meta.apply($set-mix, $efmap, $efi, $status);
+                                }
+                            }
+                        }
                     }
                 }
             }
         }
     }
-
-    //disabled|pending 情况下的 status
-    &.#{$pre}disabled, &.#{$pre}pending, &.#{$pre}fullfilled {
-        //强制 opacity 0.3
+}
+//effect-shifter-extra 不依赖基础颜色的 effect 样式
+@mixin spf-effect-shifter-extra($clsn, $opts: null) {
+    //disabled 样式
+    #{clsf($clsn, ('*.disabled', '*.pending'))} {
         opacity: 0.3 !important;
         cursor: not-allowed;
-        & * {cursor: not-allowed;}
+        &>* {
+            cursor: not-allowed;
+        }
+    }
+}
+/** 
+ *  定义不同类型的 effect 颜色计算方法
+ *  根据传入的 $base 基础颜色，具体 effect 类型，以及 $status 状态，计算 各 effect 颜色样式实际值
+ *  返回值：(
+ *      bgk:    unset|transparent|red-m,
+ *      fk:     unset|transparent|red-m,
+ *      bdk:    unset|transparent|red-m,
+ *  )
+ */
+//$eftype == default 默认的计算方式
+@function spf-calc-effect-default-map($base: no-color, $effect: null, $status: null) {
+    //根据传入的 $base 返回对应的 effect 颜色 map
+    $efmap: null;
+    @if $base == 'no-color' {
+        //未指定具体的 $base 基础颜色
+        $efmap: (
+            normal: (   bgk: bgc-m,         fk: fc-m,       bdk: bdc-m  ),
+            fill:   (   bgk: gray-l2,       fk: unset,      bdk: unset  ),
+            plain:  (   bgk: white-m,       fk: fc-m,       bdk: bdc-m  ),
+            popout: (   bgk: transparent,   fk: unset,      bdk: unset  ),
+        );
+    } @else {
+        //指定了具体的 $base 基础颜色
+        $bk: #{$base}-m;
+        $efmap: (
+            normal: (   bgk: #{$base}-l2,   fk: unset,      bdk: #{$base}-l1    ),
+            fill:   (   bgk: $bk,           fk: unset,      bdk: unset  ),
+            plain:  (   bgk: white-m,       fk: $bk,        bdk: $bk    ),
+            popout: (   bgk: transparent,   fk: $bk,        bdk: unset  ),
+        );
+    }
 
-        //覆盖 normal|hover 状态
-        @if is-nemmap($n-map) {
-            //读取
-            $s-bgk: map.get($n-map, bgk);
-            $s-fk: map.get($n-map, fk);
-            $s-bdk: map.get($n-map, bdk);
-            //覆盖普通状态
-            @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
-            //覆盖 hover 状态
-            &.#{$pre}hoverable:hover {
-                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+    @if not is-nemstr($effect) {@return $efmap;}
+    @if is-nemstr($effect) and not map.has-key($efmap, $effect) {@return null;}
+    $efmapi: map.get($efmap, $effect);
+    @if not is-nemstr($status) {@return $efmapi;}
+    @return spf-calc-effect-default-status-map($efmapi, $effect, $status);
+}
+//$eftype == container 针对 单行|多行 容器类型组件的 effect 计算方式
+@function spf-calc-effect-container-map($base: no-color, $effect: null, $status: null) {
+    //根据传入的 $base 返回对应的 effect 颜色 map
+    //!! 容器类型的元素 effect 样式不设置边框样式，由元素自行决定边框样式
+    $efmap: null;
+    @if $base == 'no-color' {
+        //未指定具体的 $base 基础颜色
+        $efmap: (
+            normal: (   bgk: transparent,   fk: fc-m,       bdk: unset  ),
+            fill:   (   bgk: gray-l2,       fk: fc-m,       bdk: unset  ),
+            plain:  (   bgk: white-m,       fk: fc-m,       bdk: unset  ),
+            popout: (   bgk: transparent,   fk: unset,      bdk: unset  ),
+        );
+    } @else {
+        //指定了具体的 $base 基础颜色
+        $bk: #{$base}-m;
+        $efmap: (
+            normal: (   bgk: #{$base}-l3,   fk: unset,      bdk: unset  ),
+            fill:   (   bgk: $bk,           fk: unset,      bdk: unset  ),
+            plain:  (   bgk: white-m,       fk: $bk,        bdk: unset  ),
+            popout: (   bgk: transparent,   fk: #{$base}-l3,bdk: unset  ),
+        );
+    }
+
+    @if not is-nemstr($effect) {@return $efmap;}
+    @if is-nemstr($effect) and not map.has-key($efmap, $effect) {@return null;}
+    $efmapi: map.get($efmap, $effect);
+    @if not is-nemstr($status) {@return $efmapi;}
+    @return spf-calc-effect-container-status-map($efmapi, $effect, $status);
+}
+//!! 新增 $eftype 类型必须在此处定义 spf-calc-effect-[$eftype]-map 方法 ...
+/**
+ *  根据 spf-calc-effect-[$eftype]-map() 返回的 map，以及传入的 status 状态，计算实际颜色值的变体 map  <返回：map(string)|null>
+ *  可以有不同的变化方式，在此处分别定义为不同的 function  默认：spf-calc-effect-default-status-map()
+ *  返回值：(
+ *      bgk:    unset|transparent|red-m,
+ *      fk:     unset|transparent|red-m,
+ *      bdk:    unset|transparent|red-m,
+ *  )
+ */
+//默认的 status 状态变化方法
+@function spf-calc-effect-default-status-map($efmap: null, $effect: null, $status: normal) {
+    //必须传入有效的 effect 实际颜色 map
+    @if not is-nemmap($efmap) or not is-nemstr($effect) {@return null;}
+    //必须传入 $spfStatusList 中定义的 $status
+    @if not has($spfStatusList, $status, true) {@return null;}
+    
+    //根据传入的 status 对颜色执行变换
+    //status == normal 默认初始状态，直接返回
+    @if $status == 'normal' {
+        @return $efmap;
+    }
+
+    //读取 effect 各颜色样式值
+    $bgk:   map.get($efmap, bgk);
+    $fk:    map.get($efmap, fk);
+    $bdk:   map.get($efmap, bdk);
+
+    //status == hover 状态，所有颜色减淡一级
+    @if $status == 'hoverable:hover' {
+        $h-bgk: unset;
+        $h-fk:  unset;
+        $h-bdk: if($bdk == unset, unset, color-key-shift($bdk, l1));
+        @if $effect == popout {
+            //popout effect 情况下 
+            @if $fk == unset {
+                $h-bgk: primary-m;  //fc-m;
+            } @else {
+                $h-bgk: $fk;
+            }
+        } @else {
+            //正常的背景翻转，前景跟随
+            $h-bgk: if($bgk == unset, unset, color-key-shift($bgk, l1));
+            $h-fk: if($fk == unset, unset, color-key-shift($fk, l1));
+        }
+        @return (
+            bgk: if(is-nemstr($h-bgk), $h-bgk, unset),
+            fk: if(is-nemstr($h-fk), $h-fk, unset),
+            bdk: if(is-nemstr($h-bdk), $h-bdk, unset),
+        );
+    }
+
+    //status == active 选中状态，所有颜色加深一级
+    @if $status == active {
+        $a-bgk: unset;
+        $a-fk:  unset;
+        $a-bdk: if($bdk == unset, unset, color-key-shift($bdk, d1));
+        @if $effect == popout {
+            //popout effect 情况下
+            @if $fk == unset {
+                $a-bgk: primary-d1; //fc-d1;
+            } @else {
+                $a-bgk: color-key-shift($fk, d1);
+            }
+        } @else {
+            //正常的背景翻转，前景跟随
+            $a-bgk: if($bgk == unset, unset, color-key-shift($bgk, d1));
+            $a-fk: if($fk == unset, unset, color-key-shift($fk, d1));
+        }
+        @return (
+            bgk: if(is-nemstr($a-bgk), $a-bgk, unset),
+            fk: if(is-nemstr($a-fk), $a-fk, unset),
+            bdk: if(is-nemstr($a-bdk), $a-bdk, unset),
+        );
+    }
+
+    //其他状态返回默认值
+    @return $efmap;
+                
+}
+//container 容器元素的 status 状态变化方法
+@function spf-calc-effect-container-status-map($efmap: null, $effect: null, $status: normal) {
+    //必须传入有效的 effect 实际颜色 map
+    @if not is-nemmap($efmap) or not is-nemstr($effect) {@return null;}
+    //必须传入 $spfStatusList 中定义的 $status
+    @if not has($spfStatusList, $status, true) {@return null;}
+    
+    //根据传入的 status 对颜色执行变换
+    //status == normal 默认初始状态，直接返回
+    @if $status == 'normal' {
+        @if $effect == 'popout' {
+            @if map.has-key($efmap, fk) and map.get($efmap, fk) != unset {
+                //容器元素在 popout effect 下，文字颜色使用 默认的 fc-m
+                $efmap: map.set($efmap, fk, unset);
             }
         }
-        //覆盖 active 状态
-        @if is-nemmap($a-map) {
-            //读取
-            $s-bgk: map.get($a-map, bgk);
-            $s-fk: map.get($a-map, fk);
-            $s-bdk: map.get($a-map, bdk);
-            //覆盖 active 状态
-            &.#{$pre}active {
-                @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
-                &.#{$pre}hoverable:hover {
-                    @include spf-set-effect($s-bgk, $s-fk, $s-bdk);
+        @return $efmap;
+    }
+
+    //读取 effect 各颜色样式值
+    $bgk:   map.get($efmap, bgk);
+    $fk:    map.get($efmap, fk);
+    $bdk:   map.get($efmap, bdk);
+
+    //status == hover 状态，所有颜色减淡一级
+    @if $status == 'hoverable:hover' {
+        $h-bgk: unset;
+        $h-fk:  unset;
+        $h-bdk: if($bdk == unset, unset, color-key-shift($bdk, l1));
+        @if $effect == popout {
+            //popout effect 情况下 
+            @if $fk == unset {
+                $h-bgk: gray-l3;
+            } @else {
+                $h-bgk: $fk;
+            }
+        } @else {
+            //正常的背景翻转，前景跟随
+            $h-bgk: if($bgk == unset, unset, color-key-shift($bgk, l1));
+            $h-fk:  if($fk == unset, unset, color-key-shift($fk, l1));
+        }
+        @return (
+            bgk:    if(is-nemstr($h-bgk), $h-bgk, unset),
+            fk:     if(is-nemstr($h-fk), $h-fk, unset),
+            bdk:    if(is-nemstr($h-bdk), $h-bdk, unset),
+        );
+    }
+
+    //status == active 选中状态，所有颜色加深一级
+    @if $status == active {
+        $a-bgk: unset;
+        $a-fk:  unset;
+        $a-bdk: if($bdk == unset, unset, color-key-shift($bdk, d1));
+        @if $effect == popout {
+            //popout effect 情况下
+            @if $fk == unset {
+                $a-bgk: gray-l2;
+            } @else {
+                $a-bgk: color-key-shift($fk, d1);
+            }
+        } @else {
+            //正常的背景翻转，前景跟随
+            $a-bgk: if($bgk == unset, unset, color-key-shift($bgk, d1));
+            $a-fk:  if($fk == unset, unset, color-key-shift($fk, d1));
+        }
+        @return (
+            bgk:    if(is-nemstr($a-bgk), $a-bgk, unset),
+            fk:     if(is-nemstr($a-fk), $a-fk, unset),
+            bdk:    if(is-nemstr($a-bdk), $a-bdk, unset),
+        );
+    }
+
+    //其他状态返回默认值
+    @return $efmap;
+                
+}
+//!! 可以新增 effect 颜色样式值 在 status 不同状态下的不同变化方法，在此新增对应的 function ...
+//将 spf-calc-effect-[$eftype]-map() 方法得到的 effect 颜色键名 map 统一转为 实际颜色值  <返回：map(color)|null>
+@function spf-calc-effect-val($efmap, $effect: null, $status: null) {
+    //必须传入正确的 effect 颜色样式 map
+    @if not is-nemmap($efmap) {@return null;}
+    //读取对应的 bgk|fk|bdk
+    $bgk:   if(map.has-key($efmap, bgk), map.get($efmap, bgk), unset);
+    $fk:    if(map.has-key($efmap, fk), map.get($efmap, fk), unset);
+    $bdk:   if(map.has-key($efmap, bdk), map.get($efmap, bdk), unset);
+    //准备转换为实际颜色值
+    $bgc:   null;
+    $fc:    null;
+    $bdc:   null;
+    
+    //background-color
+    @if $bgk != unset {
+        $tc: color-get($bgk);
+        @if is-color($tc) {$bgc: $tc;}
+    }
+
+    //color
+    @if $fk == unset {
+        $tc: null;
+        @if is-color($bgc) and $bgc != transparent {
+            $tc: fore-color($bgc, 0.8);
+        //!! bgc 和 fc 都未定义或 bgc=transparent 时，不指定 fc
+        //} @else {
+        //    $tc: color-get(fc-m);
+        }
+        @if is-color($tc) {$fc: $tc;}
+    } @else {
+        $tc: color-get($fk);
+        @if is-color($tc) {$fc: $tc;}
+    }
+
+    //border-color
+    @if $bdk != unset {
+        $tc: color-get($bdk);
+        @if is-color($tc) {$bdc: $tc;}
+    }
+
+    //返回转换后的 map 颜色值可能是 color 或 null
+    @return (
+        bgc:    $bgc,
+        fc:     $fc,
+        bdc:    $bdc,
+    );
+}
+// 复合样式注入 注入 effect 样式的实际 background-color|border-color|color 样式值
+@mixin spf-effect-default-setter($efmap: null, $effect: null, $status: null) {
+    //必须传入正确的 effect 颜色样式 map
+    @if is-nemmap($efmap) {
+        //将传入的 颜色键名 转为 实际颜色值
+        $cmap: spf-calc-effect-val($efmap, $effect, $status);
+        @if is-nemmap($cmap) {
+            //读取对应的 bgc|fc|bdc
+            $bgc:   if(map.has-key($cmap, bgc), map.get($cmap, bgc), unset);
+            $fc:    if(map.has-key($cmap, fc), map.get($cmap, fc), unset);
+            $bdc:   if(map.has-key($cmap, bdc), map.get($cmap, bdc), unset);
+
+            //设置样式
+            @if is-color($bgc) {background-color: $bgc;}
+            @if is-color($fc) {
+                color: $fc;
+                //后代样式
+                &>svg[class*=icon] {
+                    color: $fc;
+                }
+            }
+            @if is-color($bdc) {
+                border: {
+                    style: solid;
+                    width: $size-bd-m;
+                    color: $bdc;
+                }
+            } @else {
+                border: {
+                    style: solid;
+                    width: 0;
+                    color: transparent;
                 }
             }
         }
     }
 }
+//注入 容器元素的 effect 实际样式值
+@mixin spf-effect-container-setter($efmap: null, $effect: null, $status: null) {
+    //必须传入正确的 effect 颜色样式 map
+    @if is-nemmap($efmap) {
+        //将传入的 颜色键名 转为 实际颜色值
+        $cmap: spf-calc-effect-val($efmap, $effect, $status);
+        @if is-nemmap($cmap) {
+            //读取对应的 bgc|fc|bdc
+            $bgc:   if(map.has-key($cmap, bgc), map.get($cmap, bgc), unset);
+            $fc:    if(map.has-key($cmap, fc), map.get($cmap, fc), unset);
+            $bdc:   if(map.has-key($cmap, bdc), map.get($cmap, bdc), unset);
+
+            //设置样式
+            @if is-color($bgc) {background-color: $bgc;}
+            @if is-color($fc) {
+                color: $fc;
+                @if is-nemstr($status) and has(('hoverable:hover', 'active', 'disabled'), $status) {
+                    &>svg[class*=icon] {
+                        color: $fc;
+                    }
+                }
+            }
+            //!! 容器元素的 effect 不设置边框样式
+            //@if is-color($bdc) {
+            //    border: {
+            //        style: solid;
+            //        width: $size-bd-m;
+            //        color: $bdc;
+            //    }
+            //} @else {
+            //    border: {
+            //        style: solid;
+            //        width: 0;
+            //        color: transparent;
+            //    }
+            //}
+        }
+    }
+}
+//!! 可以新增 不同的 effect 样式注入方法 ...
+
+
+/** stretch 子模块 **/
+//!! stretch 所有类型都不依赖基础尺寸，但仍需定义此 mixin 否则无法通过 子模块合法性校验
+@mixin spf-stretch-shifter($base, $clsn, $opts: null) {
+    //!! 不做任何操作，因为不会调用此 mixin
+}
+//!! 不依赖基础尺寸的 stretch 样式设置
+@mixin spf-stretch-shifter-extra($clsn, $opts: null) {
+    //处理外部传入的 子模块参数 map
+    @if not is-nemmap($opts) {$opts: ();}
+    //合并标记默认值
+    $opts: map.deep-merge((
+        //是否定义了具体元素
+        noelm: false,
+        //实际需要循环的 stretch 可选类型序列
+        mod-types-que: (),
+    ), $opts);
+    $noelm: map.get($opts, noelm);
+    //实际需要循环的 $stretchList
+    $mod-types-que: map.get($opts, mod-types-que);
+    @if not is-nemlist($mod-types-que) {
+        $mod-types-que: $stretchList;
+    }
+    //循环 $stretchList
+    @each $stc in $mod-types-que {
+        //查找实际设置样式的 mixin
+        $mixn: spf-stretch-shift-mix-#{$stc};
+        @if meta.mixin-exists($mixn) {
+            //获取 mixin
+            $mix: meta.get-mixin($mixn);
+            @if $noelm {
+                //样式类选择器  [&.|& .|.]stretch-[auto,grow,row]
+                #{clsp-ng(self, stretch-#{$stc})} {
+                    //调用实际设置样式的 mixin
+                    @include meta.apply($mix);
+                }
+            } @else {
+                //样式类选择器  [&.|& .|.]elm-stretch.stretch-[auto,grow,row]
+                #{clsf($clsn, '*.stretch-#{$stc}')} {
+                    //调用实际设置样式的 mixin
+                    @include meta.apply($mix);
+                }
+            }
+        }
+    }
+}
+/** 实际设置 stretch 不同类型 样式的 mixins **/
+//.stretch-auto
+@mixin spf-stretch-shift-mix-auto() {
+    width: unset;
+    flex: unset;
+}
+//.stretch-grow
+@mixin spf-stretch-shift-mix-grow() {
+    width: unset;
+    flex: 1;
+}
+//.stretch-row
+@mixin spf-stretch-shift-mix-row() {
+    width: 100%;
+    flex: unset;
+}
+//!! 新增 stretch 类型应在此处定义 mixin ...
+
+
+/** tightness 子模块 **/
+//!! 必须定义 tightness-shifter
+@mixin spf-tightness-shifter($base, $clsn, $opts: null) {
+    //处理外部传入的 子模块参数 map
+    @if not is-nemmap($opts) {$opts: ();}
+    //合并标记默认值
+    $opts: map.deep-merge((
+        //需要标记是否定义了 具体的元素
+        noelm: false,
+        //需要标记是否多行
+        multi-rows: false,
+        //实际需要循环的 tightness 可选类型序列
+        mod-types-que: (),
+    ), $opts);
+    //读取标记
+    $noelm: map.get($opts, noelm);
+    //实际需要循环的 $tightnessList
+    $mod-types-que: map.get($opts, mod-types-que);
+    @if not is-nemlist($mod-types-que) {
+        $mod-types-que: $tightnessList;
+    }
+
+    //根据传入的 $base 计算得到需要的尺寸值
+    $szmap: ();
+    @if $noelm {
+        $szmap: (
+            sz: null,
+            pd: size-get($base)
+        );
+    } @else {
+        $szmap: spf-calc-size($base, pd);
+    }
+    
+    @if is-nemmap($szmap) {
+        $sz: map.get($szmap, sz);
+        $pd: map.get($szmap, pd);
+        //pd 尺寸值必须存在
+        @if is-number($pd) {
+            //  [&.pre-tightness|& .pre-tightness|.pre-tightness].pre-[xl|m|32px..]
+            //  [&|& |''].tightness-[xl|m|32px..]
+            #{$clsn} {
+                //循环 $tightnessList 或手动截取的部分
+                @each $tgh in $mod-types-que {
+                    //查找实际设置样式的 mixin
+                    $mixn: spf-tightness-shift-mix-#{$tgh};
+                    @if meta.mixin-exists($mixn) {
+                        //获取 mixin
+                        $mix: meta.get-mixin($mixn);
+                        //拼接实际 tightness 类名 &.tightness-[sharp,round,pill,square,round-square,circle]
+                        #{clsp-ng(self, tightness-#{$tgh})} {
+                            //调用实际设置样式的 mixin
+                            @include meta.apply($mix, $sz, $pd, $opts);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+/** 实际设置 tightness 不同类型 样式的 mixins **/
+//.tightness-normal
+@mixin spf-tightness-shift-mix-normal($sz: null, $pd: null, $opts: null) {
+    @if is-number($pd) {
+        @include spf-tightness-shift-mix-setter($pd, $opts);
+    }
+}
+//.tightness-loose
+@mixin spf-tightness-shift-mix-loose($sz: null, $pd: null, $opts: null) {
+    @if is-number($pd) {
+        @include spf-tightness-shift-mix-setter(mul($pd,2), $opts);
+    }
+}
+//.tightness-tight
+@mixin spf-tightness-shift-mix-tight($sz: null, $pd: null, $opts: null) {
+    @if is-number($pd) {
+        @include spf-tightness-shift-mix-setter(div($pd,2), $opts);
+    }
+}
+//!! 新增 tightness 类型应在此处定义 mixin ...
+//统一设置 元素的 padding
+@mixin spf-tightness-shift-mix-setter($pd: null, $opts: null) {
+    $multiRows: if(
+        is-nemmap($opts), 
+        if(
+            map.has-key($opts, multi-rows), 
+            map.get($opts, multi-rows), 
+            false
+        ), 
+        false
+    );
+    @if is-number($pd) {
+        $pd-05x: div($pd, 2);
+        @if $multiRows {
+            //多行元素 设置内部的 bar 单行元素的 padding-left|right
+            &>.bar {
+                //padding: 0 $pd; // !important;
+                &:not([class*=pd-]) {
+                    //单行元素 直接设置 padding
+                    padding: 0 $pd;
+                }
+                //默认后代元素
+                &>*:not(:first-child):not([class*=mg-]) {
+                    //内部元素间距
+                    margin-left: $pd-05x;
+                }
+            }
+        } @else {
+            &:not([class*=pd-]) {
+                //单行元素 直接设置 padding
+                padding: 0 $pd;
+            }
+            //默认后代元素
+            &>*:not(:first-child):not([class*=mg-]) {
+                //内部元素间距
+                margin-left: $pd-05x;
+            }
+        }
+    }
+}
+
+
+/** shape 子模块 **/
+//!! 必须定义 shape-shifter
+@mixin spf-shape-shifter($base, $clsn, $opts: null) {
+    //处理外部传入的 子模块参数 map
+    @if not is-nemmap($opts) {$opts: ();}
+    //合并标记默认值
+    $opts: map.deep-merge((
+        //需要标记是否定义了 外层包裹样式名
+        noelm: false,
+        //需要标记是否多行
+        multi-rows: false,
+        //实际需要循环的 shape 可选类型
+        mod-types-que: (),
+    ), $opts);
+    //读取标记
+    $noelm: map.get($opts, noelm);
+    //实际需要循环的 $shapeList
+    $mod-types-que: map.get($opts, mod-types-que);
+    @if not is-nemlist($mod-types-que) {
+        $mod-types-que: $shapeList;
+    }
+
+    //根据传入的 $base 计算得到需要的尺寸值
+    $szmap: ();
+    @if $noelm {
+        $szmap: (
+            sz: null,
+            rd: size-get($base)
+        );
+    } @else {
+        $szmap: spf-calc-size($base, rd);
+    }
+    
+    @if is-nemmap($szmap) {
+        $sz: map.get($szmap, sz);
+        $rd: map.get($szmap, rd);
+        //rd 尺寸值必须存在
+        @if is-number($rd) {
+            //循环 $shapeList 或手动截取的部分
+            @each $shp in $mod-types-que {
+                //跳过 .shape-sharp
+                @if $shp != sharp {
+                    //查找实际设置样式的 mixin
+                    $mixn: spf-shape-shift-mix-#{$shp};
+                    @if meta.mixin-exists($mixn) {
+                        //获取 mixin
+                        $mix: meta.get-mixin($mixn);
+                        
+                        @if $noelm {
+                            //未指定 $elm 则只生成 .shape-round 
+                            @if $shp == round {
+                                //  [&.elm-shape|& .elm-shape|.elm-shape].elm-[..xs,s,m,l,xl..]
+                                //  [&|& |''].shape-[..xs,s,m,l,xl..]
+                                #{$clsn} {
+                                    &.shape-round {
+                                        //调用 mixin
+                                        @include meta.apply($mix, $sz, $rd, $opts);
+                                    }
+                                }
+                            }
+                        } @else {
+                            //  [&.elm-shape|& .elm-shape|.elm-shape].elm-[..xs,s,m,l,xl..]
+                            //  [&|& |''].shape-[..xs,s,m,l,xl..]
+                            #{$clsn} {
+                                //拼接实际 shape 类名 &.shape-[sharp,round,pill,square,round-square,circle]
+                                &.shape-#{$shp} {
+                                    //调用实际设置样式的 mixin
+                                    @include meta.apply($mix, $sz, $rd, $opts);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+//单独处理 不依赖基础尺寸的 shape 样式  专门处理 .shape-sharp 类
+@mixin spf-shape-shifter-extra($clsn, $opts: null) {
+    //.shape-sharp 与元素尺寸无关，在此单独处理
+    @if is-nemstr($clsn) or is-nemlist($clsn) {
+        // .foo.shape-sharp, .bar.shape-sharp ...
+        #{clsf($clsn, '*.shape-sharp')} {
+            //调用 子 mixin
+            @include spf-shape-shift-mix-sharp();
+        }
+    }
+}
+/** 实际设置 shape 不同类型 样式的 mixins **/
+//.shape-sharp
+@mixin spf-shape-shift-mix-sharp($sz: null, $rd: null, $opts: null) {
+    border-radius: 0;
+}
+//.shape-round
+@mixin spf-shape-shift-mix-round($sz: null, $rd: null, $opts: null) {
+    @if is-number($rd) {
+        border-radius: $rd;
+    }
+}
+//.shape-pill
+@mixin spf-shape-shift-mix-pill($sz: null, $rd: null, $opts: null) {
+    @if is-number($sz) {
+        //radius 为元素尺寸的 一半
+        $sz-05x: div($sz, 2);
+        border-radius: $sz-05x;
+    }
+}
+//.shape-square
+@mixin spf-shape-shift-mix-square($sz: null, $rd: null, $opts: null) {
+    border-radius: 0;
+    @if is-number($sz) {
+        //元素宽度 == 元素高度
+        width: $sz;
+        //额外样式
+        @include spf-shape-shift-mix-square-extra($sz, $rd, $opts);
+    }
+}
+//.shape-round-square
+@mixin spf-shape-shift-mix-round-square($sz: null, $rd: null, $opts: null) {
+    @if is-number($sz, $rd) {
+        border-radius: $rd;
+        //元素宽度 == 元素高度
+        width: $sz;
+        //额外样式
+        @include spf-shape-shift-mix-square-extra($sz, $rd, $opts);
+    }
+}
+//.shape-circle
+@mixin spf-shape-shift-mix-circle($sz: null, $rd: null, $opts: null) {
+    @if is-number($sz) {
+        //radius 为元素尺寸的 一半
+        $sz-05x: div($sz, 2);
+        border-radius: $sz-05x;
+        //元素宽度 == 元素高度
+        width: $sz;
+        //额外样式
+        @include spf-shape-shift-mix-square-extra($sz, $sz-05x, $opts);
+    }
+}
+//!! 新增 shape 类型应在此处定义 mixin ...
+//当 shape 为 square|round-square|circle 时统一设置 额外样式
+@mixin spf-shape-shift-mix-square-extra($sz: null, $rd: null, $opts: null) {
+    //当元素的 shape 为 正方形或圆形 时，设置这些额外样式
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    &>* {
+        margin: 0;
+    }
+
+    //!! 需要覆盖 stretch|tightness 类型的样式
+    //覆盖 .stretch-grow|row 样式
+    #{clsp-ng(self, ('stretch-grow', 'stretch-row'))} {
+        //强制 宽 == 高
+        @if is-number($sz) {
+            width: $sz;
+        }
+        flex: unset;
+    }
+    //覆盖 .tightness-normal|loose|tight 样式
+    #{clsf(clsp(self, tightness-), ('*-normal', '*-loose', '*-tight'))} {
+        //取消 padding
+        padding: 0;
+    }
+}
+
+
+
+
+
+
+
+

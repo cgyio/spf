@@ -1,0 +1,23 @@
+.__PRE__-btn {
+    //@extend .btn;
+
+    //no-gap 相邻 btn 之间紧密排布
+    &.btn-no-gap {
+        &+.__PRE__-btn {
+            margin-left: 0 !important;
+        }
+    }
+    //在 表格单元格中
+    &.btn-incell {
+        &>label {
+            //width: 0; text-align: center;
+        }
+    }
+    //当作页面标题
+    &.btn-astitle {
+        &>label {
+            //font-weight: bold;
+            //font-size: 1.2em;
+        }
+    }
+}

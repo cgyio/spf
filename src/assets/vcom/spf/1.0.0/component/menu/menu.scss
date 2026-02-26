@@ -1,0 +1,49 @@
+.__PRE__-menu {
+    &.menu-with-bd {
+        //折叠
+        &.menu-collapse {
+            border-top-width: 0px;
+            border-bottom-width: 0px;
+        }
+        //展开
+        &.menu-expand {
+            $sz: $size-bd-m;
+            //border-top-width: $sz;
+            //border-bottom-width: $sz;
+
+            //首个
+            &:first-child {
+                border-top-width: 0px;
+            }
+            //最后一个
+            &:last-child {
+                border-bottom-width: 0px;
+            }
+            //相邻
+            &+.menu-expand {
+                border-top-width: 0px;
+            }
+        }
+    }
+}
+
+.__PRE__-menu-notice {
+    @include spf-po-ov;
+
+    &.notice-dot {
+        $dot-sz: 8px;
+        width: $dot-sz; height: $dot-sz;
+        background-color: $color-danger-m;
+        border-radius: 4px;
+    }
+
+    &.notice-number {
+        $num-sz: 16px;
+        height: $num-sz; min-width: $num-sz; padding: 0px 6px;
+        @include spf-flex-x-noinner($x: center);
+        background-color: $color-danger-m;
+        border-radius: 8px;
+        font-size: 10px;
+        color: $color-white-m;
+    }
+}

@@ -9,7 +9,7 @@
     },
 
     "required": [
-        "icon-*", "button-*","layout-*", "tabbar-*", "win-*"
+        "icon-*", "btn-*", "bar-*", "ctn-*", "button-*", "block-*", "menu-*", "layout-*", "tabbar-*", "win-*"
     ],
     "loadmode": {
         "basic": [
@@ -62,7 +62,8 @@
         "spf/assets/icon/md-sharp",
         "spf/assets/icon/md-fill",
         "spf/assets/icon/spinner",
-        "spf/assets/icon/spf"
+        "spf/assets/icon/spf",
+        "spf/assets/icon/btn"
     ]
     
 }

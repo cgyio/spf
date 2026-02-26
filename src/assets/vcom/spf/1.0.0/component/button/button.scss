@@ -1,46 +1,6 @@
 .__PRE__-btn {
-    @include spf-po-ov($w: unset, $h: $size-btn-m, $pd: 0 $size-btn-pd-m, $mg: 0);
-    //@include spf-flex-x($x: center, $y: center);
-    min-width: $size-btn-m;
-    font-size: $size-btn-fs-m;
-    font-family: $font-fml-default;
-    border: {
-        style: solid;
-        width: 1px;
-    }
-    cursor: pointer;
-    transition: background-color $ani-dura,
-                border-color $ani-dura,
-                transform .1s;
+    //@extend .btn;
 
-    //icon 图标默认样式
-    &>svg[class*=icon] {
-        cursor: pointer;
-        transition: color .1s;
-        &:first-child {
-            &:last-child {
-                //font-size: 1.7em;
-            }
-        }
-        &:not(:last-child):first-child {
-            //font-size: 1.6em;
-            margin-left: -0.1em;
-        }
-        &:not(:first-child):last-child {
-            //font-size: 1.6em;
-            margin-right: -0.1em;
-        }
-    }
-
-    &>label {
-        margin-top: -0.1em;
-        //@include spf-text-ellipsis;
-        @extend .f-ellipsis;
-        overflow: unset;
-        cursor: pointer;
-        transition: color .1s,
-                    text-underline-offset .1s;
-    }
     //在 表格单元格中
     &.btn-incell>label {
         width: 0; text-align: center;
@@ -49,32 +9,5 @@
     &.btn-astitle>label {
         font-weight: bold;
         font-size: 1.4em;
-    }
-
-    //pressed 按下效果
-    &.btn-pressed {
-        transform: scale(0.9);
-        //active|disabled 状态覆盖
-        &.btn-active, &.btn-disabled, &.btn-pending, &.btn-fullfilled {
-            transform: none;
-        }
-    }
-    
-    //尺寸循环
-    @include spf-size-shift(self, btn-, bar-size, btn, $extraBtnSizeQueue, true);
-    //与尺寸值无关的 静态样式
-    @include spf-set-bar-size-static(btn-);
-    @include spf-set-bar-shape-static(btn-);
-    @include spf-set-bar-stretch-static(btn-);
-    @include spf-set-bar-tightness-static(btn-);
-
-    //effect
-    @include spf-effect-shift(self, btn-);
-
-    //紧密排列
-    &.btn-no-gap {
-        &+.btn-no-gap {
-            margin-left: 0;
-        }
     }
 }

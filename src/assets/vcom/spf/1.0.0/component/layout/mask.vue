@@ -1,7 +1,7 @@
 <template>
     <div
-        :class="styComputedClassStr.root"
-        :style="styComputedStyleStr.root"
+        :class="autoComputedStr.root.class"
+        :style="autoComputedStr.root.style"
         @click="whenMaskClick"
     >
         <PRE@-icon 
@@ -14,11 +14,11 @@
 </template>
 
 <script>
-import mixinBase from '../../mixin/base.js';
-import mixinBaseDynamic from '../../mixin/base-dynamic.js';
+import mixinAutoProps from '../../mixin/auto-props';
+import mixinBaseDynamic from '../../mixin/base-dynamic';
 
 export default {
-    mixins: [mixinBase, mixinBaseDynamic],
+    mixins: [mixinAutoProps, mixinBaseDynamic],
     props: {
         
         //mask 颜色，可选：white|black|primary|danger...
@@ -67,36 +67,72 @@ export default {
     },
     data() {return {
             
-        //覆盖 base-style 样式系统参数
-        sty: {
-            init: {
-                class: {
-                    root: ['__PRE__-mask', 'flex-x', 'flex-y-center', 'flex-x-center'],
+        //覆盖 auto-props 系统参数
+        auto: {
+            element: {
+                root: {
+                    class: '__PRE__-mask flex-x flex-y-center flex-x-center'
                 }
             },
             prefix: 'mask',
-            sub: {
-                size: false,
-                color: true,
-                animate: 'enabled',
-            },
-            switch: {
-                //启用 下列样式开关
-                blur: true,
-                alpha: true,
-                'dcDisplay.show': 'show',
-            },
-            csvKey: {
+            csvk: {
                 size: '',
                 color: 'bgc',
             },
+            sub: {
+                size: false,
+                color: true,
+                animate: true,
+            },
+            extra: {
+                blur: true,
+                alpha: 'normal',
+                disabled: true
+            },
+            switch: {
+                root: {
+                    '!disabled && ?(animatePropClsk) #class': ['{{animatePropClsk}}'],
+                }
+            },
         },
 
-        //作为动态组件
-        multiple: false,
+        //覆盖 base-dynamic 动态组件参数
+        dc: {
+            //此动态组件只允许 单例
+            multiple: false,
+        },
     }},
     computed: {},
     methods: {
+
+        /**
+         * 动态组件的 动画效果
+         */
+        //显示
+        async dcShow() {
+            if (this.isDcShow===false) {
+                //先设置 zIndex
+                await this.setZindex();
+                //执行显示动画
+                await this.dcToggle('show', true);
+                //触发事件
+                this.$emit('mask-on');
+                return true;
+            }
+            return false;
+        },
+        //隐藏
+        async dcHide() {
+            if (this.isDcShow===true) {
+                //执行显示动画
+                await this.dcToggle('show', false);
+                //触发事件
+                this.$emit('mask-off');
+                return true;
+            }
+            return false;
+        },
+
         //处理点击事件
         whenMaskClick(event) {
             if (this.clickOff === true) {

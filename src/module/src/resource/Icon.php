@@ -708,9 +708,18 @@ class Icon extends Compound
         $sublen = strlen("$iset-");
         for ($i=0;$i<count($svgarr);$i++) {
             $si = $svgarr[$i];
+            //!! 如果存在 NaN 字符，跳过
+            if (strpos($si, "NaN")!==false) continue;
+            //!! 写回 js
+            $svgcnt .= $si."</symbol>";
+            //生成 svg 代码
             $ki = substr(explode("\"", explode("id=\"", $si)[1])[0], $sublen);
             $svg[$ki] = $svgh.str_replace("<symbol", "<svg", $si)."</svg>";
         }
+        //!! 处理后的 不含 NaN 字符的 js 代码
+        $jsa = explode("</svg>", $js);
+        $jsb = explode("<svg>", $jsa[0]);
+        $js = $jsb[0]."<svg>".$svgcnt."</svg>".$jsa[1];
 
         //创建 glyphs
         $glyphs = [];

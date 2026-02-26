@@ -31,29 +31,38 @@ export default {
     mounted() {
         this.$nextTick(()=>{
             this.$elReady().then(()=>{
-                console.log('el.addEventListener(zIndex++)');
                 //在 el 元素上增加 mouse-down 事件监听，自动增加 zIndex
                 this.$el.addEventListener('mousedown', ()=>{
-                    let ozidx = this.$ui.zIndex,
-                        czidx = this.compZindex;
-                    if (czidx < ozidx) {
-                        this.setZindex();
-                        console.log(this.compZindex);
-                    }
+                    this.whenElMouseDown();
                 });
             });
         });
     },
     methods: {
+        /**
+         * 启用 全局 zIndex 的组件当 $el 元素被点击时
+         * 默认方法是自动提升 zIndex 到顶端
+         * !! 组件内部可覆盖这个方法，以执行其他自定义操作
+         */
+        whenElMouseDown() {
+            let ozidx = this.$ui.zIndex,
+                czidx = this.compZindex;
+            if (czidx < ozidx) {
+                //将当前 zIndex 提升到顶部
+                this.setZindex();
+            }
+        },
+
         //设置此组件的 zIndex
-        setZindex(zIndex=null) {
+        async setZindex(zIndex=null) {
             let is = this.$is,
                 zidx = is.realNumber(zIndex) ? zIndex * 1 : this.$ui.getZindex();
             //设置
             this.zIndex = zidx;
-            this.$elStyle({
+            await this.$elStyle({
                 zIndex: zidx
             });
+            return zidx;
         },
     }
 }

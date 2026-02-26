@@ -675,15 +675,16 @@ class Theme extends Compound
                 "export" => "css"
             ]);
             //创建缓存
+            Path::mkfile($cf, $dftCssCnt);
 
         }
         //去除 css 代码中可能存在的 @charset
         $dftCssCnt = Scss::stripCharset($dftCssCnt);
         //压缩
-        $dftCssCnt = Codex::minifyCnt($dftCssCnt, "css");
+        //$dftCssCnt = Codex::minifyCnt($dftCssCnt, "css");
 
         //各子模块的 scss 变量定义语句
-        $scssDefs = $this->createThemeModuleDefineScssRows();
+        $scssDefs = $this->createThemeModuleDefineScssRows(false);
         if (Is::nemarr($scssDefs)) {
             //合并
             $scssDefs = implode("\n", $scssDefs);
@@ -725,6 +726,8 @@ class Theme extends Compound
                 "export" => "scss",
                 "belongTo" => $this,
                 "ignoreGet" => true,
+                //!! 显示补丁文件内容，用于补丁开发期间
+                "patch" => $this->params["patch"],
                 //import 保持原样
                 "import" => "keep",
                 //merge 待合并资源
@@ -796,9 +799,10 @@ class Theme extends Compound
 
     /**
      * 工具方法 生成主题子模块 scss 变量定义语句
+     * @param Bool $withCss 是否一起生成 css 变量定义语句 默认 true
      * @return Array scss 内容行
      */
-    public function createThemeModuleDefineScssRows()
+    public function createThemeModuleDefineScssRows($withCss=true)
     {
         $rows = [];
 
@@ -823,7 +827,13 @@ class Theme extends Compound
                 " */",
                 "",
             ]);
-            $mrows = $modules[$modk]->createContentRows($mctx, "scss");
+            if ($withCss) {
+                //!! 生成完整的 scss|css 变量定义语句
+                $mrows = $modules[$modk]->createContentRows($mctx, "scss");
+            } else {
+                //!! 仅生成 scss 变量定义语句，不生成 css 变量定义语句
+                $mrows = $modules[$modk]->createDefineRows($mctx, "scss");
+            }
             if (Is::nemarr($mrows) && Is::indexed($mrows)) {
                 $rows[] = "\$".$modk."-mode: ".$mods.";";
                 $rows = array_merge($rows, $mrows);

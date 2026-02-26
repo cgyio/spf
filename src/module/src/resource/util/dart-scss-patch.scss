@@ -459,11 +459,11 @@ $cornerQueue: t,b,r,l,tl,tr,bl,br,tbl,tbr,btl,btr,rtl,rbl,ltr,lbr,trbl,all;
 }
 //trim|trim-start|trim-end 去除字符串首尾的 空格 或 $search 自动类型转换  <返回：string>
 @function trim-start($string, $search: ' ') {
-    @if not str-includes($string, $search) or  not str-starts-with($string, $search) {@return to-string($string);}
     $strs: to-strings($string, $search);
     @if is-null($strs) {@return $string;}
     $string: nth($strs, 1);
     $search: nth($strs, 2);
+    @if not str-includes($string, $search) or not str-starts-with($string, $search) {@return $string;}
     $len: str-len($string);
     $slen: str-len($search);
     $slice-n: math.ceil(math.div($len, $slen));
@@ -479,11 +479,11 @@ $cornerQueue: t,b,r,l,tl,tr,bl,br,tbl,tbr,btl,btr,rtl,rbl,ltr,lbr,trbl,all;
     @return '';
 }
 @function trim-end($string, $search: ' ') {
-    @if not str-includes($string, $search) or  not str-ends-with($string, $search) {@return to-string($string);}
     $strs: to-strings($string, $search);
     @if is-null($strs) {@return $string;}
     $string: nth($strs, 1);
     $search: nth($strs, 2);
+    @if not str-includes($string, $search) or not str-ends-with($string, $search) {@return $string;}
     $len: str-len($string);
     $slen: str-len($search);
     $slice-n: math.ceil(math.div($len, $slen));
@@ -1498,28 +1498,162 @@ $themeMapTypes: color,size;
 
 /** selector patch **/
 /**
- *  根据 $target 返回类名前缀 自动判断是否存在 &(父选择器)  <返回：string 类名前缀>
+ *  根据 $target 返回类名前缀 自动判断是否存在 &(父选择器)  <返回：string|list 类名前缀>
  *  cls-pre(self, '')           --> [&]
  *  cls-pre(self, '.')          --> [&].
  *  cls-pre(self, '-')          --> [&]-
  *  cls-pre(child, 'btn-')      --> [&] .btn-
  *  cls-pre(self, 'btn', '_')   --> [&].btn_
  *  cls-pre(self, '-', '_')     --> [&].-_
+ *  可以传入多个类名前缀：
+ *  cls-pre(self, (foo,bar))    --> ([&].foo-, [&].bar-)
  */
-@function cls-pre($target: self, $pre: '', $glue: '-') {
-    @if not is-string($target, $pre, $glue) or not has((self,child), $target) {@return null;}
-    @if not is-nemstr($glue) {$glue: '-';}
-    //自动补全 pre
-    @if is-nemstr($pre) and $pre != '.' and $pre != $glue {
-        @if not str-starts-with($pre, '.') {$pre: '.' + $pre;}
-        @if not str-ends-with($pre, $glue) {$pre: $pre + $glue;}
-    }
-    @if not & {
-        @return unquote("#{$pre}");
+@function cls-pre($target: self, $pre: '', $glue: '-', $rtnList: false, $autoGlue: true) {
+    @if not is-string($target, $glue) or not has((self,child), $target) {@return if($rtnList, (), null);}
+    @if is-string($pre) {
+        //传入了单个 pre
+        $pre: mk($pre);
+    } @else if not is-nemlist($pre) {
+        //传入了非法值
+        @return if($rtnList, (), null);
     } @else {
-        @return if($target == self, unquote("&#{$pre}"), unquote("& #{$pre}"));
+        //传入了多个 pre
+        @if not is-string($pre...) {@return if($rtnList, (), null);}
     }
+    @if not is-nemstr($glue) {$glue: '-';}
+    //处理传入的 pre list
+    $sep: list.separator($pre);
+    $bra: list.is-bracketed($pre);
+    $rtn: ();
+    @each $prei in $pre {
+        //自动补全 pre
+        @if is-nemstr($prei) and $prei != '.' and $prei != $glue {
+            @if not str-starts-with($prei, '.') {$prei: '.' + $prei;}
+            @if $autoGlue {
+                @if not str-ends-with($prei, $glue) {$prei: $prei + $glue;}
+            }
+        }
+        @if not & {
+            $rtn: push($rtn, unquote("#{$prei}"));
+        } @else {
+            $rtn: push($rtn, if($target == self, unquote("&#{$prei}"), unquote("& #{$prei}")));
+        }
+    }
+    //使用与传入 pre list 相同的 sep|bra
+    $rtn: list.join((), $rtn, $sep, $bra);
+    //如果只传入 1 个 pre 则返回 string
+    @if $rtnList != true and len($rtn) == 1 {@return nth($rtn, 1);}
+    @return $rtn;
 }
+//快捷调用 cls-pre 使用默认 glue -  <返回：string|list>
+@function clsp($target: self, $pre: '') {@return cls-pre($target, $pre);}
+//快捷调用 cls-pre 使用默认 glue -  且强制返回 list  <返回：list>
+@function clsp-l($target: self, $pre: '') {@return cls-pre($target, $pre, '-', true);}
+//快捷调用 cls-pre 使用默认 glue -  默认不自动补齐连接符 -  <返回：string|list>
+@function clsp-ng($target: self, $pre: '') {@return cls-pre($target, $pre, '-', false, false);}
+/**
+ *  对 cls-pre 生成的类名前缀，按传入的 pattern 进行 模板替换  <返回：string|list>
+ *  例如：
+ *      cls-pre-fix((&.foo-, &.bar-), '*jaz-tom')   --> (&.foo-jaz-tom, &.bar-jaz-tom)
+ *      cls-pre-fix((&.foo-, &.bar-), 'jaz-*-tom')  --> (&.jaz-foo-tom, &.jaz-bar-tom)
+ *      cls-pre-fix((.foo-, .bar-), 'jaz-*-tom')    --> (.jaz-foo-tom, .jaz-bar-tom)
+ *  传入 空 pattern 则去除末尾的 glue 
+ *      cls-pre-fix((&.foo-, &.bar-), '')           --> (&.foo, &.bar)
+ *      cls-pre-fix((&., &-), '')                   --> (&., &)
+ *  也可以传入多个 pattern
+ *      cls-pre-fix((&.foo-,&.bar-), ('*-jaz', 'tom-*'))    -->
+            (&.foo-jaz, &.bar-jaz, &.tom-foo, &.tom-bar)
+ *  也可以传入单个 clspre
+ *      cls-pre-fix(&.foo-, jaz-*)                  --> &.jaz-foo
+ *      cls-pre-fix('', *-jaz)                      --> jaz
+ */
+@function cls-pre-fix($clspre, $pattern: '', $tpl: '*', $glue: '-', $rtnList: false) {
+    @if not is-string($tpl) {$tpl: '*';}
+    @if not is-string($glue) {$glue: '-';}
+    @if is-string($clspre) {
+        //传入了单个 clspre
+        $clspre: mk($clspre);
+    } @else if not is-nemlist($clspre) {
+        //传入了非法 clspre
+        @return if($rtnList, (), null);
+    } @else {
+        //传入了多个 clspre
+        @if not is-string($clspre...) {@return if($rtnList, (), null);}
+    }
+    @if is-string($pattern) {
+        //传入了单个 pattern
+        $pattern: mk($pattern);
+    } @else if not is-nemlist($pattern) {
+        //传入了非法 pattern
+        @return if($rtnList, (), null);
+    } @else {
+        //传入了多个 pattern
+        @if not is-string($pattern...) {@return if($rtnList, (), null);}
+    }
+    //处理传入的 clspre list
+    $sep: list.separator($clspre);
+    $bra: list.is-bracketed($clspre);
+    $rtn: ();
+    @each $pre in $clspre {
+        //& 前缀
+        $ppre: '';
+        $ppres: mk('&.', '& .', '.', '&#{$glue}', '& #{$glue}', $glue);
+        @if has($ppres, $pre) {
+            $ppre: $pre;
+            $pre: '';
+        } @else {
+            @each $ppi in $ppres {
+                @if str-starts-with($pre, $ppi) {
+                    $ppre: $ppi;
+                    $pre: str-sub($pre, str-len($ppre) + 1);
+                }
+            }
+        }
+        //模板替换
+        @each $pti in $pattern {
+            $npre: '';
+            @if $pti == '' {
+                //空模板表示去除前缀前后的 - .
+                $npre: trim($pre, $glue);
+            } @else if str-has($pti, $tpl) != true {
+                $npre: $pti;
+            } @else {
+                $npre: str-replace($pti, $tpl, $pre);
+                //去除首尾的 glue
+                $npre: trim($npre, $glue);
+                //去除多个 glue 连在一起的情况
+                $npre: str-replace($npre, $glue + $glue, $glue);
+                $npre: str-replace($npre, $glue + '_', '_');
+            }
+            //恢复 & 前缀
+            @if $ppre != '' {
+                $npre: $ppre + $npre;
+            }
+            //整理
+            @if $npre != '' {
+                //去除 结尾的 -
+                $npre: trim($npre, $glue);
+                //&.-foo --> &.foo
+                $npre: str-replace($npre, '.' + $glue, '.');
+                //$npre: trim($npre, '.');
+            }
+            //rtn
+            @if is-string($npre) {
+                $rtn: push($rtn, $npre);
+            }
+        }
+    }
+    
+    //使用与传入 clspre list 相同的 sep|bra
+    $rtn: list.join((), $rtn, $sep, $bra);
+    //如果只传入 1 个 clspre 则返回 string
+    @if $rtnList != true and len($rtn) == 1 {@return nth($rtn, 1);}
+    @return $rtn;
+}
+//快捷调用 cls-pre-fix 使用默认 tpl *  glue -  <返回：string|list>
+@function clsf($clspre, $pattern: '') {@return cls-pre-fix($clspre, $pattern);}
+//快捷调用 cls-pre-fix 使用默认 tpl *  glue -  且强制返回 list  <返回：list>
+@function clsf-l($clspre, $pattern: '') {@return cls-pre-fix($clspre, $pattern, '*', '-', true);}
 
 
 

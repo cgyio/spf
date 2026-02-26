@@ -1,7 +1,7 @@
 <template>
     <div
-        :class="styComputedClassStr.root"
-        :style="styComputedStyleStr.root"
+        :class="autoComputedStr.root.class"
+        :style="autoComputedStr.root.style"
         @click="whenBtnClick"
         @mouseenter="whenMouseEnter"
         @mouseleave="whenMouseLeave"
@@ -10,35 +10,43 @@
     >
         <PRE@-icon
             v-if="!iconRight && !isEmptyIcon"
-            :icon="icon"
-            :size="iconSize"
-            :spin="iconSpin"
-            :shape="iconShape"
-            :custom-class="iconClass"
-            :custom-style="iconStyle"
+            v-bind="autoComputed.icon.props"
+            :root-class="autoComputedStr.icon.class"
+            :root-style="autoComputedStr.icon.style"
         ></PRE@-icon>
+        <PRE@-button
+            v-if="iconRight && closeable"
+            v-bind="autoComputed.btn.props"
+            :root-class="autoComputedStr.btn.class"
+            :root-style="autoComputedStr.btn.style"
+            @click="whenClose"
+        ></PRE@-button>
         <label 
-            v-if="!isEmptyLabel && stretch!=='square' && shape !== 'circle'"
-            :class="labelClass"
-            :style="labelStyle"
+            v-if="!isEmptyLabel && !isSquare"
+            :class="autoComputedStr.label.class"
+            :style="autoComputedStr.label.style"
         >{{label}}</label>
+        <PRE@-button
+            v-if="!iconRight && closeable"
+            v-bind="autoComputed.btn.props"
+            :root-class="autoComputedStr.btn.class"
+            :root-style="autoComputedStr.btn.style"
+            @click="whenClose"
+        ></PRE@-button>
         <PRE@-icon
             v-if="iconRight && !isEmptyIcon"
-            :icon="icon"
-            :size="iconSize"
-            :spin="iconSpin"
-            :shape="iconShape"
-            :custom-class="iconClass"
-            :custom-style="iconStyle"
+            v-bind="autoComputed.icon.props"
+            :root-class="autoComputedStr.icon.class"
+            :root-style="autoComputedStr.icon.style"
         ></PRE@-icon>
     </div>
 </template>
 
 <script>
-import mixinBase from '../../mixin/base.js';
+import mixinAutoProps from '../../mixin/auto-props';
 
 export default {
-    mixins: [mixinBase],
+    mixins: [mixinAutoProps],
     props: {
 
         //图标名称，来自加载的图标包，在 cssvar 中指定
@@ -81,6 +89,14 @@ export default {
             default: ''
         },
 
+        /**
+         * 是否显示 关闭按钮
+         */
+        closeable: {
+            type: Boolean,
+            default: false
+        },
+
 
         /**
          * 样式开关
@@ -90,47 +106,46 @@ export default {
             type: Boolean,
             default: false
         },
-        //按钮默认包含 hover 样式
+        
+        /**
+         * shape 形状
+         * 可选值： sharp | round(默认) | pill | circle
+         * !! 覆盖 base-style 中定义的默认值
+         */
+        shape: {
+            type: String,
+            default: 'round'
+        },
+        /**
+         * hoverable 
+         * !! 覆盖 base-style 中定义的默认值
+         */
         hoverable: {
             type: Boolean,
             default: true
         },
-        //active 选中
-        active: {
-            type: Boolean,
-            default: false
-        },
-        /**
-         * shape 形状
-         * 可选值： normal(默认) | pill | circle | sharp
-         */
-        shape: {
-            type: String,
-            default: 'normal'
-        },
-        /**
-         * effect 填充效果
-         * 可选值：  normal(默认) | fill | plain | popout
-         */
-        effect: {
-            type: String,
-            default: 'normal'
-        },
-        /**
-         * stretch 按钮延伸类型
-         * 可选值： normal(默认) | full-line | square
-         */
-        stretch: {
-            type: String,
-            default: 'normal'
-        },
+
         //link 链接形式按钮
-        link: {
-            type: Boolean,
-            default: false
-        },
+        //link: {
+        //    type: Boolean,
+        //    default: false
+        //},
         //no-gap 按钮之间紧密排列，无间隙
         noGap: {
+            type: Boolean,
+            default: false
+        },
+
+        /**
+         * 特殊样式
+         */
+        //在 单元格中
+        incell: {
+            type: Boolean,
+            default: false
+        },
+        //作为 标题
+        astitle: {
             type: Boolean,
             default: false
         },
@@ -161,38 +176,91 @@ export default {
     },
     data() {return {
             
-        //覆盖 base-style 样式系统参数
-        sty: {
-            init: {
-                class: {
-                    root: ['__PRE__-btn', 'flex-x', 'flex-x-center'],
-                }
+        //覆盖 auto-props 系统参数
+        auto: {
+            element: {
+                root: {
+                    class: '__PRE__-btn btn flex-x flex-x-center',
+                },
+                icon: {
+                    class: '',
+                    props: {},
+                },
+                btn: {
+                    class: '',
+                    props: {
+                        icon: 'close',
+                        type: 'danger',
+                        effect: 'popout',
+                        shape: 'circle',
+                    },
+                },
+                label: {
+                    class: '',
+                },
             },
             prefix: 'btn',
-            sub: {
-                size: true,
-                color: true,
-                animate: 'enabled',
-            },
-            switch: {
-                //启用 下列样式开关
-                iconRight: true,
-                'hoverable:disabled': true,
-                shape: true,
-                effect: true,
-                stretch: true,
-                link: true,
-                noGap: true,
-                active: true,
-                'stage.pending:disabled': 'pending',
-                'stage.press:disabled': 'pressed',
-                'fullfilledWhen:disabled': 'fullfilled',
-            },
-            csvKey: {
+            csvk: {
                 size: 'btn',
                 color: 'fc',
             },
+            sub: {
+                size: true,
+                color: true,
+                animate: true,
+            },
+            extra: {
+                stretch: 'auto',
+                //关闭 tightness
+                tightness: false,
+                shape: 'round',
+                effect: 'normal',
+                noGap: true,
+                incell: true,
+                astitle: true,
+
+                //自定义 样式类
+                'active #.active': true,
+                'disabled #.disabled': true,
+
+                //手动处理
+                'hoverable #manual': true,
+            },
+            switch: {
+                root: {
+                    '!autoExtra.disabled': {
+                        'autoExtra.hoverable #class': '.hoverable',
+                        'stage.pending': '.pending',
+                        'stage.press': '.pressed',
+                        'fullfilledWhen': '.fullfilled'
+                    },
+                },
+
+                icon: {
+                    '!isEmptyIcon #props': {
+                        icon: '{{icon}}',
+                        shape: '{{iconShape}}',
+                        spin: '{{iconSpin==="" ? false : iconSpin}} [String,Boolean]',
+                        size: '{{isSquare ? size : autoSizeShift("s1","icon")}}',
+                    },
+                    '!isEmptyIcon': {
+                        '["str","key"].includes(sizePropType)!==true #style': 'fontSize: {{$ui.sizeValMul(sizePropVal, 0.5)}};'
+                    },
+                },
+
+                btn: {
+                    'closeable #props': {
+                        size: '{{autoSizeShift("s2","btn")}}',
+                    },
+                    'closeable': {
+                        'iconRight #style': 'margin-left:-0.8em; margin-right:1.5em;',
+                        '!iconRight #style': 'margin-right:-0.8em; margin-left:1.5em;',
+                    },
+                },
+            },
         },
+
+        //sizeTest: 'tiny',
 
         /**
          * 按钮点击状态
@@ -219,24 +287,11 @@ export default {
                 is = this.$is;
             return !(is.string(label) && label !== '');
         },
-
-        //根据 btn-size 计算 内部 icon 的 size 参数
-        iconSize() {
-            let is = this.$is,
-                ui = this.$ui,
-                sztp = this.sizePropType,
-                squ = this.stretch==='square' || this.effect==='circle',
-                size = this.size;;
-            if ('str,key'.split(',').includes(sztp)) {
-                //按钮内部 icon 尺寸 小一级
-                return squ ? size : ui.sizeKeyShiftTo(size, 's1');
-            }
-            let sz = this.sizePropVal;
-            if (!ui.isSizeVal(sz)) return size;
-            let fs = ui.sizeCalcBarFs(sz),
-                nsz = ui.sizeValToKey(fs, 'icon');
-            if (is.string(nsz)) return nsz;
-            return fs;
+        //判断是否 方形|圆形 按钮
+        isSquare() {
+            let shape = this.shape;
+            return shape==='circle' || shape.endsWith('square');
+            //return this.stretch==='square' || this.shape==='circle';
         },
 
         //stage 状态是否处于 pending 
@@ -330,6 +385,11 @@ export default {
             //event.targetComponent = this;
             //this.$ev('mouse-up', this, event);
             return this.$emit('mouse-up');
+        },
+
+        //close按钮
+        whenClose(event) {
+            return this.$emit('close');
         },
     }
 }

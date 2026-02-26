@@ -112,6 +112,36 @@ export default {
     
 
 
+    /**
+     * 动态组件相关
+     */
+    //获取此组件的父组件，指定父组件名则查找第一个，否则直接返回 $parent，未找到则返回 undefined
+    async $parentComp(compName='') {
+        let is = this.$is,
+            iss = s => is.string(s) && s!=='',
+            pc = this.$parent;
+        if (!iss(compName)) return pc;
+        let ispc = v => {
+            if (!is.vue(v) || !is.string(v.$options.name)) return false;
+            let vn = v.$options.name,
+                cn = compName;
+            if (cn.startsWith('*-')) {
+                cn = cn.substring(2);
+                return vn.endsWith(cn);
+            } else if (cn.endsWith('-*')) {
+                cn = cn.substring(0, cn.length-2);
+                return vn.startsWith(cn);
+            } else {
+                return vn === cn;
+            }
+        };
+        while (!is.undefined(pc) || !ispc(pc)) {
+            pc = pc.$parent;
+        }
+        await this.$wait(10);
+        return pc;
+    },
+    
 
     /**
      * dynamic component 动态加载组件
@@ -133,6 +163,72 @@ export default {
     //    return Vue.$destroyInvoke(compIns);
     //},
 
+    /**
+     * 为组件实例增加 Mustache 语句解析能力，生成求值函数
+     * 获取语句的值 应在 计算属性中 调用求值函数，并传入 $this 组件实例
+     */
+    mustache(code, ...types) {
+        if (!this.$is.nemarr(types)) types = [String, Boolean];
+        return this.$cgy.mustache(code, types);
+    },
+    /**
+     * 解析 {}|[] 中可能存在的 Mustache 语句 或 求值函数，
+     * 如果存在 则解析并求值，将返回值填入 返回的 {}|[] 中
+     */
+    parseMustacheIn(ps={}) {
+        let is = this.$is,
+            must = this.$mustache,
+            ism = m => must.isMustache(m),
+            ismfn = fn => must.isMustacheFn(fn);
+        //不是有效的 {}|[] 原样返回
+        if (!is.nemarr(ps) && !is.nemobj(ps)) return ps;
+        let isa = is.array(ps),
+            //写入结果
+            setval = (res, val, key) => {
+                if (isa) {
+                    res.push(val);
+                } else {
+                    res[key] = val;
+                }
+                return res;
+            },
+            rtn = isa ? [] : {};
+        this.$each(ps, (v,i)=>{
+            //先处理 键为 Mustache 表达式的情况
+            if (!isa && ism(i)) {
+                if (i.trim().endsWith(']')!==true) i = `${i} [Boolean]`;
+                let iv = this.mustache(i)(this);
+                if (iv===true) {
+                    //仅当 键表达式值 == true 时才合并
+                    let pv = this.parseMustacheIn(v);
+                    if (is.nemobj(pv)) {
+                        rtn = Object.assign(rtn, pv);
+                    }
+                }
+                return true;
+            }
+
+            //递归调用
+            if (is.nemarr(v) || is.nemobj(v)) {
+                rtn = setval(rtn, this.parseMustacheIn(v), i);
+                return true;
+            }
+            //如果是 Mustache 语句，解析并调用求值函数
+            if (ism(v)) {
+                rtn = setval(rtn, this.mustache(v)(this), i);
+                return true;
+            }
+            //如果是已解析的 求值函数，则调用
+            if (ismfn(v)) {
+                rtn = setval(rtn, v(this), i);
+                return true;
+            }
+            //其他类型，直接填入返回数据
+            rtn = setval(rtn, v, i);
+        });
+        //返回处理后的值
+        return rtn;
+    },
     
 
 }

@@ -9,7 +9,7 @@ $layout-usr-avt-w:  $size-btn-xxl;
 $layout-navtab-h:   $size-bar-xxl;
 $layout-task-h:     $size-bar-m;
 
-.__PRE__-layout {
+.__PRE__-layout-bak {
     @include spf-po-ov($w: 100%, $h: 100vh, $pd: 0, $mg: 0);
     //@include spf-flex-y;
     //background-color: $color-bgc-m;
@@ -58,6 +58,129 @@ $layout-task-h:     $size-bar-m;
         &>.layout-body {
             @include spf-po-ov($w: unset, $h: unset, $pd: $layout-navtab-h 0 $layout-task-h 0, $mg: 0, $ov: hidden auto);
         }
+    }
+}
+
+.__PRE__-layout {
+    @include spf-po-ov($w: 100vw, $h: 100vh, $mg: 0, $pd: 0);
+}
+
+//layout-x 横向布局组件
+.__PRE__-layout-x {
+    @include spf-po-ov;
+}
+.__PRE__-layout-x-col {
+    @include spf-po-ov($h: 100%, $ov: unset);
+    transition: all $ani-dura;
+}
+
+.__PRE__-layout-x-col-compact-btn {
+    @include spf-po-abs($w: pd-m, $h: bar-m, $mg: 0, $pd: 0, $l: unset, $t: unset, $ov: hidden);
+    //在父元素高度是中间位置
+    top: 50%; 
+    margin-top: mul(div($size-bar-m, 2), -1);
+    color: $color-fc-l2;
+    background-color: $color-bgc-m;
+    cursor: pointer;
+    //增加 z-index 确保此按钮可以被点击到
+    z-index: 1;
+    transition: all $ani-dura;
+
+    //按钮边框
+    &.compact-btn-border {
+        border: {
+            style: solid;
+            color: $color-bdc-m;
+        };
+    }
+
+    &>svg[class*=icon] {
+        color: $color-fc-l2;
+        cursor: pointer;
+    }
+
+    //hover
+    &:hover {
+        color: $color-primary-m;
+        background-color: $color-white-m;
+        &>svg[class*=icon] {
+            color: $color-primary-m;
+        }
+    }
+
+    //根据 按钮位置，当前的 compact 状态，以及 hover 状态，设置 background-image
+    @mixin set-compact-btn-bgimage($po: right, $cp: on, $ho: false) {
+        //图标路径
+        $ico-p: '/src/icon/md-round/1.0.0/keyboard-arrow-';
+        //图标位置 和 compact 状态，决定图标文件名
+        $ico-n: if(
+            $po == right,
+            if(
+                $cp == on,
+                'right',
+                'left'
+            ),
+            if(
+                $cp == on,
+                'left',
+                'right'
+            )
+        );
+        //根据 hover 状态，计算按钮图标颜色
+        $btn-c: if(
+            $ho,
+            string.slice('#{$color-primary-m}', 2),
+            string.slice('#{$color-fc-l2}', 2)
+        );
+        //拼接得到最终 bgimage url
+        $img: '#{$ico-p}#{$ico-n}.svg?fill=#{$btn-c}';
+        //设置
+        background-image: url('#{$img}');
+    }
+
+    //按钮位置
+    &.compact-btn-right {
+        @include spf-size-rd($size-rd-m, r);
+        &.compact-btn-border {
+            @include spf-size-po($size-bd-m, trb, border-width);
+        }
+        //展开状态的 compact-btn
+        /*&.compact-off {
+            @include set-compact-btn-bgimage(right, off, false);
+            &:hover {
+                @include set-compact-btn-bgimage(right, off, true);
+            }
+        }
+        //折叠状态的 compact-btn
+        &.compact-on {
+            @include set-compact-btn-bgimage(right, on, false);
+            &:hover {
+                @include set-compact-btn-bgimage(right, on, true);
+            }
+        }*/
+    }
+    &.compact-btn-left {
+        //左侧按钮 left 值固定
+        left: mul(sub($size-pd-m, 1), -1);
+        @include spf-size-rd($size-rd-m, l);
+        &.compact-btn-border {
+            @include spf-size-po($size-bd-m, tbl, border-width);
+        }
+        
+        //展开状态的 compact-btn
+        /*&.compact-off {
+            @include set-compact-btn-bgimage(left, off, false);
+            &:hover {
+                @include set-compact-btn-bgimage(left, off, true);
+            }
+        }
+        //折叠状态的 compact-btn
+        &.compact-on {
+            @include set-compact-btn-bgimage(left, on, false);
+            &:hover {
+                @include set-compact-btn-bgimage(left, on, true);
+            }
+        }*/
     }
 }
 

@@ -35,9 +35,13 @@ class Size extends Module
                 //基本尺寸 默认值，所有 mode 都应指定这些尺寸
                 "fs", "fw", "mg", "pd", "rd", "icon",
                 //按钮
-                "btn", "btn-fs", "btn-pd", "btn-rd",
+                "btn", 
+                //可单独定义按钮内部 pd|rd|fs 
+                "btn-fs", "btn-pd", //"btn-rd",
                 //单行
-                "bar", "bar-pd", "bar-rd",
+                "bar", 
+                //可单独定义单行容器内部 pd|rd|fs 默认不定义
+                //"bar-fs", "bar-pd", "bar-rd",
                 //多行盒容器
                 "block",
                 //阴影
@@ -49,6 +53,7 @@ class Size extends Module
                 "bd",
                 //backdrop-filter: blur(*px)
                 "blur",
+
                 //navbar
                 "navbar",
                 //menubar
@@ -99,13 +104,14 @@ class Size extends Module
                 ],
             ],
 
-            "rd" => [           //radius 4,6,8,12,16,20,24
-                "value" => 12,
+            "rd" => [           //radius 5,6,7,8,10,12,14
+                "value" => 8,
                 "shift" => [
-                    //"step" => 4,
+                    "step" => 2,
                     "manual" => [
-                        "xxs"   => 4,
+                        "xxs"   => 5,
                         "xs"    => 6,
+                        "s"     => 7,
                     ]
                 ],
             ],
@@ -172,15 +178,6 @@ class Size extends Module
                     ]
                 ],
             ],
-            "btn-rd" => [       //5,6,7,8,9,10,12
-                "value" => 8,
-                "shift" => [
-                    "step" => 1,
-                    "manual" => [
-                        "xxl"   => 12,
-                    ]
-                ],
-            ],
 
             //单行元素
             "bar"   => [        //单行高 28,32,36,40,48,54,64
@@ -194,26 +191,6 @@ class Size extends Module
                     ],
                 ],
             ],  
-            "bar-pd" => [      //6,8,12,16,20,24,32
-                "value" => 16,
-                "shift" => [
-                    //"step" => 4,
-                    "manual" => [
-                        "xxs"   => 6,
-                        "xxl"   => 32,
-                    ]
-                ],
-            ],
-            "bar-rd" => [       //6,7,8,9,10,12,14
-                "value" => 9,
-                "shift" => [
-                    "step" => 1,
-                    "manual" => [
-                        "xl"    => 12,
-                        "xxl"   => 14,
-                    ]
-                ],
-            ],
 
             //多行容器元素
             "block"   => [      //多行容器 min-height = bar + 2*bar-pd 36,44,56,68,80,96,118
@@ -229,7 +206,7 @@ class Size extends Module
             ],
 
 
-            "shadow" => [       //4,8,12
+            "shadow" => [       //2,4,8,12,16
                 "value" => 8,
                 "shift" => [
                     "step" => 4,
@@ -243,10 +220,10 @@ class Size extends Module
             //静态尺寸
             "bd"    => 1,           //border-width
             "blur"  => 16,          //backdrop-filter: blur()
-            "navbar" => 48,         // == bar-xl
+            "navbar" => 64,         // == bar-xxl
             "menubar-max" => 256,
-            "menubar-min" => 36,    // == bar-m
-            "taskbar" => 36,        // == bar-m
+            "menubar-min" => 40,    // == bar-m
+            "taskbar" => 40,        // == bar-m
             "taskitem" => 192,      //任务栏中的某个 item 宽度
         ],
 
@@ -321,40 +298,59 @@ class Size extends Module
             //不同组件的 额外尺寸序列
             "extraSizeQueue" => [
                 //fs
-                "fs"    => [28,32,48,54,64,72],
+                "fs"    => [28,32,48,56,64,72],
+                //bd
+                "bd"    => [2,3,4,6,8,12,16],
+                //rd
+                "rd"    => [16,28,32,48,56,64],
+                //mg
+                "mg"    => [56,64,72,88,96,128],
+                //pd
+                "pd"    => [48,56,64,72,88,96],
                 //icon
-                "icon"  => [48,54,64,72,88,96,128],
+                "icon"  => [48,56,64,72,88,96,128],
                 //bar
-                "bar"   => [64,72,88,96],
+                "bar"   => [64,72,88,96,128],
                 //button
-                "btn"   => [54,64,72,88,96,128],
+                "btn"   => [56,64,72,88,96,128],
+            ],
+
+            /**
+             * 定义可以通过基础尺寸计算生成的 尺寸样式属性的简写名称
+             * !! 定义 尺寸变量时，需要遵循此处的定义
+             */
+            "calcableProps" => [
+                "pd", "rd", "fs",
             ],
 
             /**
              * shape 序列
              * 定义主题系统中的 shape 类型
              * 对应着组件中的 shape 参数可选值
+             * !! 第一个是默认值
              */
             "shapes" => [
-                "normal", "pill", "circle", "sharp",
+                "sharp", "round", "pill", "square", "round-square", "circle", 
             ],
 
             /**
              * stretch 序列
              * 定义主题系统中的 stretch 类型
              * 对应着组件中的 stretch 参数可选值
+             * !! 第一个是默认值
              */
             "stretches" => [
-                "square", "normal", "grow", "row",
+                "auto", "grow", "row",
             ],
 
             /**
              * tightness 序列
              * 定义主题系统中的 tightness 类型
              * 对应着组件中的 tightness 参数可选值
+             * !! 第一个是默认值
              */
             "tightnesses" => [
-                "loose", "normal", "tight",
+                "normal", "loose", "tight",
             ],
 
         ],
@@ -400,8 +396,8 @@ class Size extends Module
      * @param RowProcessor $rower 临时资源的 内容行处理器
      * @return RowProcessor
      */
-    //createScssContentRows
-    protected function createScssContentRows($ctx=[], &$rower)
+    //createScssDefineRows 仅生成 scss 变量定义语句
+    protected function createScssDefineRows($ctx=[], &$rower) 
     {
         //尺寸系统经过处理的 conf 参数
         $conf = $this->origin;
@@ -499,6 +495,10 @@ class Size extends Module
             //空行
             $rower->rowEmpty(1);
         }
+
+        //生成 sizeCalcPropList
+        $cps = $conf["extra"]["calcableProps"] ?? [];
+        $rower->rowDef("sizeCalcPropList", $cps);
         //生成 shapeList 
         $sps = $conf["extra"]["shapes"] ?? [];
         $rower->rowDef("shapeList", $sps);
@@ -510,12 +510,10 @@ class Size extends Module
         $rower->rowDef("tightnessList", $sts);
         $rower->rowEmpty(1);
 
-
-        //SCSS 语句 需要包含 css 变量定义语句
-        return $this->createCssContentRows($ctx, $rower);
+        return $rower;
     }
-    //createCssContentRows
-    protected function createCssContentRows($ctx=[], &$rower)
+    //createCssDefineRows 仅生成 css 变量定义语句
+    protected function createCssDefineRows($ctx=[], &$rower) 
     {
         /**
          * 定义 css 尺寸变量语句
@@ -530,6 +528,20 @@ class Size extends Module
         $rower->rowEmpty(1);
 
         return $rower;
+    }
+    //createScssContentRows
+    protected function createScssContentRows($ctx=[], &$rower)
+    {
+        //生成 scss 变量定义语句
+        $rower = $this->createScssDefineRows($ctx, $rower);
+
+        //SCSS 语句 需要包含 css 变量定义语句
+        return $this->createCssContentRows($ctx, $rower);
+    }
+    //createCssContentRows
+    protected function createCssContentRows($ctx=[], &$rower)
+    {
+        return $this->createCssDefineRows($ctx, $rower);
     }
 
 

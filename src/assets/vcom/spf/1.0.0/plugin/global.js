@@ -323,6 +323,633 @@ export default {
         });
     },
 
+
+    /**
+     * Mustache 表达式解析器
+     * Vue 组件实例通过 $mustache 调用此解析器
+     */
+    mustache: {
+        /**
+         * !! 入口方法
+         *      const getter = Vue.mustache.def('{{exp}}', [返回值可选类型])
+         *      const value = getter( this-context 通常为组件实例, false 是否忽略返回值可选类型直接返回原始值 )
+         * 
+         * 实现 Vue 组件模板中 {{...}} 内部的 Mustache 表达式的解析，以及基于 this(绑定组件实例) 的 变量取值方法
+         * 解析语句，并返回 求值函数
+         * fn = cgy.mustache('{{code}}', [表达式最终值类型数组...])
+         * fn(传入this上下文，通常为vue组件实例) --> 得到当前值 可在计算属性中使用
+         * @param {String} code 要解析的表达式
+         * @param {Array} _types 这个表达式期望的返回值类型，可以有多个
+         *                  !! 如果表达式语句末尾自带类型声明 {{...}}[Boolean] 则优先使用声明的返回值类型
+         * @return {Function} 解析得到的求值函数  this.isMustacheFn(rtn) === true
+         */
+        defineGetter(code='', _types=[String]) {
+            let is = cgy.is;
+
+            //传入空字符串直接根据 _types 返回 返回空值的 函数
+            if (!is.nemstr(code)) return () => this.empty(_types);
+            code = code.trim();
+
+            //!! 可在传入的 code 中包含返回值类型 {{...}}[String,Boolean] 
+            let stpsReg = /\[[^\]]+\]$/g,
+                stps = code.match(stpsReg);
+            if (is.nemarr(stps)) {
+                code = code.replace(stps[0], '').trim();
+                //code 中包含的返回值类型，将覆盖传入的 _types
+                //!! 如果 code 中包含的 类型声明 无效，将使用默认类型 [String]
+                _types = (() => {
+                    let gfn = new Function('return '+stps[0]+';'),
+                        gtps;
+                    try {
+                        gtps = gfn();
+                    } catch (e) {
+                        console.error(`Mustache 表达式返回值类型声明错误！${stps[0]}`, e);
+                        //return () => {throw new Error(`MustacheError: ${e.message}`)}
+                        gtps = [String];
+                    }
+                    return gtps;
+                })();
+            }
+
+            //解析 Mustache 语句
+            let parsed = this.parse(code);
+            if (!is.nemstr(parsed)) return () => this.empty(_types);
+            //根据 parsed 代码段，判断是否需要包裹 `` 字符串模板
+            let istpl = ['true','false'].includes(parsed)!==true && (parsed.includes('${') || !parsed.includes('this.'));
+            //!! 如果 parsed 代码段需要包裹 `` 字符串模板，则修改 _types 为 [String]
+            if (istpl) _types = [String];
+
+            //根据 parsed 代码段，生成动态求值函数
+            let fnstr = istpl ? '`'+parsed+'`' : parsed,
+                //!! 需要指定 1个参数 $args 这是此函数执行时外部传入的 额外参数组成的数组，函数体内部通过 $args[*] 访问
+                fn = new Function('$args', 'return '+fnstr+';'),
+                //提前计算空值
+                empv = this.empty(_types),
+                //要返回的包裹函数 _this 表示要绑定的上下文，_origin 表示是否忽略返回值类型，原样返回
+                /**
+                 * 最终生成的 表达式求值函数
+                 * @param {Object} _this 此求值函数运行时的 上下文 通常是 Vue 组件实例
+                 * @param {Boolean} _origin 是否忽略返回值类型声明，原样返回
+                 * @param {Array} $args 此求值函数可以接收 额外的参数
+                 * !! 新增 $args 可以向求值函数额外传入更多参数，函数体内部可通过 $args 关键字访问这些参数
+                 */
+                getter = (_this, _origin=false, ...$args) => {
+                    //求值
+                    let val;
+                    try {
+                        //!! 将外部传入的任意多个额外参数，以 数组形式单参数 $args 传入 求值函数
+                        val = fn.call(_this, $args);
+                    } catch (e) {
+                        console.error(`Mustache 表达式执行失败！ [ return ${fnstr}; ]`, e);
+                        //return () => {throw new Error(`MustacheError: ${e.message}`)}
+                        //!! 求值错误，直接返回空值
+                        return empv;
+                    }
+                    //如果未定义 返回值可选类型，直接返回求得的值
+                    if (!is.nemarr(_types)) return val;
+                    //判断类型  类型不符合则返回空值
+                    if (_origin!==true && Vue.mustache.inTypes(val, _types)!==true) return empv;
+                    //返回最终求得的值
+                    return val;
+                };
+            //!! 标记这是一个求值函数
+            getter._isMustacheFn = true;
+            //forDev
+            getter._getterFunctionBody = 'return '+fnstr+';';
+            //返回
+            return getter;
+        },
+
+        /**
+         * !! 核心解析方法
+         * 解析 Mustache 表达式，为其中的变量名 添加 this. 前缀
+         * !! 传入的 code 必须包裹在 {{}} 中
+         * !! 如果传入的 code 包含 {{...}} 则只将 {{}} 内部的字符串作为 Mustache 语句，外部的字符串原样拼接
+         * !! 使用字符串模板 `...${}...` 拼接处理后的 内外字符串
+         * !! 如果 code 不含任何 {{}} 字符，则原样返回
+         * 
+         * 变量名可能的写法：
+         *      foo                 --> this.foo
+         *      foo.bar             --> this.foo.bar
+         *      foo[bar]            --> this.foo[this.bar]
+         *      foo[0]              --> this.foo[0]
+         *      foo.bar['key']      --> this.foo.bar['key']
+         *      foo.bar[bar[jaz[...]]]      --> 支持嵌套 this.foo.bar[this.bar[this.jaz[...]]]
+         * !! 变量名需要满足 javascript 变量命名规则：
+         *      只能包含 [a-zA-z0-9_$] 且 开头不能是 数字
+         * 
+         */
+        parse(code) {
+            let is = cgy.is,
+                iss = s => is.string(s) && s!=='',
+                //变量命名规则
+                vreg = /[a-zA-Z_$][a-zA-Z0-9_$]*/g,
+                //内部包含 {{...}} 的语法正则
+                sreg = /\{\{[^\{\}]+\}\}/g,
+                //包裹在 '' 或 "" 中的字符串
+                qreg = /('[^']*')|("[^"]*")/g;
+            //空字符串
+            if (!iss(code)) return '';
+            //不含 {{}} 的字符串
+            //if (!code.includes('{{') && !code.includes('}}')) return code;
+            if (!this.isMustache(code)) return code;
+            //trim
+            code = code.trim();
+
+            //如果整体包裹在 {{}} 中
+            //if (is.nemarr(code.match(areg))) {
+            if (this.isPureMustache(code)) {
+                //查找 前1个或n个字符 如果是空格 继续向前查找，直到字符串开头 或 找到不是空格的字符，返回找到的字符
+                let findPrev = (offset, str) => {
+                    if (offset<=0) return '';
+                    let i = offset - 1,
+                        find = str[i];
+                    while (find===' ' && i>0) {
+                        i--;
+                        find = str[i];
+                    }
+                    return find===' ' ? '' : find;
+                };
+                //去除头尾 {{}}
+                code = code.slice(2, code.length-2).trim();
+                //在这些字符之后的变量名不加 this.
+                let except = `. ' "`.split(' '),
+                    //这些允许的关键字不加 this.
+                    //!! 增加 $args 作为特殊关键字，用于在求值函数内部访问除了 _this 上下文之外的 其他参数 例如：$args[0]
+                    kws = 'true,false,null,undefined,$args'.split(',');
+                //先拆分出 包裹在 '' 或 "" 中的纯字符
+                let idx = -1,
+                    strs = [];
+                code = code.replace(qreg, (match, offset, str) => {
+                    idx++;
+                    strs.push(match);
+                    return ' @'+idx+' ';
+                });
+                //给所有符合变量名规则的 前面加 this.
+                code = code.replace(vreg, (match, offset, str) => {
+                    //检查关键字
+                    if (kws.includes(match.toLowerCase())) return match;
+                    const prevChar = findPrev(offset, str);
+                    //在 except 排除的字符之后的变量名 不加 this.
+                    if (except.includes(prevChar)) return match;
+                    return `this.${match}`;
+                });
+                //再回填 '' 或 "" 中的纯字符
+                for (let i=0;i<strs.length;i++) {
+                    code = code.replace(' @'+i+' ', strs[i]);
+                }
+                //返回处理后的 代码段
+                return code;
+            }
+
+            //如果内部包含 {{}} 则只处理 {{}} 内部的语句，最终返回值只能是 String
+            let idx = -1,
+                //拆分出 {{}} 外部字符串
+                out = code.replace(sreg, (match, offset, str) => {
+                    idx++;
+                    return '${__CODE_'+idx+'__}';
+                });
+            //开始依次处理 {{}} 内部的 Mustache 语句
+            cgy.each(code.match(sreg), (codei, i) => {
+                let ck = '__CODE_'+i+'__',
+                    parsed = this.parse(codei);
+                //替换 out 语句中的 __CODE_n__
+                out = out.replace(ck, parsed);
+            });
+            return out;
+        },
+
+        /**
+         * 解析 作为 配置参数键名 的 Mustache 表达式，生成完整的表达式，以及其他相关数据
+         * 
+         * Mustache 表达式作为 配置参数的键名，用于响应式计算组件实例的某种状态值，只有表达式返回值为 true 时，此配置才生效
+         * !! 此类型表达式返回值一定是 Boolean 类型
+         * 
+         * 可以使用下列 语法：
+         *      0   标准的 Mustache 表达式，必须返回 Boolean，可以省略末尾的 类型声明 [Boolean]
+         *          '{{foo.bar}} [Boolean]'                 --> 求值 this.foo.bar
+         *          '{{$is.nemstr(foo.bar)}}'               --> 求值 this.$is.nemstr(this.foo.bar)
+         *          '{{foo.bar && $is.nemarr(foo.jaz)}}'    --> 求值 this.foo.bar && this.$is.nemstr(this.foo.jaz)
+         * 
+         *      1   可以省略 Mustache 表达式头尾的 {{}} 
+         *          !! 省略 {{}} 后不能再写 [Boolean] 类型声明
+         *          'foo.bar'
+         *          '$is.nemstr(foo.bar)'
+         *          'foo.bar && $is.nemarr(foo.jaz)'
+         * 
+         *      2   可以增加修饰符 @... #...
+         *          !! 修饰符 必须写在 {{}} 外面，或省略 {{}}
+         *          !! 必须写在键名的最后  必须与主语句使用 空格 隔开
+         *          !! 不同的修饰符之间也必须以 空格 隔开
+         *          !! 不同的修饰符排列顺序为：  {{主语句}}  @...@...  #...
+         * 
+         *          @ 修饰符指定 此项配置的 作用域
+         *          '{{foo.bar}} @root@icon@btn'            --> 此配置作用于 root,icon,btn 3 个元素
+         *          'foo.bar && $is.nemstr(atom.fs) @root'  --> 此配置仅作用于 root 元素
+         * 
+         *          # 修饰符用于 区分相同的状态条件 可以对相同的状态条件，指定不同的配置值
+         *          '{{foo.bar}} #1'
+         *          '{{foo.bar}} [Boolean] #2'
+         *          'foo.bar #3'
+         *          'foo.bar || foo.jaz #4'
+         * 
+         *      !! 所有 配置参数键名表达式的特殊语法 都必须在省略 {{}} 的情况下生效
+         * 
+         *      3   可以简写 $is.***() 系列类型判断函数
+         *          '?nemstr(foo.bar) && ?nemarr(foo.jaz) && !foo.tom'
+         *          '?defined(foo.bar.key) || ?vue(subComp)'
+         * 
+         *      4   直接在键名表达式中输入某个上下文的变量名  将根据此变量值的类型，决定返回的 Boolean 值
+         *          'foo.bar'       --> 根据 this.foo.bar 的实际类型，决定生成的 求值函数：
+         *                              Boolean     --> return this.foo.bar
+         *                              String      --> return this.$is.nemstr(this.foo.bar)
+         *                              Array       --> return this.$is.nemarr(this.foo.bar)
+         *                              Object      --> return this.$is.nemobj(this.foo.bar)
+         *          !! 键名表达式中不能出现多个 上下文变量名，以及其他字符（如：运算符，圆括号，空格）
+         *          !! 修饰符不受影响，可以使用
+         * 
+         *          !! 如果要合并多个上下文变量，使用 $is.***() 函数简写方式
+         *          '?(foo.bar)'                    --> 将根据 this.foo.bar 的实际类型，生成求值函数
+         *          '?(foo.bar) || ?(foo.jaz)'      --> 可以合并多个监听变量
+         *          
+         * 此方法实现上述语法的解析，返回解析后得到的 完整的 Mustache 表达式， {{exp}} [Boolean] 以及其它数据
+         * @param {String} key 配置参数键名表达式
+         * @param {Object} context 解析此表达式时的 上下文 通常是某个组件实例
+         * @return {Object} 返回值格式：
+         *      {
+         *          origin: '原表达式字符串',
+         *          modify: {   # 原表达式中 可能存在的 修饰符数据
+         *              '@': [],
+         *              '#': [],
+         *          },
+         *          mustache: '{{exp}} [Boolean]',      # 解析生成的 完整 Mustache 表达式，返回值一定是 Boolean 类型
+         *          getter: function() {},              # 解析生成的 表达式求值函数
+         *      }
+         * !! 当传入的 表达式不合法时，返回 null
+         */
+        //!! 定义允许的 键名表达式 修饰符，定义顺序 与 使用顺序相反
+        keyExpressionModify: ['#', '@'],
+        //!! 定义 keyExpression 键名表达式的 支持语法正则  不含 修饰符字段
+        keyExpressionSyntaxReg: [
+            /\?\([^\)]+\)/g,                        //?(var)
+            /\?[^\(]+\([^\)]+\)/g,                  //?fn(var)
+            /^[a-zA-Z_$][a-zA-Z0-9_$.\[\]'"]*$/g,   //直接使用某个 变量名
+        ],
+        parseKeyExpression(key='', context={}) {
+            let is = cgy.is,
+                //解析 Mustache 表达式 生成求值函数
+                def = (...args) => this.defineGetter(...args),
+                //支持自动判断空值的 类型
+                types = [String, Boolean, Number, Array, Object],
+                //将传入的某个上下文变量名 作为表达式进行立即求值，用于判断此上下文变量的 类型
+                getVal = v => def(`{{${v}}}`, types)(context, true),
+                //判断给定的值类型 是否在 types 列表中
+                inTypes = v => is.string(v) || is.array(v) || is.boolean(v) || is.realNumber(v) || is.plainObject(v),
+                //根据求到的值类型，为表达式包裹 $is 方法
+                wrapIsFn = (v, exp) => {
+                    //求值类型不在支持范围内，直接返回 'false' 作为表达式
+                    if (!inTypes(v)) return 'false';
+                    if (is.string(v)) return `$is.nemstr(${exp})`;
+                    if (is.boolean(v)) return exp;
+                    if (is.realNumber(v)) return `($is.realNumber(${exp}) && (${exp})>0)`;
+                    if (is.array(v)) return `$is.nemarr(${exp})`;
+                    if (is.palinObject(v)) return `$is.nemobj(${exp})`;
+                    //默认
+                    return 'false';
+                },
+                //标记 key 是否是有效的 键名表达式，当下方 0~4 任一条件满足时，此值即为 true  
+                //如果此值为 false 则表示 key 不是有效的键名表达式，解析结果将返回 null
+                //isKeyExp = false,
+                //解析返回值
+                rtn = {
+                    //原始的 键名表达式字符串
+                    origin: key,
+                    //如果传入的键名表达式 属于第 3 种情况，此处保存对应的 变量名
+                    variable: null,
+                    //可能存在的 修饰符数据  例如： ...key... @root@icon@btn #1
+                    modify: {
+                        //'#': ['1'],
+                        //'@': ['root', 'icon', 'btn']
+                    },
+                    //处理后的 Mustache 表达式
+                    mustache: '',
+                    //生成的 求值函数
+                    getter: null,
+                };
+            if (!is.nemstr(key)) return null;
+
+            // 0    处理可能存在的 修饰符 #|@
+            let mods = this.keyExpressionModify,    //!! 修饰符定义顺序不可变动，因为需要按此顺序依次解析
+                hasMods = mods.reduce((has,modi,i) => has || key.includes(` ${modi}`), false);
+            if (hasMods) {
+                //标记 isKeyExp
+                //isKeyExp = true;
+
+                let moda = {},  //{ '#':['1','2',..], '@':['root','elm',..], ... }
+                    ka = [];
+                cgy.each(mods, (modi,i) => {
+                    moda[modi] = [];
+                    if (!key.includes(` ${modi}`)) return true;
+                    //按修饰符 split
+                    ka = key.split(modi);
+                    if (ka.length>1) {
+                        //key 为截取的 前部字符串
+                        key = ka[0].trim();
+                        //此 修饰符对应的 修饰数据数组
+                        moda[modi].push(...ka.slice(1).map(i=>i.trim()));
+                    }
+                });
+                //保存到解析结果
+                rtn.modify = moda;
+            }
+
+            // 1    处理标准 Mustache 表达式  只能是 纯表达式，不能是 ...{{...}}... 形式的混合表达式
+            //      !! true|false 单个单词也作为纯表达式： 'true @foo @... #foo' 有效
+            //if (key.startsWith('{{') && key.includes('}}')) {
+            if (this.isPureMustache(key) || ['true','false'].includes(key)) {
+                //标记 isKeyExp
+                //isKeyExp = true;
+
+                //添加 [Boolean] 类型声明
+                if (!is.nemarr(key.match(/\}\}\s*\[[^\]]+\]$/g))) {
+                    if (['true','false'].includes(key)) {
+                        rtn.mustache = `{{${key}}} [Boolean]`;
+                    } else {
+                        rtn.mustache = `${key} [Boolean]`;
+                    }
+                } else {
+                    rtn.mustache = key;
+                }
+                //创建 求值函数
+                rtn.getter = def(rtn.mustache);
+                //直接返回
+                return rtn;
+            }
+
+            //!! 预定义的语法规则
+            let syntax = this.keyExpressionSyntaxReg;
+
+            // 2    处理表达式 特殊语法 生成 Mustache 表达式
+            // 2.1  ?(var) 
+            let rega = syntax[0];   // /\?\([^\)]+\)/g;
+            if (is.nemarr(key.match(rega))) {
+                key = key.replace(rega, (match, offset, str) => {
+                    let vk = match.substring(2, match.length-1),
+                        //将 () 内部作为 Mustache 语句，进行求值(返回原始值，不做类型处理)
+                        vv = getVal(vk);
+                    //根据变量值的类型，返回包裹了 $is 方法的表达式，不支持的类型直接返回 false 作为表达式
+                    return wrapIsFn(vv, vk);
+                });
+                
+                //标记 isKeyExp
+                //isKeyExp = true;
+            }
+            // 2.2  ?isfn(var)
+            let regb = syntax[1];   // /\?[^\(]+\([^\)]+\)/g;
+            if (is.nemarr(key.match(regb))) {
+                key = key.replace(regb, (match, offset, str) => {
+                    let fn = match.split('(')[0].substring(1),  //$is 方法名
+                        //(var) 字符串
+                        vs = '(' + match.split('(').slice(1).join('(');
+                    //拼接 $is.fn(var)
+                    return `$is.${fn}${vs}`;
+                });
+                
+                //标记 isKeyExp
+                //isKeyExp = true;
+            }
+            // 2.3  可扩展更多语法 ...
+
+            // 3    针对直接传入 var 变量名的情况
+            let regc = syntax[2];   // /^[a-zA-Z_$][a-zA-Z0-9_$.\[\]'"]*$/g;
+            if (is.nemarr(key.match(regc))) {
+                //保存输入的 var 变量名
+                rtn.variable = key;
+
+                //直接作为 Mustache 语句，进行求值(返回原始值，不做类型处理)
+                let v = getVal(key);
+                //根据变量值的类型，返回包裹了 $is 方法的表达式，不支持的类型直接返回 false 作为表达式
+                key = wrapIsFn(v, key);
+                
+                //标记 isKeyExp
+                //isKeyExp = true;
+            }
+
+            //  4   可扩展更多 ...
+
+
+            //解析完成，准备返回
+            //如果 isKeyExp !== true 表示这不是有效的 键名表达式，返回 null
+            //if (isKeyExp!==true) return null;
+            //解析后的 key 必须为 非空字符串
+            if (!is.nemstr(key)) return null;
+            //生成的 表达式
+            rtn.mustache = `{{${key}}} [Boolean]`;
+            //创建 求值函数
+            rtn.getter = def(rtn.mustache);
+            //创建函数失败
+            if (!this.isMustacheFn(rtn.getter)) return null;
+
+            /**
+             * !! 尝试 立即求值，如果发生错误，表示这不是一个有效的 keyExpression
+             * !! 暂停
+             */
+            /*try {
+                let res = rtn.getter(context);
+            } catch (e) {
+                //使用求值函数求值时，发生错误，表示这不是一个有效的 keyExpression 返回 null
+                return null;
+            }*/
+
+            //返回
+            return rtn;
+        },
+
+        /**
+         * 递归解析某个组件实例上下文中的 对象|数组 中 所有可能包含的 Mustache 语句  返回求值后的 对象|数组
+         * 
+         * 针对键名使用表达式的  
+         *      解析键名表达式并求值，如果值为 true 则将键名对应的键值 对象|数组 递归解析求值，合并到结果 对象|数组
+         * 
+         * 针对键值包含 Mustache 表达式的
+         *      递归解析并求值，合并到结果 对象|数组
+         * 
+         * @param {Array|Object} ps 要递归解析的 {}|[]
+         * @param {Object} context 解析时的上下文对象，通常是组件实例
+         * @return {Array|Object} 合并所有解析求值结果的 {}|[]
+         */
+        __evaluate(ps={}, context={}) {
+            let is = cgy.is,
+                ism = m => this.isMustache(m),
+                ismfn = fn => this.isMustacheFn(fn);
+            //不是有效的 {}|[] 原样返回
+            if (!is.nemarr(ps) && !is.nemobj(ps)) return ps;
+            let isa = is.array(ps),
+                //写入结果
+                setval = (res, val, key) => {
+                    if (isa) {
+                        res.push(val);
+                    } else {
+                        res[key] = val;
+                    }
+                    return res;
+                },
+                rtn = isa ? [] : {};
+            
+            cgy.each(ps, (v,i)=>{
+
+                // 0    键名使用表达式 的情况
+                //let kexp = !isa ? this.parseKeyExpression(i, context) : null;
+                //if (is.nemobj(kexp) && ismfn(kexp.getter)) {
+                if (!isa && ism(i)) {
+                    //将此键名表达式求值，检查是否为 true
+                    //if (kexp.getter(context)===true) {
+                    if (this.defineGetter(i, [Boolean])(context)===true) {
+                        //仅当 键名表达式值 == true 时才合并
+                        let pv = this.evaluate(v, context);
+                        if (is.nemobj(pv)) {
+                            rtn = Object.assign(rtn, pv);
+                        }
+                    }
+                    return true;
+                }
+
+                // 1    如果值是 {}|[] 递归解析并求值
+                if (is.nemarr(v) || is.nemobj(v)) {
+                    rtn = setval(rtn, this.evaluate(v, context), i);
+                    return true;
+                }
+
+                // 2    如果值是 Mustache 语句，解析并调用求值函数
+                if (ism(v)) {
+                    rtn = setval(rtn, this.defineGetter(v)(context), i);
+                    return true;
+                }
+
+                // 3    如果值是已解析的 求值函数，则调用
+                if (ismfn(v)) {
+                    rtn = setval(rtn, v(context), i);
+                    return true;
+                }
+
+                // 4    值其他类型，直接填入返回数据
+                rtn = setval(rtn, v, i);
+            });
+
+            //返回处理后的值
+            return rtn;
+        },
+
+
+        //工具
+        /**
+         * 根据传入的 可选类型，返回适当的 空值
+         * 在 [可选类型数组] 中，优先返回排在前面的 类型的 空值
+         */
+        empty(types=[]) {
+            let is = cgy.is,
+                //默认空值 ''
+                dft = '';
+            //未指定可选类型数组
+            if (!is.nemarr(types)) return dft;
+            //空值返回方法
+            switch (types[0]) {
+                case String:    return '';      break;
+                case Boolean:   return false;   break;
+                case Number:    return 0;       break;
+                case Array:     return [];      break;
+                case Object:    return {};      break;
+
+                default:        return dft;     break;
+            }
+        },
+        //判断给定的值，是否在可选类型范围内
+        inTypes(val, types=[]) {
+            let is = cgy.is,
+                rtn = false;
+            //未指定可选类型数组
+            if (!is.nemarr(types)) return false;
+            //依次检查
+            cgy.each(types, (type,i) => {
+                switch (type) {
+                    case String:    rtn = rtn || is.string(val);        if (rtn) {return rtn;}  break;
+                    case Boolean:   rtn = rtn || is.boolean(val);       if (rtn) {return rtn;}  break;
+                    case Number:    rtn = rtn || is.realNumber(val);    if (rtn) {return rtn;}  break;
+                    case Array:     rtn = rtn || is.array(val);         if (rtn) {return rtn;}  break;
+                    case Object:    rtn = rtn || is.plainObject(val);   if (rtn) {return rtn;}  break;
+                }
+            });
+            return rtn;
+        },
+        //判断字符串是否整个包裹在 {{...}} 中的 Mustache 表达式
+        isPureMustache(exp='') {
+            let is = cgy.is,
+                //reg = /^\{\{[^\{\}]+\}\}(\s?\[[^\]]+\])?$/g;
+                reg = /^\{\{((.*\{.*\}.*)|([^\{\}]))*\}\}(\s*\[[^\[\]]+\])?$/g;
+            return is.nemstr(exp) && is.nemarr(exp.match(reg));
+        },
+        //判断字符串是否包含 Mustache 表达式
+        isMustache(exp='') {
+            //return this.isPureMustache(exp) || this.isCompoundMustache(exp);
+            let is = cgy.is,
+                //reg = /\{\{[^\{\}]+\}\}/g;
+                reg = /\{\{((.*\{.*\}.*)|([^\{\}]))*\}\}/g;
+            return is.nemstr(exp) && is.nemarr(exp.match(reg));
+        },
+        //判断字符串是否有效的 键名表达式 keyExpression  需要传入上下文组件实例
+        //!! 暂停
+        __isKeyExp(exp='', context={}) {
+            let is = cgy.is;
+            if (!is.nemstr(exp)) return false;
+
+            //排除修饰符
+            let mods = this.keyExpressionModify,
+                hasMods = mods.reduce((has,modi,i) => has || exp.includes(` ${modi}`), false);
+            if (hasMods) {
+                cgy.each(mods, (modi,i) => {
+                    if (!exp.includes(` ${modi}`)) return true;
+                    //按修饰符 split
+                    let ka = exp.split(modi);
+                    if (ka.length>1) {
+                        //exp 为截取的 前部字符串
+                        exp = ka[0].trim();
+                    }
+                });
+            }
+
+            //检查剩余的 exp
+            // 0    {{...}} 纯 Mustache 表达式
+            if (this.isPureMustache(exp)) return true;
+
+            // 1    keyExpression 有效语法 可根据实际扩展
+            let regs = this.keyExpressionSyntaxReg,
+                //使用语法正则 测试
+                isok = regs.reduce((ok, regi, idx) => ok || is.nemarr(exp.match(regi)), false);
+            if (isok) {
+                //针对 直接传入某个变量的 情况
+                if (is.nemarr(exp.match(regs[2]))) {
+                    //变量名必须是 foo.bar 形式，而不能是 foo["bar"] 形式
+                    if (is.nemarr(exp.match(/^[a-zA-Z_$][a-zA-Z0-9_$.]*$/g))) {
+                        //尝试在上下文组件实例中查找此变量，不存在则为 false
+                        if (is.undefined(cgy.loget(context, exp))) return false;
+                    }
+                }
+                return true;
+            }
+            
+            // 2    尝试解析
+            let kexp = this.parseKeyExpression(exp, context);
+            if (!is.nemobj(kexp)) return false;
+        },
+        //判断一个函数是否 求值函数，检查 fn._isMustacheFn === true
+        isMustacheFn(fn=null) {
+            let is = cgy.is;
+            return is.function(fn) && is.defined(fn._isMustacheFn) && fn._isMustacheFn===true;
+        },
+    },
+
+
+
     /**
      * request
      */

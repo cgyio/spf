@@ -25,6 +25,10 @@ body, view, .page {
     display: none;
 }
 
+
+
+/** 原子样式 **/
+
 //通用字体样式 .fc-*|.fs-*|.fw-*|.fml-*|.f-a|.f-highlight|.f-code|.f-ellipsis
 @include spf-fo-shift(self);
 //通用 padding|margin 样式 .pd-*|.mg-*
@@ -37,14 +41,13 @@ body, view, .page {
     background-color: set-alpha($color-bgc-m, 0.8);
     @extend .bg-blur;
 }
-//通用边框样式 .bd-*|.bdc-*|.rd-*
+//通用边框样式 .bd-m|.bd-m.bd-po-b|.bdc-*|.rd-*
 @include spf-bd-shift(self);
 //通用 border 初始样式
 .bd-default {
     border: {
         style: solid;
         width: 0;
-        color: $color-bdc-m;
         radius: 0;
     }
 }
@@ -54,10 +57,68 @@ body, view, .page {
 @include spf-shadow-shift(self, text-shadow-, text-shadow);
 @include spf-shadow-shift(self, shadow-, box-shadow);
 
+//通用 po-ov|abs|fix
+.po {@include spf-po;}
+.po-ov {@include spf-po-ov;}
+.po-abs {@include spf-po-abs;}
+.po-fix {@include spf-po-fix;}
 
 //通用 flex 样式
 .flex-x {@include spf-flex-x($gap: $size-mg-m);}
 .flex-y {@include spf-flex-y($gap: $size-mg-m);}
+
+//loading mask 任意容器元素内部的加载状态遮罩层
+.loading-mask {
+    //去除 hex 颜色的 #
+    @function strip-color-hashtag($color) {
+        $color: '#{$color}';
+        @return string.slice($color, 2);
+    }
+
+    $primary-color-no-hashtag: strip-color-hashtag($color-primary-m);
+    @include spf-po-abs($w: 100%, $h: 100%, $l: 0, $t: 0);
+    background: {
+        color: set-alpha($color-white-m, 0.8);
+        image: url('/src/icon/spinner/1.0.0/spin.svg?fill=#{$primary-color-no-hashtag}');
+        position: center;
+        repeat: no-repeat;
+        size: $size-icon-xl auto;
+    };
+    //@extend .bg-blur;
+
+    //指定 loading 图标颜色
+    @each $tpi in $colorListBase {
+        $ci: color-get(#{$tpi}-m);
+        @if not is-null($ci) {
+            $icon-color: strip-color-hashtag($ci);
+            $img-src: '/src/icon/spinner/1.0.0/spin.svg?fill=#{$icon-color}';
+            //样式类  .loading-icon-primary|red...
+            &.loading-icon-#{$tpi} {
+                background-image: url('#{$img-src}');
+            }
+        }
+    }
+}
+
+//drager
+.drager {
+    //.drager-resize
+    &.drager-resize {
+        $dw: 4px;
+        transition: all $ani-dura;
+
+        //-x
+        &.drager-x {
+            @include spf-po-abs($w: $dw, $h: 100%, $mg: 0, $pd: 0, $l: unset, $r: 0, $t: 0, $b: unset);
+            min-width: $dw;
+            cursor: col-resize;
+
+            &:hover, &.drag-active, &.drag-active:hover {
+                background-color: $color-primary-l3;
+            }
+        }
+    }
+}
 
 
 //自定义 scroll-bar 样式
@@ -73,3 +134,161 @@ body, view, .page {
     .scroll-thin {@include spf-scroll($size: 4px, $ov: auto hidden);}
     .scroll-bold {@include spf-scroll($size: 8px, $ov: auto hidden);}
 }
+
+//通用 stretch 拉伸样式  .stretch-auto|.stretch-grow|.stretch-row
+@include spf-module-apply(self, null, stretch);
+
+//通用 tightness 内容排列松紧样式  .tightness-xl.tightness-normal|.tightness-s.tightness-loose
+//@include spf-module-apply(self, null, tightness, (
+//    manual: $extraPdSizeQueue,
+//    multi-rows: false
+//));
+
+//通用 shape 样式 .shape-xl.shape-sharp|.shape-m.shape-round-square
+//@include spf-module-apply(self, null, shape, (
+//    manual: $extraRdSizeQueue,
+//    multi-rows: false
+//));
+
+
+
+/** 通用容器 **/
+
+//通用单行元素
+.bar, .btn {
+    //!! 不指定任何尺寸样式，允许通过原子样式覆盖
+    @include spf-po-ov;
+    //仅指定 flex-x
+    @extend .flex-x;
+    //指定 transition
+    transition: background-color $ani-dura,
+                border-color $ani-dura,
+                transform .1s;
+
+    //icon 图标默认样式
+    &>svg[class*=icon] {
+        transition: color .1s;
+    }
+
+    &>label {
+        transition: color .1s,
+                    text-underline-offset .1s;
+    }
+
+    #{clsp-ng(self, 'hoverable')} {
+        cursor: pointer;
+        &>svg[class*=icon], &>label {
+            cursor: pointer;
+        }
+    }
+}
+.bar {
+    //通过类名设置尺寸样式 min-height
+    // .bar.bar-xl --> min-height: 48px; ... 默认尺寸：.bar.bar-m|normal
+    @include spf-size-shift(self, bar-, min-height, bar, $extraBarSizeQueue);
+    //通用 bar-tightness 样式  .bar-tightness.bar-xl.tightness-normal|.bar-tightness.bar-s.tightness-loose
+    @include spf-module-apply(self, bar, tightness, (
+        sz-key: bar,
+        manual: $extraBarSizeQueue,
+    ));
+    //通用 bar-shape 样式  .bar-shape.bar-xl.shape-round|.bar-shape.bar-s.shape-circle
+    @include spf-module-apply(self, bar, shape, (
+        sz-key: bar,
+        manual: $extraBarSizeQueue,
+        //只生成 sharp|round|pill 类型的 shape 样式
+        types-que: (sharp, round, pill),
+    ));
+    //生成 bar-effect 样式  .bar-effect.bar-red.effect-normal | .bar-effect.bar-danger-m.effect-popout
+    @include spf-module-apply(self, bar, effect, (
+        //使用容器类型的 effect 样式计算方法
+        ef-type: 'container',
+        //只生成 normal|fill|popout 类型的 effect 样式
+        types-que: (normal, fill, popout),
+        //裁剪 statusList
+        status-que: (normal,'hoverable:hover',active,disabled),
+    ));
+}
+.btn {
+    //通过类名 调用 spf-size-shift-mix-btn-size 设置尺寸样式 min-height|min-width|font-size
+    // .btn.btn-xl --> min-height: 48px; ... 默认尺寸：.btn.btn-m|normal
+    @include spf-size-shift(self, btn-, btn-size, btn, $extraBtnSizeQueue);
+    //按钮不需要 tightness 样式
+    //通用 btn-shape 样式  .btn-shape.btn-xl.shape-round|.btn-shape.btn-s.shape-circle
+    @include spf-module-apply(self, btn, shape, (
+        sz-key: btn,
+        manual: $extraBtnSizeQueue,
+        //只生成 sharp|round|pill 类型的 shape 样式
+        //types-que: (sharp, round, pill),
+    ));
+    //生成 btn-effect 样式  .btn-effect.btn-red.effect-normal | .btn-effect.btn-danger-m.effect-popout
+    @include spf-module-apply(self, btn, effect, (
+        //multi-rows: false, 
+    ));
+
+    //icon 图标默认样式
+    &>svg[class*=icon] {
+        &:not(:last-child):first-child {
+            //font-size: 1.6em;
+            margin-left: -0.1em;
+        }
+        &:not(:first-child):last-child {
+            //font-size: 1.6em;
+            margin-right: -0.1em;
+        }
+    }
+
+    //内部 label
+    &>label {
+        @extend .f-ellipsis;
+        margin-top: -0.1em;
+        overflow: unset;
+    }
+    
+    //pressed 按下效果
+    &.pressed {
+        transform: scale(0.9);
+        //active|disabled 状态覆盖
+        &.active, &.disabled, &.pending, &.fullfilled {
+            transform: none;
+        }
+    }
+
+    //紧密排列
+    &.btn-no-gap {
+        &+.btn-no-gap {
+            margin-left: 0;
+        }
+    }
+
+    //取消 a 下划线
+    &.btn-no-a {
+        text-decoration: none;
+        &>label {
+            text-decoration: none;
+        }
+    }
+}
+
+//通用多行元素
+.block {
+    //!! 不指定任何尺寸样式，允许通过原子样式覆盖
+    @include spf-po-ov;
+    //使用 bar 单行元素的高度，作为多行容器的 min-height
+    @include spf-size-shift(self, block-, min-height, bar, $extraBarSizeQueue);
+    //通用 block-tightness 样式  .block-tightness.block-xl.tightness-normal|.block-tightness.block-s.tightness-loose
+    @include spf-module-apply(self, block, tightness, (
+        sz-key: bar,
+        manual: $extraBarSizeQueue,
+        multi-rows: true,
+    ));
+    //通用 block-shape 样式  .block-shape.block-xl.shape-round|.block-shape.block-s.shape-circle
+    @include spf-module-apply(self, block, shape, (
+        sz-key: bar,
+        manual: $extraBarSizeQueue,
+        //只生成 sharp|round 类型的 shape 样式
+        types-que: (sharp, round),
+        multi-rows: true,
+    ));
+}
+
+

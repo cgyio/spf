@@ -223,6 +223,14 @@ class Color extends Module
             "effects" => [
                 "normal", "fill", "plain", "popout",
             ],
+
+            /**
+             * 定义可以通过基础颜色计算生成的 颜色样式属性的简写名称
+             * !! 用于 effect 效果自动计算
+             */
+            "effectProps" => [
+                "bgc", "fc", "bdc",
+            ],
         ],
     ];
     //此模块中，某个 参数 item 的 标准参数格式
@@ -267,8 +275,8 @@ class Color extends Module
      * @param RowProcessor $rower 临时资源的 内容行处理器
      * @return RowProcessor
      */
-    //createScssContentRows
-    protected function createScssContentRows($ctx=[], &$rower)
+    //createScssDefineRows 仅生成 scss 变量定义语句
+    protected function createScssDefineRows($ctx=[], &$rower) 
     {
         //颜色系统经过处理的 conf 参数
         $conf = $this->origin;
@@ -356,10 +364,15 @@ class Color extends Module
         }*/
 
         // 4    生成 extra 数据中的 typeList|effectList
+        //$typeList
         $tps = $conf["extra"]["types"] ?? [];
         $rower->rowDef("typeList", $tps);
+        //$effectList
         $efs = $conf["extra"]["effects"] ?? [];
         $rower->rowDef("effectList", $efs);
+        //$effectPropList
+        $eps = $conf["extra"]["effectProps"] ?? [];
+        $rower->rowDef("effectPropList", $eps);
         $rower->rowEmpty(1);
 
         // 5    生成 $color-item-m 变量
@@ -382,11 +395,10 @@ class Color extends Module
         //空行
         $rower->rowEmpty(1);
 
-        //SCSS 语句 需要包含 css 变量定义语句
-        return $this->createCssContentRows($ctx, $rower);
+        return $rower;
     }
-    //createCssContentRows
-    protected function createCssContentRows($ctx=[], &$rower)
+    //createCssDefineRows 仅生成 css 变量定义语句
+    protected function createCssDefineRows($ctx=[], &$rower) 
     {
         /**
          * 定义 css 颜色变量语句
@@ -401,6 +413,20 @@ class Color extends Module
         $rower->rowEmpty(1);
 
         return $rower;
+    }
+    //createScssContentRows
+    protected function createScssContentRows($ctx=[], &$rower)
+    {
+        //仅生成 scss 变量定义语句
+        $rower = $this->createScssDefineRows($ctx, $rower);
+
+        //SCSS 语句 需要包含 css 变量定义语句
+        return $this->createCssContentRows($ctx, $rower);
+    }
+    //createCssContentRows
+    protected function createCssContentRows($ctx=[], &$rower)
+    {
+        return $this->createCssDefineRows($ctx, $rower);
     }
 
 

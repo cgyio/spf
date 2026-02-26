@@ -22,11 +22,6 @@ export default {
                     winKey: '',
                     icon: '',
                     title: '',
-
-                    //窗口默认 尺寸
-                    width: '640px',
-                    height: '480px',
-
                     winType: 'popout',
                     minimizable: true,
                     maximizable: true,
@@ -35,8 +30,17 @@ export default {
                     border: true,
                     shadow: 'normal',
                     tightness: 'normal',
+                    hoverable: true,
                     //其他 props
                     //...
+                },
+
+                //指定窗口的启动 尺寸|位置 不指定则使用默认
+                winPos: {
+                    width: '640px',
+                    height: '480px',
+                    left: null,
+                    top: null
                 },
 
                 /**
@@ -240,23 +244,35 @@ export default {
          * @param {String} compName 组件名 可以是 短名或全名  base-foo|pms-foo  pre-foo|pre-pms-foo
          * @param {Object} compProps 组件的启动 props
          * @param {Object} winProps 外部包裹的 win 组件的 props
+         * @param {Object} winPos 设置此窗口开启时的 尺寸|位置
          * @return {Vue|null} 窗口 win 组件实例
          */
-        async openSingleCompWin(compName, compProps={}, winProps={}) {
+        async openSingleCompWin(compName, compProps={}, winProps={}, winPos={}) {
             let is = this.$is,
                 ext = this.$extend,
                 dftw = this.win.default,
                 wprops = ext({}, dftw.winProps),
                 cprops = {},
                 vcn = this.$vcn(compName);
+            //传入的组件名必须有效
             if (!is.string(vcn) || vcn==='') return null;
+            //传入的组件名必须可以被 动态组件服务识别
+            let compDef = await this.$dc.getDefine(vcn);
+            console.log(compDef);
+            //检查组件定义的 data 确认此组件可以被动态加载 comp.data.dynamic === true
+            if (!is.defined(compDef.data.dc) || !is.defined(compDef.data.dc.dynamic) || compDef.data.dc.dynamic !== true) {
+                return null;
+            }
 
             //查找可能存在的已开启的同组件窗口
             let witem = this.getItem(compName),
                 comp = !is.null(witem) ? witem.ins[compName] : null;
-            if (is.vue(comp) && is.defined(comp.multiple) && comp.multiple===false) {
+            if (is.vue(comp) && is.defined(comp.dc.multiple) && comp.dc.multiple===false) {
                 //只允许单例的组件 不再重复创建窗口
                 let win = witem.ins.win;
+                if (witem.focused!==true) {
+
+                }
                 //显示窗口
                 await win.show();
                 //返回此窗口实例
@@ -292,7 +308,7 @@ export default {
             sty.top = ((window.innerHeight - hl[0])/2) + hl[1];
             //zIndex
             //sty.zIndex = this.$ui.getZindex();
-            console.log(sty);
+            console.log(wl, hl, sty);
             //创建动态组件实例
             let win = await this.$dc.invoke('base-win', wprops);
             if (is.vue(win)) {
@@ -312,13 +328,38 @@ export default {
                 await this.$wait(100);
 
                 //设置 zIndex
-                win.setZindex();
+                //await win.setZindex();
+                await this.$ui.maskFor(win);
 
                 //窗口创建完成后 执行显示动画
                 await win.dcShow(sty);
                 return win;
             }
             return null;
+        },
+
+
+
+        /**
+         * 根据 winKey 键名，执行窗口动作
+         */
+        //任意状态下的 win 窗口进入 focus 状态
+        async focusWin(winKey) {
+            let is = this.$is,
+                witem = this.getItem(winKey);
+            if (is.empty(witem)) return false;
+            let win = witem.ins.win;
+            if (!is.vue(win)) return false;
+            //窗口类型
+            let wintp = win.winType;
+            //if ()
+            //如果窗口已经是 focus 状态
+            if (witem.focused===true) return true;
+            //如果窗口是 maximize 状态
+            if (win.isDcMaximize) {
+                //
+                //设置 focused
+            }
         },
 
 
@@ -367,8 +408,49 @@ export default {
             return wk;
         },
 
+
+
         /**
-         * 计算窗口的 尺寸|位置|
+         * 计算窗口的 尺寸|位置
+         */
+        /**
+         * 根据窗口的启动参数 计算窗口的启动 尺寸|位置 
+         * @param {Object} winPos 窗口的启动参数，如果不指定则使用 win.default.winPos 
+         *                        默认参数可以通过 Vue.service.options.win.defaultWin.winPos 外部指定
+         * @return {Object} 计算得到的窗口当前的 启动 尺寸|位置 {width,height,left,top}
+         */
+        getOpenPos(winPos={}) {
+            let is = this.$is,
+                iso = o => is.plainObject(o) && !is.empty(o),
+                isn = n => is.realNumber(n),    // 100 或 '100' 形式纯数字
+                isu = n => is.numeric(n),       // 100px 形式带单位数字
+                dft = this.win.default.winPos,
+                //如果未传入，直接使用默认值，否则使用默认值填充
+                pos = iso(winPos) ? this.$extend({}, dft, winPos) : this.$extend({}, dft);
+            //确保所有输入参数都合法 自动补齐默认单位 px
+            pos = this.$each(pos, (v,k)=>{
+                //如果设定值为 null 或其他非法值，直接使用 dft 值
+                if (is.null(v)) return dft[k];
+                //100px 形式 原样返回
+                if (isu(v)) return v;
+                //纯数字补单位
+                if (isn(v)) return `${v}px`;
+                //其他形式返回 dft 值
+                return dft[k];
+            });
+            //获取其中的 whlt 参数值
+            let {width, height, left, top} = pos,
+                vw = window.innerWidth,
+                vh = window.innerHeight,
+                ui = this.$ui;
+            //针对指定 left|top == null 的情况 自动计算窗口居中时的 left|top
+            if (!isu(left)) left = ui.sizeValDiv(ui.sizeValSub(vw, width), 2);
+            if (!isu(top)) top = ui.sizeValDiv(ui.sizeValSub(vh, height), 2);
+            //返回
+            return {width, height, left, top};
+        },
+        /**
+         * 根据选中 窗口 item 获取当前的 尺寸|位置，保存到 item.pos.
          */
 
 

@@ -7,19 +7,67 @@
  * 在组件上 v-foo-bar:x="y"
  * 
  */
-
+//工具库
+//import cgy from '/src/lib/cgy/default.min.js';
 
 export default {
 
-    //拖拽 resize
+    /**
+     * 拖拽 resize
+     * v-drag-resize:xy="{
+     *      inComponent: Vue instance,          # 被 resize 的 elm 所属的 组件实例
+     *      
+     *      # 指定 x|y 方向的 resize 尺寸范围，[min,max] 必须是 带单位的 尺寸值字符串
+     *      limit: {
+     *          x: ['10px', '320px'],
+     *          y: [null, '35%'],
+     *      },
+     * 
+     *      # 其他自定义参数，会在 resize 完成后，通过关联的 component 组件回调传回，自动触发 after-drag-resize 事件时也会传回这些值
+     *      ...
+     * }"
+     */
     dragResize: {
         bind(el, binding) {
             el.$drag = {
                 dir: binding.arg,       //v-drag-resize:xy="foobar"  -->  xy
-                target: binding.value,    //v-drag-resize:xy="foobar"  -->  foobar
+                value: binding.value,    //v-drag-resize:xy="foobar"  -->  foobar
+                target: el,
+                comp: null,
+                /**
+                 * 定义尺寸调整的 范围 min|max
+                 * !! 根据传入的 binding.value.min|max 自动生成
+                 * 参数格式：
+                 *  {
+                 *      x: [10, 320],       # 纯数字
+                 *      y: [null, 128],     # 仅指定 max
+                 *  }
+                 */
+                limit: {
+                    x: [],
+                    y: [],
+                },
+                //定义 x|y 的尺寸单位，可以使用不同的单位  默认 px
+                ext: {
+                    x: 'px',
+                    y: 'px',
+                },
+                //!! 尺寸单位可选：px|%|...
+                exts: ['px', '%', /*...*/],
+                //额外传入的 参数
+                extra: {},
+                //默认 binding.value
+                dftOpt: {
+                    target: el,
+                    inComponent: null,
+                    limit: {
+                        x: [],  //!! 尺寸值必须是 100px|30% 带单位字符串
+                        y: [],  //!! x|y 可以使用不同的 尺寸单位
+                    },
+                },
                 styles: {
-                    x: ['cv-rsz-drager','drag-x'],
-                    y: ['cv-rsz-drager','drag-y'],
+                    x: ['drager','drager-resize', 'drager-x'],
+                    y: ['drager','drager-resize', 'drager-y'],
                     xy: [],
                     active: ['drag-active']
                 },
@@ -27,23 +75,176 @@ export default {
                     x: 0,
                     y: 0,
                     w: 0,
-                    h: 0
+                    h: 0,
                 },
-                $target() {
-                    if (typeof el.$drag.target != 'string' || el.$drag.target=='') return el;
-                    return document.querySelector(`#${el.$drag.target}`);
-                },
-                resize(ev) {
-                    let elg = el.$drag,
-                        rel = elg.$target();
-                    if (rel instanceof HTMLElement) {
-                        if (elg.dir.includes('x')) {
-                            rel.style.width = (elg.start.w + (ev.clientX - elg.start.x)) + 'px';
+                init() {
+                    let is = cgy.is,
+                        iss = s => is.string(s) && s!=='',
+                        iso = o => is.plainObject(o) && !is.empty(o),
+                        isa = a => is.array(a) && a.length>0,
+                        isn = n => is.realNumber(n),
+                        isu = n => is.numeric(n),
+                        elg = el.$drag,
+                        dir = elg.dir,
+                        dft = elg.dftOpt,
+                        val = elg.value;
+                    if (val==='' || !(iss(val) || iso(val))) {
+                        el.$drag.target = el;
+                    } else if (iss(val)) {
+                        el.$drag.target = document.querySelector(`#${val}`);
+                        if (!is.elm(el.$drag.target)) el.$drag.target = el;
+                    } else if (iso(val)) {
+                        val = Object.assign({},dft,val);
+
+                        //target
+                        if (iss(val.target)) {
+                            el.$drag.target = document.querySelector(`#${val.target}`);
+                        } else if (is.elm(val.target)) {
+                            el.$drag.target = val.target;
+                        } else {
+                            el.$drag.target = el;
                         }
-                        if (elg.dir.includes('y')) {
-                            rel.style.height = (elg.start.h + (ev.clientY - elg.start.y)) + 'px';
+                        Reflect.deleteProperty(val, 'target');
+
+                        //inComponent
+                        if (is.vue(val.inComponent)) el.$drag.comp = val.inComponent;
+                        Reflect.deleteProperty(val, 'inComponent');
+                        
+                        //处理 limit
+                        if (iso(val.limit)) {
+                            cgy.each(['x','y'], (di,i)=>{
+                                if (!dir.includes(di) || !isa(val.limit[di])) return true;
+                                let sza = el.$drag.parseSizes(...val.limit[di]);
+                                //保存 范围数字
+                                el.$drag.limit[di] = sza.num;
+                                //保存 尺寸单位
+                                el.$drag.ext[di] = sza.ext;
+                            });
+                        }
+                        Reflect.deleteProperty(val, 'limit');
+
+                        //其他传入的 自定义参数，保存到 el.$drag.extra
+                        if (iso(val)) {
+                            el.$drag.extra = Object.assign({}, val);
                         }
                     }
+                },
+                //处理传入的 limit.x|y  [min, max]  拆分出 [ 纯数字, 纯数字 ] 和 单位
+                parseSizes(...sizes) {
+                    let is = cgy.is,
+                        iss = s => is.string(s) && s!=='',
+                        isa = a => is.array(a) && a.length>0,
+                        isu = n => is.numeric(n),
+                        isn = n => is.realNumber(n),
+                        nums = [],
+                        exts = [];
+                    cgy.each(sizes, (size,i) => {
+                        if (!isu(size)) {
+                            nums.push(null);
+                            return true;
+                        }
+                        //拆分 数字和单位
+                        let sza = el.$drag.sizeToArr(size);
+                        //拆分不成功，或者不支持的 尺寸单位
+                        if (!isa(sza) || !el.$drag.exts.includes(sza[1])) {
+                            nums.push(null);
+                            return true;
+                        }
+                        //保存
+                        nums.push(sza[0]);
+                        if (!exts.includes(sza[1])) exts.push(sza[1]);
+                    });
+                    //min|max 必须是相同的尺寸单位，且尺寸单位必须存在  否则 limit 不生效
+                    if (exts.length!==1) return {num: [], ext: 'px'};
+                    return {num: nums, ext: exts[0]};
+                },
+                //拆分 数字 和 单位   100px --> [100, 'px']
+                sizeToArr(size=null) {
+                    let is = cgy.is,
+                        iss = s => is.string(s) && s!=='',
+                        isn = n => is.realNumber(n),
+                        isu = n => is.numeric(n);
+                    if (!isu(size)) return null;
+                    let unit = size.replace(/^\-?[\d.]{1,}/g, ''),
+                        num = unit==='' ? size*1 : (size.substring(0, size.length-unit.length))*1;
+                    if (!isn(num) || !iss(unit)) return null;
+                    return [num, unit];
+                },
+
+                //事件监听
+                $dragStart(ev) {
+                    let target = ev.target,
+                        rel = el.$drag.target,
+                        body = document.querySelector('body');
+                    target.classList.add(...el.$drag.styles.active);
+                    //初始值，计算依据
+                    el.$drag.start = {
+                        x: ev.clientX,
+                        y: ev.clientY,
+                        w: rel.offsetWidth,
+                        h: rel.offsetHeight
+                    }
+                    body.addEventListener('dragover', el.$drag.$dragOver);
+                },
+                $dragEnd(ev) {
+                    let is = cgy.is,
+                        target = ev.target,
+                        body = document.querySelector('body');
+
+                    //计算 resize 后的 尺寸
+                    let size = el.$drag.resize(ev);
+
+                    //等待 元素 resize 动画
+                    cgy.wait(300).then(()=>{
+                        el.$drag.reset();
+                        target.classList.remove(...el.$drag.styles.active);
+                        body.removeEventListener('dragover', el.$drag.$dragOver);
+
+                        //调用关联组件的相关方法
+                        if (is.vue(el.$drag.comp)) {
+                            let comp = el.$drag.comp;
+                            //尝试调用 comp.afterDragResize 方法
+                            if (is(comp.afterDragResize, 'function,asyncfunction')) {
+                                comp.afterDragResize(el, size);
+                            }
+                            //触发事件
+                            comp.$emit('after-drag-resize', el, size);
+                        }
+                    });
+                },
+                $dragOver: ev => {
+                    ev.preventDefault();
+                },
+
+                /**
+                 * 核心计算 计算 resize 拖拽后的 target 元素的 width|height
+                 * 区分不同的 尺寸单位
+                 */
+                resize(ev) {
+                    let is = cgy.is,
+                        elg = el.$drag,
+                        rel = elg.target,
+                        dir = elg.dir,
+                        //limit = elg.limit,
+                        ext = elg.ext,
+                        start = elg.start;
+                    //如果不存在 target 退出
+                    if (!is.elm(rel)) return false;
+                    //按 dir 方向
+                    let sizes = {};
+                    cgy.each(['x','y'], (di,i) => {
+                        if (dir.includes(di)) {
+                            let clk = `client${di.toUpperCase()}`,
+                                sty = di==='x' ? 'width' : 'height',
+                                size = el.$drag.$calc(di, (ev[clk] - start[di]));
+                            //设置最终 style.width|height
+                            rel.style[sty] = size;
+                            //缓存 
+                            sizes[di] = size;
+                        }
+                    });
+                    //返回变化后的 尺寸值
+                    return sizes;
                 },
                 reset() {
                     el.$drag.start = {
@@ -53,38 +254,98 @@ export default {
                         h: 0
                     };
                 },
-                dragover: ev => {
-                    ev.preventDefault();
-                }
+
+                /**
+                 * 核心计算方法  计算 resize 拖拽后的 target 元素的 width|height
+                 * @param {String} dir resize 方向 x|y 
+                 * @param {Number} resize 变化值  鼠标移动长度 px 
+                 * @return {String} 计算后的 width|height 数值字符串，应与 ext 尺寸单位匹配
+                 */
+                $calc(dir='x', resize=0) {
+                    let is = cgy.is,
+                        isa = a => is.array(a) && a.length>0,
+                        isn = n => is.realNumber(n),
+                        elg = el.$drag,
+                        rel = elg.target,
+                        limit = elg.limit[dir],
+                        ext = elg.ext[dir],
+                        start = elg.start,
+                        //style key
+                        styk = dir==='x' ? 'width' : 'height',
+                        //offset key
+                        offk = dir==='x' ? 'offsetWidth' : 'offsetHeight',
+                        //计算后的值
+                        size = 0;
+
+                    //根据尺寸单位 执行不同的计算逻辑
+                    if (ext==='px') {
+                        //使用默认单位 px 
+                        //在 offsetWidth|Height 上相加
+                        size = rel[offk] + resize;
+                    } else {
+                        //按使用 ext 尺寸单位的不同  分别计算
+                        switch (ext) {
+                            //特殊单位处理...
+
+                            //任意非 px 单位  例如 %
+                            default: 
+                                //获取原始的 style.width|height 应为 以 ext 为单位的尺寸形式
+                                let osz = rel.style[styk],
+                                    //60% --> [60, '%']
+                                    osza = el.$drag.sizeToArr(osz);
+
+                                //!! 如果 尺寸值无效 回退到 px 指定的 limit 将失效
+                                if (!isa(osza) || osza[1]!==ext) {
+                                    console.log('illegal target.style.'+styk+' for ext:', ext);
+                                    //取消 limit
+                                    el.$drag.limit[dir] = [];
+                                    el.$drag.ext[dir] = 'px';
+                                    return el.$drag.$calc(dir, resize);
+                                }
+
+                                //变化前的 offset 尺寸值
+                                let offsz = rel[offk],
+                                    //数值 与 % 的比值
+                                    ratio = offsz/osza[0];
+                                //变化后的值
+                                offsz += resize;
+                                //变化后的值 转为 对应的 尺寸单位
+                                size = offsz/ratio;
+                                
+                                break;
+                        }
+                    }
+
+                    //如果存在 limit 限制
+                    if (isa(limit)) {
+                        if (isn(limit[0]) && limit[0]>size) size = limit[0];
+                        if (isn(limit[1]) && limit[1]<size) size = limit[1]; 
+                    }
+
+                    //返回计算后的 尺寸值  带单位
+                    return `${size}${ext}`;
+                },
             }
+
+            //初始化
+            el.$drag.init();
+
             let drager = document.createElement('div');
             drager.classList.add(...el.$drag.styles[el.$drag.dir]);
             drager.draggable = true;
-            drager.addEventListener('dragstart', ev => {
-                let target = ev.target,
-                    rel = el.$drag.$target(),
-                    body = document.querySelector('body');
-                target.classList.add(...el.$drag.styles.active);
-                el.$drag.start = {
-                    x: ev.clientX,
-                    y: ev.clientY,
-                    w: rel.offsetWidth,
-                    h: rel.offsetHeight
-                }
-                body.addEventListener('dragover', el.$drag.dragover);
-            });
-            drager.addEventListener('dragend', ev => {
-                let target = ev.target,
-                    body = document.querySelector('body');
-                el.$drag.resize(ev);
-                setTimeout(()=>{
-                    el.$drag.reset();
-                    target.classList.remove(...el.$drag.styles.active);
-                    body.removeEventListener('dragover', el.$drag.dragover);
-                },300);
-            });
+            drager.addEventListener('dragstart', el.$drag.$dragStart);
+            drager.addEventListener('dragend', el.$drag.$dragEnd);
             el.appendChild(drager);
-        }
+            el.$drager = drager;
+        },
+
+        //解绑，清理
+        unbind(el) {
+            el.removeChild(el.$drager);
+            Reflect.deleteProperty(el, '$drag');
+            Reflect.deleteProperty(el, '$drager');
+        },
+
     },
 
     //拖动按钮调整数值
@@ -258,8 +519,10 @@ export default {
                         //屏蔽 transition 属性
                         let css = window.getComputedStyle(target),
                             trans = css.transition;
+                        //console.log({trans, prop: css.transitionProperty, dura: css.transitionDuration});
                         if (trans!='') {
-                            target.setAttribute('data-trans-cache', `${css.transitionProperty} ${css.transitionDuration}`);
+                            //target.setAttribute('data-trans-cache', `${css.transitionProperty} ${css.transitionDuration}`);
+                            target.setAttribute('data-trans-cache', trans);
                             target.style.transition = 'none';
                             //console.log(target.style.transition);
                         }
@@ -296,7 +559,12 @@ export default {
             });
 
             //console.log(el);
-        }
+        },
+
+        //解绑，清理
+        unbind(el) {
+            Reflect.deleteProperty(el, '$drag');
+        },
     },
 
     //悬停提示 v-tip
@@ -677,6 +945,117 @@ export default {
                 el.$tip.$reCreate();
             }
         }
+    },
+
+    //为目标元素添加 loading-mask v-loading-mask
+    loadingMask: {
+        bind(el, binding) {
+
+            el.$lmask = {
+                //v-loading-mask:primary="true"  -->  primary   loading 图标颜色 red|danger 默认 primary
+                iconColor: binding.arg,
+                //v-loading-mask:primary="true"  -->  true      显示|隐藏 遮罩层
+                maskShow: binding.value,
+                //缓存已生成的 遮罩层元素 element
+                maskElm: null,
+                //切换中
+                maskToggling: false,
+                //准备参数
+                async prepareMask() {
+                    let is = cgy.is,
+                        iss = s => is.string(s) && s!=='',
+                        lm = el.$lmask;
+                    //默认 loading 图标颜色
+                    if (!iss(lm.iconColor)) el.$lmask.iconColor = 'primary';
+                    //默认 loading mask 显示状态
+                    if (!is.boolean(lm.maskShow)) el.$lmask.maskShow = true;
+                    return true;
+                },
+                //创建 mask 元素
+                async createMask() {
+                    //如果在切换中，不执行
+                    if (el.$lmask.maskToggling) return false;
+                    //进入 切换中状态
+                    el.$lmask.maskToggling = true;
+                    let lm = el.$lmask,
+                        mask = document.createElement('div');
+                    //基础样式
+                    mask.classList.add('loading-mask', `loading-icon-${lm.iconColor}`);
+                    mask.style.zIndex = 10;
+                    //animate 进入动画，依赖 animate.css
+                    mask.classList.add('animate__animated', 'animate__fadeIn');
+                    await cgy.wait(10);
+                    //插入 el
+                    el.appendChild(mask);
+                    //等待动画执行
+                    await cgy.wait(300);
+                    //缓存
+                    el.$lmask.maskElm = mask;
+                    //退出切换中状态
+                    el.$lmask.maskToggling = false;
+                    return true;
+                },
+                //移除 mask 元素
+                async removeMask() {
+                    //如果在切换中，不执行
+                    if (el.$lmask.maskToggling) return false;
+                    //进入 切换中状态
+                    el.$lmask.maskToggling = true;
+                    let lm = el.$lmask,
+                        mask = lm.maskElm;
+                    if (cgy.is.elm(mask)) {
+                        //animate 隐藏动画，依赖 animate.css
+                        mask.classList.remove('animate__fadeIn');
+                        mask.classList.add('animate__fadeOut');
+                        //等待动画执行
+                        await cgy.wait(300);
+                        //移除 mask
+                        el.removeChild(mask);
+                        await cgy.wait(10);
+                        //移除缓存
+                        el.$lmask.maskElm = null;
+                    }
+                    //退出切换中状态
+                    el.$lmask.maskToggling = false;
+                    return true;
+                },
+                //toggle mask
+                async toggleMask(show=null) {
+                    let is = cgy.is,
+                        lm = el.$lmask;
+                    //准备参数
+                    await el.$lmask.prepareMask();
+                    //更新 maskShow 参数
+                    if (is.boolean(show)) el.$lmask.maskShow = show;
+                    //toggle mask
+                    if (el.$lmask.maskShow === true) {
+                        if (!is.elm(lm.maskElm)) return await lm.createMask();
+                    } else {
+                        if (is.elm(lm.maskElm)) return await lm.removeMask();
+                    }
+                },
+            }
+
+            //初始化时执行 toogle
+            el.$lmask.toggleMask();
+        },
+
+        //指令值 binding.value 变化时触发
+        update(el, binding) {
+            if (binding.value === binding.oldValue) return false;
+            //指令值更新
+            el.$lmask.toggleMask(binding.value);
+        },
+
+        //解除绑定时 清理资源
+        unbind(el) {
+            if (cgy.is.elm(el.$lmask.maskElm)) {
+                el.$lmask.removeMask().then(()=>{
+                    //删除 $lmask
+                    Reflect.deleteProperty(el, '$lmask');
+                });
+            }
+        },
     },
 
     //nicescroll

@@ -1,7 +1,7 @@
 <template>
     <svg 
-        :class="styComputedClassStr.root" 
-        :style="styComputedStyleStr.root"
+        :class="autoComputedStr.root.class" 
+        :style="autoComputedStr.root.style"
         aria-hidden="true"
     >
         <use v-if="iconKey!='-empty-'" v-bind:xlink:href="'#'+iconKey">
@@ -19,10 +19,10 @@
 </template>
 
 <script>
-import mixinBase from '../../mixin/base';
+import mixinAutoProps from '../../mixin/auto-props';
 
 export default {
-    mixins: [mixinBase],
+    mixins: [mixinAutoProps],
     props: {
         //图标名称，来自加载的图标包，在 cssvar 中指定
         //指定为 -empty- 则显示一个空图标，占据相应尺寸，不显示任何图标
@@ -57,21 +57,27 @@ export default {
     },
     data() {return {
             
-        //覆盖 base-style 样式系统参数
-        sty: {
-            init: {
-                class: {
-                    root: ['__PRE__-icon'],
+        //覆盖 auto-props 系统参数
+        auto: {
+            element: {
+                root: {
+                    class: '__PRE__-icon',
                 }
             },
             prefix: 'icon',
+            csvk: {
+                size: 'icon',
+                color: 'fc',
+            },
             sub: {
                 size: true,
                 color: true,
             },
-            csvKey: {
-                size: 'icon',
-                color: 'fc',
+            extra: {
+                'disabled #manual': true,
+            },
+            switch: {
+                'autoExtra.disabled @root #style': 'opacity: .3; cursor: not-allowed;', 
             },
         },
         
@@ -97,9 +103,12 @@ export default {
                     dft = 'spinner';
                 }
             }
+            
             //获取实际图标数据
             let ico = ui.iconInSet(icon, dft);
-            if (is.plainObject(ico)) return ico.full;
+            if (is.plainObject(ico)) {
+                return ico.full;
+            }
             return '-empty-';
         },
 
@@ -111,7 +120,7 @@ export default {
         //计算 spin 中心坐标
         spinCenter() {
             let fsz = this.sizePropVal,
-                fsarr = this.$ui.sizeToArr(fsz),
+                fsarr = this.$ui.sizeValToArr(fsz),
                 fszn = fsarr[0],
                 r = fszn/2;
             return ` ${r} ${r}`;

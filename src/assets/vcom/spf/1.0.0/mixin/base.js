@@ -2,7 +2,7 @@
  * 组件通用 mixin
  */
 
-import mixinBaseStyle from 'base-style.min.js';
+import mixinBaseStyle from 'base-style';
 
 export default {
     mixins: [mixinBaseStyle],

@@ -12,6 +12,11 @@
 
     //尺寸循环 
     @include spf-size-shift(self, 'icon-', font-size, icon, $extraIconSizeQueue, false);
+    //极小尺寸
+    &.icon-12px {font-size: 12px;}
+    &.icon-10px {font-size: 10px;}
+    &.icon-8px {font-size: 8px;}
+    &.icon-6px {font-size: 6px;}
 }
 
 // __PRE__-icon 组件样式
@@ -21,6 +26,10 @@
 
     //颜色循环 引用 .fc-*
     @include spf-color-extend(self, icon-, fc-, fc, (white,black), (l1,m,d1));
+    &.icon-l2 {@extend .fc-l2;}
+    &.icon-l3 {@extend .fc-l3;}
+    &.icon-d2 {@extend .fc-d2;}
+    &.icon-d3 {@extend .fc-d3;}
 }
 
 // __PRE__-icon-logo 组件样式

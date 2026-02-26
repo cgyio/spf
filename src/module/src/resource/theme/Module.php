@@ -429,6 +429,42 @@ class Module
 
 
     /**
+     * 变量定义语句(代码行数组) 创建方法
+     * !! 如果需要，模块子类可覆盖此方法
+     * @param Array $ctx 要输出的 主题参数数组，通常来自于 $this->getItemByMode() 方法
+     * @param String $ext 内容代码类型 scss|css|js 默认 scss
+     * @param Array $params 需要额外指定的 临时资源实例化参数
+     * @return Array 内容行数组
+     */
+    public function createDefineRows($ctx=[], $ext="scss", $params=[])
+    {
+        //创建一个临时 Codex 资源
+        $codex = $this->tempCodex($ext, $params);
+        //准备行数组
+        $rower = $codex->RowProcessor;
+        $rower->clearRows();
+
+        /**
+         * 调用对应的 createExtDefineRows 方法
+         * 例如：createScssDefineRows, createCssDefineRows, ...
+         * !! 子类必须实现这些方法
+         */
+        $m = "create".Str::camel($ext, true)."DefineRows";
+        if (method_exists($this, $m)) {
+            $this->$m($ctx, $rower);
+            //输出 rows 行数组
+            $rows = array_merge([], $codex->rows);
+        } else {
+            $rows = [];
+        }
+
+        //释放临时资源
+        unset($codex);
+        //返回生成的 rows 行数组
+        return $rows;
+    }
+
+    /**
      * 资源内容(代码行数组) 创建方法
      * !! 如果需要，模块子类可覆盖此方法
      * @param Array $ctx 要输出的 主题参数数组，通常来自于 $this->getItemByMode() 方法
@@ -471,6 +507,16 @@ class Module
      * @param RowProcessor $rower 临时资源的 内容行处理器
      * @return RowProcessor
      */
+    //createScssDefineRows 仅生成 scss 变量定义语句
+    protected function createScssDefineRows($ctx=[], &$rower) {
+        //子类实现...
+        return $rower;
+    }
+    //createCssDefineRows 仅生成 css 变量定义语句
+    protected function createCssDefineRows($ctx=[], &$rower) {
+        //子类实现...
+        return $rower;
+    }
     //createScssContentRows
     protected function createScssContentRows($ctx=[], &$rower)
     {

@@ -10,7 +10,7 @@
     --animate-duration: #{$ani-dura};
 }
 
-//tab 标签行样式
-@mixin spf-tab-row($pre: tab-, $h: $size-bar-m) {
-
+/* !! 覆盖 tightness */
+.tightness-none {
+    padding: 0 !important;
 }

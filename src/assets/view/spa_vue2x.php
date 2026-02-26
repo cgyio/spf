@@ -87,196 +87,11 @@ $view->renderStart();
 <!-- 此时图页面的 模板内容 -->
 <div id="PRE@_app" class="PRE@-layout-wrapper" v-cloak>
 
-    <PRE@-layout>
-        <br><br>
-        <PRE@-button
-            icon="desktop-mac"
-            label="Mask On"
-            @click="testUiMaskOn"
-        ></PRE@-button>
-        <PRE@-button
-            icon="desktop-mac"
-            label="Open Win"
-            @click="openDefaultWin"
-        ></PRE@-button>
-        <!--<PRE@-win
-            win-key="test-win"
-            icon-shape="fill"
-            minimizable
-            maximizable
-            closeable
-            hoverable
-            tabbar
-            :tab-list="$ui.testTabList"
-            :tab-active="$ui.testTabActive"
-            custom-style="z-index: 10;"
-            @tab-active="tabKey => {$ui.testTabActive = tabKey;}"
-        >
-            <template v-slot:tabwin-index="{tab, win}">
-                <div class="win-row">
-                    <span class="fw-bold fc-d3">{{tab.label}}</span>
-                    <span class="flex-1"></span>
-                    <span class="fs-s fc-l2">行尾信息</span>
-                </div>
-            </template>
-            <template v-slot:tabwin-foo="{tab, win}">
-                <div class="win-row">
-                    <span>{{tab.label}}</span>
-                </div>
-            </template>
-            <template v-slot:tabwin-bar="{tab, win}">
-                <div class="win-row">
-                    <span>{{tab.label}}</span>
-                </div>
-            </template>
-            <template v-slot:tabwin-jaz="{tab, win}">
-                <div class="win-row">
-                    <span>{{tab.label}}</span>
-                </div>
-            </template>
-        </PRE@-win>
-        <br><br>
-
-        <PRE@-win
-            tightness="loose"
-            closeable
-            shadow="bold"
-            custom-style="z-index: 20;"
-        >
-            <template v-slot:titctrl>
-                <PRE@-button
-                    icon="search"
-                    label="搜索"
-                    type="primary"
-                ></PRE@-button>
-                <PRE@-button
-                    icon="storm"
-                    icon-shape="sharp"
-                    type="danger"
-                    stretch="square"
-                ></PRE@-button>
-            </template>
-        </PRE@-win>-->
-        <br><br>
-
-        <div class="flex-y mg-l mg-po-l" style="width: 640px; height: 480px;">
-            <PRE@-win
-                win-type="inside"
-                icon=""
-                sharp
-                hoverable
-                :tab-list="winTabList"
-                :tab-active="winTabActive"
-                :win-confirmed="winConfirmed"
-                @tab-active="whenTabActive"
-                @confirm="whenWinConfirm"
-            >
-                <template v-slot:tab-foo="{win, tab}">
-                    <div class="win-row">{{tab.key + ': ' + tab.label}}</div>
-                </template>
-            </PRE@-win>
-        </div>
-
-        <br><br><br><br><br><br><br><br><br><br>
-
-        <div class="flex-x">
-            <PRE@-button icon="shutter-speed" label="拍摄" size="mini" type="primary"></PRE@-button>
-            <PRE@-button icon="shutter-speed" label="拍摄" size="small" type="danger"></PRE@-button>
-            <PRE@-button icon="shutter-speed" label="拍摄"></PRE@-button>
-            <PRE@-button icon="shutter-speed" icon-shape="fill" label="拍摄" size="medium" color="cyan"></PRE@-button>
-            <PRE@-button icon="shutter-speed" icon-shape="sharp" label="拍摄" size="large" color="orange"></PRE@-button>
-            <PRE@-button icon="wallet" label="我的钱包" size="mini" type="primary" effect="fill"></PRE@-button>
-            <PRE@-button icon="wallet" label="我的钱包" size="small" type="danger" effect="fill"></PRE@-button>
-            <PRE@-button icon="wallet" icon-shape="fill" label="我的钱包" effect="fill"></PRE@-button>
-            <PRE@-button icon="wallet" icon-shape="sharp" label="我的钱包" size="medium" color="cyan" effect="fill"></PRE@-button>
-            <PRE@-button icon="drafts" label="邮件" size="large" color="orange" effect="fill"></PRE@-button>
-            <PRE@-button icon="drafts" icon-shape="sharp" label="邮件" size="mini" type="primary" effect="popout"></PRE@-button>
-            <PRE@-button icon="bluetooth-audio" label="蓝牙连接" size="small" type="danger" effect="popout"></PRE@-button>
-            <PRE@-button icon="bluetooth-audio" icon-shape="sharp" label="蓝牙连接" effect="popout"></PRE@-button>
-            <PRE@-button icon="wifi" label="无线网络" size="medium" color="cyan" effect="popout"></PRE@-button>
-            <PRE@-button icon="wifi" icon-shape="sharp" label="无线网络" size="large" color="orange" effect="popout"></PRE@-button>
-        </div><br><br>
-
-        <div class="flex-x">
-            <PRE@-button icon="drafts" label="邮件" size="large" color="orange" effect="fill"></PRE@-button>
-            <PRE@-button icon="drafts" label="邮件" size="large" color="orange" effect="fill" stretch="square"></PRE@-button>
-        </div><br><br>
-
-        <div class="flex-x">
-            <PRE@-button icon="sync" label="刷新数据" type="primary" spin></PRE@-button>
-            <PRE@-button icon="sync" label="刷新数据" type="primary" spin="self"></PRE@-button>
-            <PRE@-button icon="wifi" label="连接网络" type="primary" spin="wifi" disabled></PRE@-button>
-            <PRE@-button icon="delivery-dining" label="配送" type="danger"></PRE@-button>
-            <PRE@-button icon="delivery-dining" icon-shape="fill" label="配送" type="warn"></PRE@-button>
-            <PRE@-button icon="delivery-dining" icon-shape="sharp" label="配送" type="success"></PRE@-button>
-            <PRE@-button icon="snowboarding" label="滑雪中" color="cyan"></PRE@-button>
-            <PRE@-button icon="snowboarding" icon-shape="sharp" label="滑雪中" color="orange"></PRE@-button>
-            <PRE@-button icon="snowboarding" icon-shape="fill" label="滑雪中" color="purple"></PRE@-button>
-        </div><br>
-
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        <br><br><br><br><br><br><br><br><br><br>
-        
-    </PRE@-layout>
-    <!--
-    <div class="flex-x">
-        <PRE@-button-group size="normal" effect="plain">
-            <PRE@-button icon="vant-home" label="主页"></PRE@-button>
-            <PRE@-button icon="vant-close" label="退出"></PRE@-button>
-            <PRE@-button icon="vant-check" label="确定" active></PRE@-button>
-        </PRE@-button-group>
-        <PRE@-button-group size="normal" radius="pill" effect="plain" type="warn">
-            <PRE@-button icon="vant-home" label="主页"></PRE@-button>
-            <PRE@-button icon="vant-close" label="退出" active></PRE@-button>
-            <PRE@-button icon="vant-check" label="确定"></PRE@-button>
-        </PRE@-button-group>
-    </div><br><br>
-    <div class="flex-x">
-        <PRE@-button-group size="normal" radius="pill" effect="plain" full-line>
-            <PRE@-button icon="vant-home" label="主页" type="primary"></PRE@-button>
-            <PRE@-button icon="vant-close" label="退出" type="danger"></PRE@-button>
-            <PRE@-button icon="vant-check" label="确定" type="success"></PRE@-button>
-        </PRE@-button-group>
-    </div><br><br>
-
-    <br><br><br><br>
-
-    <div class="__PRE__-scrollbar bd-m bd-xy" style="width: 320px; height: 240px;">
-        foobar<br><br><br><br><br>
-        foobar<br><br><br><br><br>
-        foobar<br><br><br><br><br>
-        <div class="bg-red-l3" style="width:100%;height:100px;"></div>
-        foobar<br><br><br><br><br>
-        foobar<br><br><br><br><br>
-        foobar<br><br><br><br><br>
-    </div>
+    <PRE@-bar-sty
+        bgc="cyan-l3"
+        disabled
+    ></PRE@-bar-sty>
     
-    <br><br><br><br>
-
-    <PRE@-theme-color-row color="red"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="orange"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="yellow"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="green"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="cyan"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="blue"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="purple"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="gray"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="fc"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="bgc"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="bdc"></PRE@-theme-color-row>
-    <PRE@-theme-color-row color="bz"></PRE@-theme-color-row>
--->
 </div>
 
 <!-- 应用 SPA 环境插件，创建 根组件实例 js 代码块 -->
@@ -300,6 +115,140 @@ Vue.rootApp({
     mixins: [baseRootMixin],
     props: {},
     data() {return {
+        //v-loading-mask
+        blockLoading: true,
+
+        //collapse
+        collapseValue: ['foo'],
+
+        //menu
+        showMenuA: true,
+        showMenuA4: false,
+        showMenuB: false,
+        showMenuC: false,
+        showMenuD: false,
+
+        testMenus: [
+            {
+                key: 'menu-foo', 
+                icon: 'btn-tuangou', 
+                label: '菜单 foo',
+                sub: [
+                    {
+                        key: 'menu-foo-a',
+                        label: '菜单 foo-a',
+                        //icon: 'hearing',
+                        cmd: () => console.log('菜单 foo-a is actived'),
+                    },
+                    {
+                        key: 'menu-foo-b',
+                        label: '菜单 foo-b',
+                        cmd: () => this.testMenuCmd('foo-b'),
+                    },
+                    {
+                        key: 'menu-foo-c',
+                        label: '菜单 foo-c',
+                        sub: [
+                            {
+                                key: 'menu-foo-c-a',
+                                label: '菜单 foo-c-a'
+                            },
+                            {
+                                key: 'menu-foo-c-b',
+                                label: '菜单 foo-c-b',
+                                params: {
+                                    disabled: true
+                                },
+                            },
+                            {
+                                key: 'menu-foo-c-c',
+                                label: '菜单 foo-c-c',
+                                sub: [
+                                    /*{
+                                        key: 'menu-foo-c-c-a',
+                                        label: '菜单 foo-c-c-a'
+                                    },
+                                    {
+                                        key: 'menu-foo-c-c-b',
+                                        label: '菜单 foo-c-c-b'
+                                    },*/
+                                ],
+                                subLazyload: true,
+                            },
+                        ]
+                    },
+                    {
+                        key: 'menu-foo-d',
+                        label: '菜单 foo-d'
+                    },
+                ]
+            },
+            {
+                key: 'menu-bar', 
+                icon: 'outlined-flag', 
+                label: '菜单 bar',
+                sub: [
+                    {
+                        key: 'menu-bar-a',
+                        label: '菜单 bar-a'
+                    },
+                    {
+                        key: 'menu-bar-b',
+                        label: '菜单 bar-b'
+                    },
+                ]
+            },
+            {
+                key: 'menu-jaz', 
+                icon: 'male', 
+                label: '菜单 jaz',
+                sub: [
+                    {
+                        key: 'menu-jaz-a',
+                        label: '菜单 jaz-a'
+                    },
+                    {
+                        key: 'menu-jaz-b',
+                        label: '菜单 jaz-b'
+                    },
+                    {
+                        key: 'menu-jaz-c',
+                        label: '菜单 jaz-c',
+                        sub: [
+                            {
+                                key: 'menu-jaz-c-a',
+                                label: '菜单 jaz-c-a'
+                            },
+                            {
+                                key: 'menu-jaz-c-b',
+                                label: '菜单 jaz-c-b'
+                            },
+                            {
+                                key: 'menu-jaz-c-c',
+                                label: '菜单 jaz-c-c'
+                            },
+                        ]
+                    },
+                ]
+            },
+            {
+                key: 'menu-tom', 
+                icon: 'power', 
+                label: '菜单 tom',
+                sub: [
+                    {
+                        key: 'menu-tom-a',
+                        label: '菜单 tom-a'
+                    },
+                    {
+                        key: 'menu-tom-b',
+                        label: '菜单 tom-b'
+                    },
+                ]
+            },
+        ],
+        testMenuCompact: false,
+
         winTabList: [
             {key: 'foo', label: 'foo',},
             {key: 'layout', label: 'layout', component: 'pms-layout', compParams: {}}
@@ -338,6 +287,15 @@ Vue.rootApp({
             await this.$wait(3000);
             win.winLoading(false);
             this.winConfirmed = true;
+        },
+
+        whenLayoutXColResized(...args) {
+            console.log('layout-x col resized', ...args);
+        },
+
+
+        testMenuCmd(menuKey) {
+            console.log(menuKey, 'active with cmd this.testMenuCmd');
         },
     }
 });

@@ -98,7 +98,7 @@ export default {
                 comp = compDef.constructor;
             //console.log(compDef);
             //检查组件定义的 data 确认此组件可以被动态加载 comp.data.dynamic === true
-            if (compDef.data.dc.dynamic !== true) {
+            if (!is.defined(compDef.data.dc) || !is.defined(compDef.data.dc.dynamic) || compDef.data.dc.dynamic !== true) {
                 return null;
             }
 
@@ -108,7 +108,7 @@ export default {
             //实例化组件 comp
             let ins = new comp({propsData: props.props}).$mount();
             //全局唯一 key 写入组件实例
-            ins.dcKey = dcKey;
+            ins.$set(ins.dc, 'key', dcKey);
 
             //事件处理
             if (!is.empty(props.on)) {
@@ -130,11 +130,6 @@ export default {
             //返回创建好的组件实例
             return ins;
         },
-        //覆盖 组件库 instance.js 中定义的实例方法 $invoke
-        //async $invoke(compName, compProps = {}) {
-            // Vue.service.dc.$invoke(...) === Vue.service.dc.invoke(..., Vue.$root)
-        //    return await this.invoke(compName, compProps, Vue.$root);
-        //},
 
         /**
          * 处理传入的 事件监听参数
@@ -185,21 +180,21 @@ export default {
                     comp.$on(ehn, eh);
                 }
                 //添加到 监听事件数组，用于后期解除监听
-                if (!is.array(comp.dcEvents)) comp.$set(comp._data, 'dcEvents', []);
-                if (!comp.dcEvents.includes(ehn)) comp.dcEvents.push(ehn);
+                if (!is.array(comp.dc.events)) comp.$set(comp.dc, 'events', []);
+                if (!comp.dc.events.includes(ehn)) comp.dc.events.push(ehn);
             });
             await this.$wait(10);
             return comp;
         },
 
         /**
-         * 根据传入的组件实例的 dcEvents 中保存的监听事件名，批量移除事件监听
+         * 根据传入的组件实例的 dc.events 中保存的监听事件名，批量移除事件监听
          * @param {Vue} comp
          * @return {Vue} 移除了所有监听事件的组件实例
          */
         off(comp) {
             let is = this.$is,
-                ehs = comp.dcEvents || [];
+                ehs = comp.dc.events || [];
             if (is.array(ehs) && ehs.length>0) {
                 this.$each(ehs, (ehn, i) => {
                     //解除事件监听
@@ -343,14 +338,17 @@ export default {
                 vcn = this.$vcn(compName);
             if (!is.string(vcn) || vcn==='') return null;
             let comp = Vue.component(vcn);
+            //console.log(comp);
             if (is.undefined(comp)) return null;
             //异步组件形式
             if (comp.toString().includes('import')) {
                 //异步组件是懒加载的，此时 组件 compName 还未加载
                 comp = await comp();
+                console.log(comp);
                 if (is.undefined(comp.default)) return null;
                 comp = comp.default;
             }
+            //console.log(comp);
             //comp 是 function，所有组件定义都挂在 comp.options 上
             if (!is.function(comp) || !is.defined(comp.options)) return null;
             //准备一个临时 Vue 实例

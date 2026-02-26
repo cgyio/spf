@@ -75,6 +75,18 @@ class Src extends Module
             return null;
         }
 
+        // /src/[icon|theme|vcom]
+        if (count($args)===1 && in_array($args[0],["icon","theme","vcom"])) {
+            //输出视图
+            Response::insSetType("view");
+            return [
+                "view" => "SpaVue2x@spf/assets/view/spa_".$args[0].".php",
+                "params" => [
+                    
+                ],
+            ];
+        }
+
         //首先尝试直接查找 资源
         $opts = ResourceSeeker::seek(...$args);
         if (Is::nemarr($opts)) {
@@ -98,6 +110,16 @@ class Src extends Module
         //未找到任何资源，返回 404
         Response::insSetCode(404);
         return null;
+    }
+
+    /**
+     * view
+     * @desc phpinfo
+     * @auth false
+     */
+    public function phpinfoView()
+    {
+        return phpinfo();
     }
 
     /**

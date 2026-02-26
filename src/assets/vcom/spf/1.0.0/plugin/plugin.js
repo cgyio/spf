@@ -154,6 +154,8 @@ bs.install = function(Vue, options = {}) {
 
     //扩展 Vue
     cgy.def(Vue, {
+        //工具库
+        cgy,
         
         host: window.location.href.split('://')[0]+'://'+window.location.href.split('://')[1].split('/')[0],
         
@@ -210,6 +212,7 @@ bs.install = function(Vue, options = {}) {
         $request:   Vue.request,
         $req:       Vue.req,
         $lib:       Vue.lib,
+        $mustache:  Vue.mustache,
     });
 
     //引入 instanceMethods 文件

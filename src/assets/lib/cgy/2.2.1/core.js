@@ -91,7 +91,7 @@ Reflect.defineProperty(cgy, 'is', {
                     eachable: anything => cgy.is.eachTypes.includes(cgy.is(anything)),
                     //与 php is_numeric 方法相同，必须以 数字开头的 字符
                     numeric: anything => {
-                        if (cgy.is.string(anything)) return cgy.reg('^\\d{1,}').test(anything);
+                        if (cgy.is.string(anything)) return cgy.reg('^\\-?[\\d.]{1,}').test(anything);
                         if (cgy.is.number(anything)) return !isNaN(anything*1);
                         return false;
                     }, 
@@ -118,7 +118,13 @@ Reflect.defineProperty(cgy, 'is', {
                     elm: anything => anything instanceof HTMLElement,
                     vue: anything => !cgy.is.empty(anything) && ((cgy.is.defined(Vue) && cgy.is.instance(anything, Vue)) || (cgy.is.defined(anything._isVue) && anything._isVue==true)),
                     equal: (any1, any2) => cgy.is(any1)==cgy.is(any2),
-                };
+                    //后期增加
+                    nemstr: anything => cgy.is.string(anything) && anything!=='',
+                    nemarr: anything => cgy.is.array(anything) && anything.length>0,
+                    nemobj: anything => cgy.is.plainObject(anything) && !cgy.is.empty(anything),
+                    //mustache: anything => cgy.is.nemstr(anything) && anything.includes('{{') && anything.includes('}}'),
+                    //mustacheFn: anything => cgy.is.function(anything) && cgy.is.defined(anything._isMustacheFn) && anything._isMustacheFn===true,
+                }; 
     
                 if (Object.keys(props).includes(prop)) return props[prop];
                 if (props.types.includes(prop)) {
@@ -272,12 +278,14 @@ cgy.def(String.prototype, {
     tpl(data={}, regx=null, sign=null) {
         let regxs = [   //预定义的正则匹配模式
             ['\\%\\{[^\\}\\%]+\\}\\%', ['%{','}%']],    // %{a.b.c}%
-            ['\\$\\{[^\\}]+\\}', ['${','}']],          // ${a.b.c}
+            ['\\$\\{[^\\}]+\\}', ['${','}']],           // ${a.b.c}
+            ['\\{[^\\}]+\\}', ['{','}']],               // {a.b.c}
         ];
         let s = this;
 
         if (cgy.is.null(regx)) {
-            let idx = s.includes('%{') ? 0 : 1;
+            if (!s.includesAny('{','}')) return s;
+            let idx = s.includes('%{') ? 0 : (s.includes('${') ? 1 : 2);
             regx = regxs[idx][0];
             sign = regxs[idx][1];
         } else if (cgy.is.number(regx)) {
@@ -1851,6 +1859,178 @@ cgy.def({
             if (type=='d') d += n;
             return new Date(y,m,d);
         },
+    },
+
+    /**
+     * 实现 Vue 组件模板中 {{...}} 内部的 Mustache 表达式的解析，以及基于 this(绑定组件实例) 的 变量取值方法
+     * 解析语句，并返回 求值函数
+     * fn = cgy.mustache('{{code}}', [表达式最终值类型数组...])
+     * fn(传入this上下文，通常为vue组件实例) --> 得到当前值 可在计算属性中使用
+     */
+    mustache(code='', _types=[String,Boolean]) {
+        let is = cgy.is,
+            iss = s => is.string(s) && s!=='',
+            //根据 _types 类型数组，决定返回的空值
+            empty = tps => {
+                let is = cgy.is,
+                    isa = a => is.array(a) && a.length>0,
+                    //默认空值 ''
+                    dft = '';
+                if (!isa(tps)) return dft;
+                //空值返回方法
+                if (tps.includes(String)) return '';
+                if (tps.includes(Boolean)) return false;
+                if (tps.includes(Number)) return 0;
+                if (tps.includes(Array)) return [];
+                if (tps.includes(Object)) return {};
+                return dft;
+            },
+            //判断给定的值是否在 current._types 类型列表中
+            inTypes = (val, tps) => {
+                let is = cgy.is,
+                    isa = a => is.array(a) && a.length>0;
+                if (!isa(tps)) return false;
+                //类型判断
+                if (tps.includes(String) && is.string(val)) return true;
+                if (tps.includes(Boolean) && is.boolean(val)) return true;
+                if (tps.includes(Number) && is.realNumber(val)) return true;
+                if (tps.includes(Array) && is.array(val)) return true;
+                if (tps.includes(Object) && is.plainObject(val)) return true;
+                return false;
+            };
+
+        //传入空字符串直接根据 _types 返回 返回空值的 函数
+        if (!iss(code)) return () => empty(_types);
+        code = code.trim();
+
+        //!! 可在传入的 code 中包含返回值类型 {{...}}[String,Boolean] 
+        let stpsReg = /\[[^\]]+\]$/g,
+            stps = code.match(stpsReg);
+        if (is.nemarr(stps)) {
+            code = code.replace(stps[0], '').trim();
+            //code 中包含的返回值类型，将覆盖传入的 _types
+            //!! 如果 code 中包含的 []返回值类型无效，将会报错!!
+            _types = (new Function('return '+stps[0]+';'))();
+        }
+
+        //解析 Mustache 语句
+        let parsed = cgy.parseMustache(code);
+        if (!iss(parsed)) return () => empty(_types);
+        //console.log(parsed);
+        //根据 parsed 代码段，判断是否需要包裹 `` 字符串模板
+        let istpl = parsed.includes('${') || !parsed.includes('this.');
+        //根据 parsed 代码段，生成动态求值函数
+        let fnstr = istpl ? '`'+parsed+'`' : parsed,
+            fn = new Function('return '+fnstr+';'),
+            //要返回的包裹函数 _this 表示要绑定的上下文，_origin 表示是否忽略返回值类型，原样返回
+            rtn = function(_this, _origin=false) {
+                //求值
+                let val = fn.call(_this);
+                //console.log(val);
+                //判断类型  类型不符合则返回空值
+                if (inTypes(val, _types)!==true && _origin!==true) return empty(_types);
+                //返回最终求得的值
+                return val;
+            };
+        //!! 标记这是一个求值函数
+        rtn._isMustacheFn = true;
+        //返回
+        return rtn;
+    },
+    /**
+     * 解析 Mustache 表达式，为其中的变量名 添加 this. 前缀
+     * !! 传入的 code 必须包裹在 {{}} 中
+     * !! 如果传入的 code 包含 {{...}} 则只将 {{}} 内部的字符串作为 Mustache 语句，外部的字符串原样拼接
+     * !! 使用字符串模板 `...${}...` 拼接处理后的 内外字符串
+     * !! 如果 code 不含任何 {{}} 字符，则原样返回
+     * 
+     * 变量名可能的写法：
+     *      foo                 --> this.foo
+     *      foo.bar             --> this.foo.bar
+     *      foo[bar]            --> this.foo[this.bar]
+     *      foo[0]              --> this.foo[0]
+     *      foo.bar['key']      --> this.foo.bar['key']
+     *      foo.bar[bar[jaz[...]]]      --> 支持嵌套 this.foo.bar[this.bar[this.jaz[...]]]
+     * !! 变量名需要满足 javascript 变量命名规则：
+     *      只能包含 [a-zA-z0-9_$] 且 开头不能是 数字
+     * 
+     */
+    parseMustache(code) {
+        let is = cgy.is,
+            iss = s => is.string(s) && s!=='',
+            //变量命名规则
+            vreg = /[a-zA-Z_$][a-zA-Z0-9_$]*/g,
+            //{{...}} 语法正则
+            sreg = /\{\{[^\}]+\}\}/g,
+            //包裹在 '' 或 "" 中的字符串
+            qreg = /('[^']*')|("[^"]*")/g;
+        //空字符串
+        if (!iss(code)) return '';
+        //不含 {{}} 的字符串
+        if (!code.includes('{{') && !code.includes('}}')) return code;
+        //trim
+        code = code.trim();
+
+        //如果整体包裹在 {{}} 中
+        if (code.startsWith('{{') && code.endsWith('}}')) {
+            //查找 前1个或n个字符 如果是空格 继续向前查找，直到字符串开头 或 找到不是空格的字符，返回找到的字符
+            let findPrev = (offset, str) => {
+                if (offset<=0) return '';
+                let i = offset - 1,
+                    find = str[i];
+                while (find===' ' && i>0) {
+                    i--;
+                    find = str[i];
+                }
+                return find===' ' ? '' : find;
+            };
+            //去除头尾 {{}}
+            code = code.slice(2, code.length-2).trim();
+            //在这些字符之后的变量名不加 this.
+            let except = `. ' "`.split(' '),
+                //这些允许的关键字不加 this.
+                kws = 'true,false,null,undefined'.split(',');
+            //先拆分出 包裹在 '' 或 "" 中的纯字符
+            let idx = -1,
+                strs = [];
+            code = code.replace(qreg, (match, offset, str) => {
+                idx++;
+                strs.push(match);
+                return ' @'+idx+' ';
+            });
+            //给所有符合变量名规则的 前面加 this.
+            code = code.replace(vreg, (match, offset, str) => {
+                //检查关键字
+                if (kws.includes(match.toLowerCase())) return match;
+                const prevChar = findPrev(offset, str);
+                //在 except 排除的字符之后的变量名 不加 this.
+                if (except.includes(prevChar)) return match;
+                return `this.${match}`;
+            });
+            //再回填 '' 或 "" 中的纯字符
+            for (let i=0;i<strs.length;i++) {
+                code = code.replace(' @'+i+' ', strs[i]);
+            }
+            //返回处理后的 代码段
+            return code;
+        }
+
+        //如果内部包含 {{}} 则只处理 {{}} 内部的语句，最终返回值只能是 String
+        let idx = -1,
+            //拆分出 {{}} 外部字符串
+            out = code.replace(sreg, (match, offset, str) => {
+                idx++;
+                return '${__CODE_'+idx+'__}';
+            });
+        //开始依次处理 {{}} 内部的 Mustache 语句
+        cgy.each(code.match(sreg), (codei, i) => {
+            let ck = '__CODE_'+i+'__',
+                parsed = cgy.parseMustache(codei);
+            //替换 out 语句中的 __CODE_n__
+            out = out.replace(ck, parsed);
+        });
+        return out;
+        
     },
 });
 

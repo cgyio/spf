@@ -787,7 +787,7 @@ class Vcom extends Compound
                 //如果此组件库是 业务组件库，需要提供不同的 basePrefix
                 "basepre" => $desc["basePrefix"],
                 //自动注册
-                "regist" => false,
+                "regist" => true,
                 //不注入样式
                 "inject" => false,
                 //esm 导出
@@ -1286,13 +1286,13 @@ class Vcom extends Compound
         $thres = $this->theme;
         //clone
         $tho = $thres->clone([
-            /*//!! 强制 create 因为 combine 参数不会体现到 cache 文件名上
+            //!! 强制 create 因为 combine 参数不会体现到 cache 文件名上
             //!! 如果不强制 create 则当 combine 改变时也不会触发 create
             //!! 主题中的 vcom.scss 默认优先读取 default.css 缓存以跳过主体自身文件的编译
             //!! 因此如果主题本身代码发生改变，需要先单独 create default.css?mode=...
             "create" => true,
             //!! 调用 SPF-Theme 主题中的 vcom.scss 子资源
-            "file" => "vcom",*/
+            "file" => "vcom",
 
             //输出格式为 scss
             "export" => "scss",
@@ -2393,13 +2393,13 @@ class Vcom extends Compound
 
             //输出视图
             Response::insSetType("view");
-            /*return [
-                "view" => "spf/assets/view/spa_vue2x.php",
+            return [
+                "view" => "SpaVue2x@spf/assets/view/spa_vcom.php",
                 "params" => [
-                    "vcom" => $vcom
+                    "app" => []
                 ],
-            ];*/
-            return View::SpaVue2x($vcom);
+            ];
+            //return View::SpaVue2x($vcom);
         }
 
         //其他情况，直接使用父类 proxyer

@@ -101,7 +101,7 @@ const defineSpfIcon = {
         //计算 spin 中心坐标
         spinCenter() {
             let fsz = this.sizePropVal,
-                fsarr = this.$ui.sizeToArr(fsz),
+                fsarr = this.$ui.sizeValToArr(fsz),
                 fszn = fsarr[0],
                 r = fszn/2;
             return ` ${r} ${r}`;
@@ -520,6 +520,14 @@ const defineSpfButton = {
             default: ''
         },
 
+        /**
+         * 是否显示 关闭按钮
+         */
+        closeable: {
+            type: Boolean,
+            default: false
+        },
+
 
         /**
          * 样式开关
@@ -541,11 +549,11 @@ const defineSpfButton = {
         },
         /**
          * shape 形状
-         * 可选值： normal(默认) | pill | circle | sharp
+         * 可选值： sharp | round(默认) | pill | circle
          */
         shape: {
             type: String,
-            default: 'normal'
+            default: 'round'
         },
         /**
          * effect 填充效果
@@ -557,11 +565,11 @@ const defineSpfButton = {
         },
         /**
          * stretch 按钮延伸类型
-         * 可选值： normal(默认) | full-line | square
+         * 可选值： auto(默认) | square | grow | row
          */
         stretch: {
             type: String,
-            default: 'normal'
+            default: 'auto'
         },
         //link 链接形式按钮
         link: {
@@ -570,6 +578,20 @@ const defineSpfButton = {
         },
         //no-gap 按钮之间紧密排列，无间隙
         noGap: {
+            type: Boolean,
+            default: false
+        },
+
+        /**
+         * 特殊样式
+         */
+        //在 单元格中
+        incell: {
+            type: Boolean,
+            default: false
+        },
+        //作为 标题
+        astitle: {
             type: Boolean,
             default: false
         },
@@ -604,34 +626,41 @@ const defineSpfButton = {
         sty: {
             init: {
                 class: {
-                    root: ['spf-btn', 'flex-x', 'flex-x-center'],
+                    root: 'spf-btn btn flex-x flex-x-center',
                 }
             },
             prefix: 'btn',
             sub: {
                 size: true,
                 color: true,
-                animate: 'enabled',
+                animate: 'disabled:false',
             },
             switch: {
                 //启用 下列样式开关
-                iconRight: true,
-                'hoverable:disabled': true,
-                shape: true,
-                effect: true,
-                stretch: true,
+                //iconRight: true,
+                'hoverable:disabled': '.hoverable',
+                shape: '.shape-{swv}',
+                effect: '.effect-{swv}',
+                stretch: '.stretch-{swv}',
                 link: true,
                 noGap: true,
-                active: true,
-                'stage.pending:disabled': 'pending',
-                'stage.press:disabled': 'pressed',
-                'fullfilledWhen:disabled': 'fullfilled',
+                incell: true,
+                astitle: true,
+                active: '.active',
+                'stage.pending:disabled': '.pending',
+                'stage.press:disabled': '.pressed',
+                'fullfilledWhen:disabled': '.fullfilled',
+
+                //switch 定义字符串模板测试
+                //sizeTest: '.btn-test btn-test-{swv}',
             },
             csvKey: {
                 size: 'btn',
                 color: 'fc',
             },
         },
+
+        //sizeTest: 'tiny',
 
         /**
          * 按钮点击状态
@@ -658,24 +687,19 @@ const defineSpfButton = {
                 is = this.$is;
             return !(is.string(label) && label !== '');
         },
+        //判断是否 方形|圆形 按钮
+        isSquare() {
+            return this.stretch==='square' || this.shape==='circle';
+        },
 
         //根据 btn-size 计算 内部 icon 的 size 参数
         iconSize() {
-            let is = this.$is,
-                ui = this.$ui,
-                sztp = this.sizePropType,
-                squ = this.stretch==='square' || this.effect==='circle',
-                size = this.size;;
-            if ('str,key'.split(',').includes(sztp)) {
-                //按钮内部 icon 尺寸 小一级
-                return squ ? size : ui.sizeKeyShiftTo(size, 's1');
-            }
-            let sz = this.sizePropVal;
-            if (!ui.isSizeVal(sz)) return size;
-            let fs = ui.sizeCalcBarFs(sz),
-                nsz = ui.sizeValToKey(fs, 'icon');
-            if (is.string(nsz)) return nsz;
-            return fs;
+            if (this.isSquare) return this.size;
+            return this.stySizeShift('s1', 'icon');
+        },
+        //根据 btn-size 计算 内部 close 按钮的 size 参数
+        btnSize() {
+            return this.stySizeShift('s2', 'btn');
         },
 
         //stage 状态是否处于 pending 
@@ -770,6 +794,11 @@ const defineSpfButton = {
             //this.$ev('mouse-up', this, event);
             return this.$emit('mouse-up');
         },
+
+        //close按钮
+        whenClose(event) {
+            return this.$emit('close');
+        },
     }
 }
 
@@ -777,7 +806,7 @@ const defineSpfButton = {
 
 
 
-defineSpfButton.template = `<div :class="styComputedClassStr.root" :style="styComputedStyleStr.root" @click="whenBtnClick" @mouseenter="whenMouseEnter" @mouseleave="whenMouseLeave" @mousedown="whenMouseDown" @mouseup="whenMouseUp"><spf-icon v-if="!iconRight && !isEmptyIcon" :icon="icon" :size="iconSize" :spin="iconSpin" :shape="iconShape" :custom-class="iconClass" :custom-style="iconStyle"></spf-icon><label v-if="!isEmptyLabel && stretch!=='square' && shape !== 'circle'" :class="labelClass" :style="labelStyle">{{label}}</label><spf-icon v-if="iconRight && !isEmptyIcon" :icon="icon" :size="iconSize" :spin="iconSpin" :shape="iconShape" :custom-class="iconClass" :custom-style="iconStyle"></spf-icon></div>`;
+defineSpfButton.template = `<div :class="styComputedClassStr.root" :style="styComputedStyleStr.root" @click="whenBtnClick" @mouseenter="whenMouseEnter" @mouseleave="whenMouseLeave" @mousedown="whenMouseDown" @mouseup="whenMouseUp"><spf-icon v-if="!iconRight && !isEmptyIcon" :icon="icon" :size="iconSize" :spin="iconSpin" :shape="iconShape" :custom-class="iconClass" :custom-style="iconStyle"></spf-icon><spf-button v-if="iconRight && closeable" icon="close" :size="btnSize" type="danger" effect="popout" shape="circle" custom-style="margin-left:-0.8em; margin-right:1.5em;" @click="whenClose"></spf-button><label v-if="!isEmptyLabel && stretch!=='square' && shape !== 'circle'" :class="labelClass" :style="labelStyle">{{label}}</label><spf-button v-if="!iconRight && closeable" icon="close" :size="btnSize" type="danger" effect="popout" shape="circle" custom-style="margin-right:-0.8em; margin-left:1.5em;" @click="whenClose"></spf-button><spf-icon v-if="iconRight && !isEmptyIcon" :icon="icon" :size="iconSize" :spin="iconSpin" :shape="iconShape" :custom-class="iconClass" :custom-style="iconStyle"></spf-icon></div>`;
 
 if (defineSpfButton.computed === undefined) defineSpfButton.computed = {};
 defineSpfButton.computed.profile = function() {return {};}
@@ -814,7 +843,7 @@ const defineSpfLayout = {
         sty: {
             init: {
                 class: {
-                    root: ['spf-layout','flex-x','flex-y-stretch','bd-m','bdc-m','bd-po-t','bgc-m'],
+                    root: 'spf-layout flex-x flex-y-stretch bd-m bdc-m bd-po-t bgc-m',
                 }
             },
         },
@@ -1019,20 +1048,19 @@ const defineSpfLayoutMask = {
         sty: {
             init: {
                 class: {
-                    root: ['spf-mask', 'flex-x', 'flex-y-center', 'flex-x-center'],
+                    root: 'spf-mask flex-x flex-y-center flex-x-center',
                 }
             },
             prefix: 'mask',
             sub: {
                 size: false,
                 color: true,
-                animate: 'enabled',
+                animate: 'disabled:false',
             },
             switch: {
                 //启用 下列样式开关
                 blur: true,
                 alpha: true,
-                'dcDisplay.show': 'show',
             },
             csvKey: {
                 size: '',
@@ -1040,11 +1068,43 @@ const defineSpfLayoutMask = {
             },
         },
 
-        //作为动态组件
-        multiple: false,
+        //覆盖 base-dynamic 动态组件参数
+        dc: {
+            //此动态组件只允许 单例
+            multiple: false,
+        },
     }},
     computed: {},
     methods: {
+
+        /**
+         * 动态组件的 动画效果
+         */
+        //显示
+        async dcShow() {
+            if (this.isDcShow===false) {
+                //先设置 zIndex
+                await this.setZindex();
+                //执行显示动画
+                await this.dcToggle('show', true);
+                //触发事件
+                this.$emit('mask-on');
+                return true;
+            }
+            return false;
+        },
+        //隐藏
+        async dcHide() {
+            if (this.isDcShow===true) {
+                //执行显示动画
+                await this.dcToggle('show', false);
+                //触发事件
+                this.$emit('mask-off');
+                return true;
+            }
+            return false;
+        },
+
         //处理点击事件
         whenMaskClick(event) {
             if (this.clickOff === true) {
@@ -1547,12 +1607,12 @@ const defineSpfWin = {
         sty: {
             init: {
                 class: {
-                    root: ['spf-win', 'flex-y', 'flex-x-stretch'],
+                    root: 'spf-win flex-y flex-x-stretch',
                 }
             },
             prefix: 'win',
             sub: {
-                animate: 'enabled'
+                animate: 'disabled:false'
             },
             switch: {
                 //启用 下列样式开关
@@ -1562,9 +1622,9 @@ const defineSpfWin = {
                 shadow: true,
                 hoverable: true,
                 tightness: true,
-                'dcDisplay.show': 'show',
-                'dcDisplay.minimized': 'minimized',
-                'dcDisplay.maximized': 'maximized',
+                //'dcDisplay.show': 'show',
+                'dc.display.minimized': 'minimized',
+                'dc.display.maximized': 'maximized',
             },
             csvKey: {
                 size: 'block',
@@ -1572,8 +1632,33 @@ const defineSpfWin = {
             },
         },
 
+        //覆盖 base-dynamic 动态组件参数
+        dc: {
+            //显示
+            display: {
+                //maximize|minimize
+                maximized: false,
+                minimized: false,
+                //loading 状态
+                loading: false,
+
+                //动画
+                ani: {
+                    show: {
+                        on: 'zoomIn',
+                        off: 'zoomOut'
+                    },
+                    //win 组件自有动画
+                    minimize: {
+                        on: 'zoomOut',
+                        off: 'zoomIn'
+                    }
+                }
+            },
+        },
+
         //窗口的 display 显示状态 覆盖 base-dynamic.mixin 中参数
-        dcDisplay: {
+        /*dcDisplay: {
             //显示|隐藏 默认隐藏
             show: false,
             //maximize|minimize
@@ -1587,7 +1672,7 @@ const defineSpfWin = {
                 show: 'zoomIn',
                 hide: 'zoomOut'
             }
-        },
+        },*/
 
         /**
          * win-tab 标签页相关
@@ -1622,6 +1707,10 @@ const defineSpfWin = {
         canClose() {
             return this.winType !== 'inside' && this.closeable;
         },
+
+        //display 状态
+        isDcMinimize() {return this.dc.display.minimized;},
+        isDcMaximize() {return this.dc.display.maximized;},
 
         //判断此窗口是否可以 drag-move
         dragMoveable() {
@@ -1684,7 +1773,7 @@ const defineSpfWin = {
     watch: {
         //外部指定的 loading 状态
         loading(nv, ov) {
-            this.dcDisplay.loading = this.loading;
+            this.dc.display.loading = this.loading;
         },
         //指定了外部 tab-active
         tabActive: {
@@ -1707,21 +1796,82 @@ const defineSpfWin = {
     created() {
         
     },
+    watch: {
+        winType: {
+            handler(nv, ov) {
+                let wtp = this.winType;
+                if (wtp==='inside') {
+                    //非弹出窗口，不启用 animate 子系统
+                    this.$set(this.sty.sub, 'animate', false);
+                } else {
+                    //弹出窗口，则在 disabled == false 情况下启用 animate
+                    this.$set(this.sty.sub, 'animate', 'disabled:false');
+                }
+            },
+            immediate: true,
+        },
+    },
     methods: {
-        /**-
+        /**
+         * 动态组件动画相关
+         */
+        async dcShow(style={}) {
+            if (this.winType==='inside') {
+                //非弹出窗口不执行显示动画
+                return true;
+            }
+            return await this.dcToggle('show', true, {before: style});
+        },
+        //set方法
+        async dcSetMinimize(min=true) {
+            if (this.winType==='inside') {
+                //非弹出窗口不执行 minimize
+                return false;
+            }
+            this.$set(this.dc.display, 'minimized', min);
+            return await this.$wait(10);
+        },
+        async dcSetMaximize(max=true) {
+            if (this.winType==='inside') {
+                //非弹出窗口不执行 maximize
+                return false;
+            }
+            this.$set(this.dc.display, 'maximized', max);
+            return await this.$wait(10);
+        },
+
+        /**
+         * 全局 zIndex 操作
+         * !! 覆盖 zindex mixin 中的方法
+         */
+        whenElMouseDown() {
+            if (this.winType==='inside') {
+                //非弹出窗口不执行 zIndex 提升
+                return false;
+            }
+            //调用 zindex mixin 中的 whenElMouseDown 原始方法
+            return mixinZindex.methods.whenElMouseDown.call(this);
+        },
+
+        /**
          * win-minimize|maximize|close
          */
-        winMinimize(event) {
-            if (this.canMinimize || this.dcDisplay.minimized || this.winKey==='') return false;
-            this.dcDisplay.minimized = true;
-            return this.$ui.minimizeWin(this.winKey).then(()=>{
-                return this.$emit('minimize', this.winKey);
+        async winMinimize(event) {
+            if (this.canMinimize || this.isDcMinimize || this.winKey==='') return false;
+            //执行最小化动画
+            await this.dcToggle('minimize', true, {
+
             });
+
+            //this.dc.display.minimized = true;
+            //return this.$ui.minimizeWin(this.winKey).then(()=>{
+            //    return this.$emit('minimize', this.winKey);
+            //});
         },
         winMaximize(event) {
             if (this.canMaximize || this.winKey==='') return false;
-            this.dcDisplay.maximized = !this.dcDisplay.maximized;
-            this.dcDisplay.minimized = false;
+            this.dc.display.maximized = !this.dc.display.maximized;
+            this.dc.display.minimized = false;
             return this.$ui.maximizeWin(this.winKey).then(()=>{
                 return this.$emit('maximize', this.winKey);
             });
@@ -1731,6 +1881,10 @@ const defineSpfWin = {
             return this.$ui.closeWin(this.winKey).then(()=>{
                 //return this.$emit('close', this.winKey);
             });
+        },
+        //focus 聚焦
+        winFocus() {
+
         },
         winCancel(event) {
 
@@ -1744,13 +1898,13 @@ const defineSpfWin = {
             let is = this.$is;
             if (!is.boolean(loading)) {
                 //不指定 loading 状态，则 toggle
-                this.dcDisplay.loading = !this.dcDisplay.loading;
+                this.dc.display.loading = !this.dc.display.loading;
             } else {
                 //直接指定 loading 状态
-                this.dcDisplay.loading = loading;
+                this.dc.display.loading = loading;
             }
             //事件
-            return this.$emit('loading', this.dcDisplay.loading);
+            return this.$emit('loading', this.dc.display.loading);
         },
 
 
@@ -1791,7 +1945,7 @@ const defineSpfWin = {
 
 
 
-defineSpfWin.template = `<div :class="styComputedClassStr.root" :style="styComputedStyleStr.root"><div class="win-titbar flex-x" v-drag-move:xy="$this"><spf-icon v-if="icon !== '' && icon !== '-empty-'" :icon="icon" :shape="iconShape" :spin="loading ? true : spin" :color="iconColor" v-bind="iconParams"></spf-icon><div class="win-title flex-1 flex-x">新窗口</div><div class="win-titctrl flex-x flex-x-end"><slot name="titctrl"></slot></div><template v-if="winType !== 'inside'"><spf-button v-if="minimizable" icon="arrow-downward" effect="popout" stretch="square" no-gap @click="winMinimize"></spf-button><spf-button v-if="maximizable" :icon="dcDisplay.maximized ? 'fullscreen-exit' : 'fullscreen'" effect="popout" stretch="square" no-gap @click="winMaximize"></spf-button><spf-button v-if="closeable" icon="close" type="danger" effect="popout" stretch="square" no-gap @click="winClose"></spf-button></template></div><div v-if="tabList.length>1 && tabItemList.length>1" class="win-tabbar flex-x flex-x-center"><spf-tabbar :value="tab.active" :tab-list="tabItemList" :size="tabbarSize" v-bind="tabbarParams" @tab-active="whenTabActive"></spf-tabbar></div><div class="win-body flex-1 flex-y flex-x-stretch"><template v-if="$is.plainObject(tabActiveItem) && !$is.empty(tabActiveItem)"><slot v-if="tabActiveCompName === ''" :name="'tab-'+tabActiveItem.key" :tab="tabActiveItem" :win="$this"></slot><component v-else :is="tabActiveCompName" v-bind="tabActiveItem.compProps"></component></template><slot></slot></div><div class="win-ctrlbar flex-x flex-x-end"><slot name="winctrl-extra"></slot><div class="flex-1"></div><slot name="winctrl"></slot><spf-button v-if="cancelButton" :icon="cancelIcon" :label="cancelLabel" effect="popout" type="danger" @click="winCancel"></spf-button><spf-button v-if="confirmButton" :icon="confirmIcon" :label="confirmLabel" effect="fill" type="primary" @click="winConfirm"></spf-button></div><div v-if="dcDisplay.loading" class="win-loading flex-x flex-x-center flex-y-center"><spf-icon icon="spinner-spin" size="huge" type="primary" spin></spf-icon></div></div>`;
+defineSpfWin.template = `<div :class="styComputedClassStr.root" :style="styComputedStyleStr.root"><div class="win-titbar flex-x" v-drag-move:xy="$this"><spf-icon v-if="icon !== '' && icon !== '-empty-'" :icon="icon" :shape="iconShape" :spin="loading ? true : spin" :color="iconColor" v-bind="iconParams"></spf-icon><div class="win-title flex-1 flex-x">新窗口</div><div class="win-titctrl flex-x flex-x-end"><slot name="titctrl"></slot></div><template v-if="winType !== 'inside'"><spf-button v-if="minimizable" icon="arrow-downward" effect="popout" stretch="square" no-gap @click="winMinimize"></spf-button><spf-button v-if="maximizable" :icon="dc.display.maximized ? 'fullscreen-exit' : 'fullscreen'" effect="popout" stretch="square" no-gap @click="winMaximize"></spf-button><spf-button v-if="closeable" icon="close" type="danger" effect="popout" stretch="square" no-gap @click="winClose"></spf-button></template></div><div v-if="tabList.length>1 && tabItemList.length>1" class="win-tabbar flex-x flex-x-center"><spf-tabbar :value="tab.active" :tab-list="tabItemList" :size="tabbarSize" v-bind="tabbarParams" @tab-active="whenTabActive"></spf-tabbar></div><div class="win-body flex-1 flex-y flex-x-stretch"><template v-if="$is.plainObject(tabActiveItem) && !$is.empty(tabActiveItem)"><slot v-if="tabActiveCompName === ''" :name="'tab-'+tabActiveItem.key" :tab="tabActiveItem" :win="$this"></slot><component v-else :is="tabActiveCompName" v-bind="tabActiveItem.compProps"></component></template><slot></slot></div><div class="win-ctrlbar flex-x flex-x-end"><slot name="winctrl-extra"></slot><div class="flex-1"></div><slot name="winctrl"></slot><spf-button v-if="cancelButton" :icon="cancelIcon" :label="cancelLabel" effect="popout" type="danger" @click="winCancel"></spf-button><spf-button v-if="confirmButton" :icon="confirmIcon" :label="confirmLabel" effect="fill" type="primary" @click="winConfirm"></spf-button></div><div v-if="dc.display.loading" class="win-loading flex-x flex-x-center flex-y-center"><spf-icon icon="spinner-spin" size="huge" type="primary" spin></spf-icon></div></div>`;
 
 if (defineSpfWin.computed === undefined) defineSpfWin.computed = {};
 defineSpfWin.computed.profile = function() {return {};}

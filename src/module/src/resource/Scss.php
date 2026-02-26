@@ -236,6 +236,9 @@ class Scss extends Codex
 
         //调用 dart-sass 命令行
         try {
+            //设置超时
+            ini_set('max_execution_time', '300');   //5 分钟
+
             //处理参数
             //$p1 = escapeshellarg($tempScss);
             

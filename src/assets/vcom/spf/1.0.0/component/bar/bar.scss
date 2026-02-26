@@ -1,0 +1,15 @@
+.__PRE__-bar {
+    //内部容器
+    & .bar-cnt {
+        @include spf-po-ov;
+        flex: 1;
+    }
+
+    //inner-content 相关
+    &.bar-inner-content {
+        //align-items: start;
+        //padding: 0 !important;
+
+        
+    }
+}

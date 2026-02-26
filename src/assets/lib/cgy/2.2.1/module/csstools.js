@@ -70,6 +70,28 @@ csstools.init = cgy => { cgy.def( {
         }
         return sobj;
     },
+    //判断 {} 是有效的 style 样式 {}
+    isCssObj(sty={}) {
+        let is = cgy.is,
+            iso = o => is.plainObject(o) && !is.empty(o),
+            //getComputedStyle() 返回的 {} 包含全部合法的 style 样式键名
+            csty = window.getComputedStyle(document.querySelector('body'));
+        if (!iso(sty)) return false;
+        let issty = true;
+        cgy.each(sty, (v,k)=>{
+            issty = issty && is.defined(csty[k]);
+        });
+        return issty;
+    },
+    //判断字符串是否有效的 css 字符串  同时包含 :; 且 数量相等
+    isCssStr(str='', equal=true) {
+        let is = cgy.is;
+        if (!is.nemstr(str)) return false;
+        if (!str.includes(':') || !str.includes(';')) return false;
+        //equal == true 则检查 :; 数量是否相等
+        if (equal) return str.split(':').length === str.split(';').length;
+        return true;
+    },
     //合并 任意 cssString/Obj 返回 {}
     mergeCss(...css) {
         let is = cgy.is,
@@ -97,7 +119,44 @@ csstools.init = cgy => { cgy.def( {
     toClassArr(cls='') {
         if (!cgy.is.string(cls) || cls==='') return [];
         cls = cls.replace(/\s+/g, ' ');
+        cls = cls.trimAny(' ');
         return cls.split(' ');
+    },
+    //将多个样式类 字符串|数组 合并为一个 样式类数组，自动去重，遇到 foo-bar:delete 形式的，将从 原数组中删除
+    mergeClassArr(cls, ...clss) {
+        let is = cgy.is,
+            iss = s => is.string(s) && s!=='',
+            isa = a => is.array(a) && a.length>0,
+            del = ':delete';
+        if (is.string(cls)) cls = cgy.toClassArr(cls);
+        if (!isa(cls)) cls = [];
+        if (clss.length<=0) return cls;
+        //合并 单个[]
+        if (clss.length==1) {
+            clss = clss[0];
+            if (is.string(clss)) clss = cgy.toClassArr(clss);
+            if (!isa(clss)) return cls;
+            for (let i=0;i<clss.length;i++) {
+                let cli = clss[i];
+                if (!iss(cli) || cli===del) continue;
+                //以 :delete 结尾的
+                if (cli.endsWith(del)) {
+                    let clis = cli.substring(0, cli.length-del.length);
+                    //从原数组中删除
+                    cls = cls.trim(clis);
+                    continue;
+                }
+                //正常插入，去重
+                if (!cls.includes(cli)) cls.push(cli);
+            }
+            return cls;
+        }
+
+        //合并 多个[]
+        for (let i=0;i<clss.length;i++) {
+            cls = cgy.mergeClassArr(cls, clss[i]);
+        }
+        return cls;
     },
 
     //querySelector

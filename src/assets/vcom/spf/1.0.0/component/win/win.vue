@@ -27,7 +27,7 @@
                 ></PRE@-button>
                 <PRE@-button
                     v-if="maximizable"
-                    :icon="dcDisplay.maximized ? 'fullscreen-exit' : 'fullscreen'"
+                    :icon="dc.display.maximized ? 'fullscreen-exit' : 'fullscreen'"
                     effect="popout"
                     stretch="square"
                     no-gap
@@ -90,7 +90,7 @@
                 @click="winConfirm"
             ></PRE@-button>
         </div>
-        <div v-if="dcDisplay.loading" class="win-loading flex-x flex-x-center flex-y-center">
+        <div v-if="dc.display.loading" class="win-loading flex-x flex-x-center flex-y-center">
             <PRE@-icon icon="spinner-spin" size="huge" type="primary" spin></PRE@-icon>
         </div>
     </div>
@@ -311,12 +311,12 @@ export default {
         sty: {
             init: {
                 class: {
-                    root: ['__PRE__-win', 'flex-y', 'flex-x-stretch'],
+                    root: '__PRE__-win win flex-y flex-x-stretch',
                 }
             },
             prefix: 'win',
             sub: {
-                animate: 'enabled'
+                animate: 'disabled:false'
             },
             switch: {
                 //启用 下列样式开关
@@ -326,9 +326,9 @@ export default {
                 shadow: true,
                 hoverable: true,
                 tightness: true,
-                'dcDisplay.show': 'show',
-                'dcDisplay.minimized': 'minimized',
-                'dcDisplay.maximized': 'maximized',
+                //'dcDisplay.show': 'show',
+                'dc.display.minimized': 'minimized',
+                'dc.display.maximized': 'maximized',
             },
             csvKey: {
                 size: 'block',
@@ -336,8 +336,33 @@ export default {
             },
         },
 
+        //覆盖 base-dynamic 动态组件参数
+        dc: {
+            //显示
+            display: {
+                //maximize|minimize
+                maximized: false,
+                minimized: false,
+                //loading 状态
+                loading: false,
+
+                //动画
+                ani: {
+                    show: {
+                        on: 'zoomIn',
+                        off: 'zoomOut'
+                    },
+                    //win 组件自有动画
+                    minimize: {
+                        on: 'zoomOut',
+                        off: 'zoomIn'
+                    }
+                }
+            },
+        },
+
         //窗口的 display 显示状态 覆盖 base-dynamic.mixin 中参数
-        dcDisplay: {
+        /*dcDisplay: {
             //显示|隐藏 默认隐藏
             show: false,
             //maximize|minimize
@@ -351,7 +376,7 @@ export default {
                 show: 'zoomIn',
                 hide: 'zoomOut'
             }
-        },
+        },*/
 
         /**
          * win-tab 标签页相关
@@ -386,6 +411,10 @@ export default {
         canClose() {
             return this.winType !== 'inside' && this.closeable;
         },
+
+        //display 状态
+        isDcMinimize() {return this.dc.display.minimized;},
+        isDcMaximize() {return this.dc.display.maximized;},
 
         //判断此窗口是否可以 drag-move
         dragMoveable() {
@@ -448,7 +477,7 @@ export default {
     watch: {
         //外部指定的 loading 状态
         loading(nv, ov) {
-            this.dcDisplay.loading = this.loading;
+            this.dc.display.loading = this.loading;
         },
         //指定了外部 tab-active
         tabActive: {
@@ -471,21 +500,82 @@ export default {
     created() {
         
     },
+    watch: {
+        winType: {
+            handler(nv, ov) {
+                let wtp = this.winType;
+                if (wtp==='inside') {
+                    //非弹出窗口，不启用 animate 子系统
+                    this.$set(this.sty.sub, 'animate', false);
+                } else {
+                    //弹出窗口，则在 disabled == false 情况下启用 animate
+                    this.$set(this.sty.sub, 'animate', 'disabled:false');
+                }
+            },
+            immediate: true,
+        },
+    },
     methods: {
-        /**-
+        /**
+         * 动态组件动画相关
+         */
+        async dcShow(style={}) {
+            if (this.winType==='inside') {
+                //非弹出窗口不执行显示动画
+                return true;
+            }
+            return await this.dcToggle('show', true, {before: style});
+        },
+        //set方法
+        async dcSetMinimize(min=true) {
+            if (this.winType==='inside') {
+                //非弹出窗口不执行 minimize
+                return false;
+            }
+            this.$set(this.dc.display, 'minimized', min);
+            return await this.$wait(10);
+        },
+        async dcSetMaximize(max=true) {
+            if (this.winType==='inside') {
+                //非弹出窗口不执行 maximize
+                return false;
+            }
+            this.$set(this.dc.display, 'maximized', max);
+            return await this.$wait(10);
+        },
+
+        /**
+         * 全局 zIndex 操作
+         * !! 覆盖 zindex mixin 中的方法
+         */
+        whenElMouseDown() {
+            if (this.winType==='inside') {
+                //非弹出窗口不执行 zIndex 提升
+                return false;
+            }
+            //调用 zindex mixin 中的 whenElMouseDown 原始方法
+            return mixinZindex.methods.whenElMouseDown.call(this);
+        },
+
+        /**
          * win-minimize|maximize|close
          */
-        winMinimize(event) {
-            if (this.canMinimize || this.dcDisplay.minimized || this.winKey==='') return false;
-            this.dcDisplay.minimized = true;
-            return this.$ui.minimizeWin(this.winKey).then(()=>{
-                return this.$emit('minimize', this.winKey);
+        async winMinimize(event) {
+            if (this.canMinimize || this.isDcMinimize || this.winKey==='') return false;
+            //执行最小化动画
+            await this.dcToggle('minimize', true, {
+
             });
+
+            //this.dc.display.minimized = true;
+            //return this.$ui.minimizeWin(this.winKey).then(()=>{
+            //    return this.$emit('minimize', this.winKey);
+            //});
         },
         winMaximize(event) {
             if (this.canMaximize || this.winKey==='') return false;
-            this.dcDisplay.maximized = !this.dcDisplay.maximized;
-            this.dcDisplay.minimized = false;
+            this.dc.display.maximized = !this.dc.display.maximized;
+            this.dc.display.minimized = false;
             return this.$ui.maximizeWin(this.winKey).then(()=>{
                 return this.$emit('maximize', this.winKey);
             });
@@ -495,6 +585,10 @@ export default {
             return this.$ui.closeWin(this.winKey).then(()=>{
                 //return this.$emit('close', this.winKey);
             });
+        },
+        //focus 聚焦
+        winFocus() {
+
         },
         winCancel(event) {
 
@@ -508,13 +602,13 @@ export default {
             let is = this.$is;
             if (!is.boolean(loading)) {
                 //不指定 loading 状态，则 toggle
-                this.dcDisplay.loading = !this.dcDisplay.loading;
+                this.dc.display.loading = !this.dc.display.loading;
             } else {
                 //直接指定 loading 状态
-                this.dcDisplay.loading = loading;
+                this.dc.display.loading = loading;
             }
             //事件
-            return this.$emit('loading', this.dcDisplay.loading);
+            return this.$emit('loading', this.dc.display.loading);
         },
 
 

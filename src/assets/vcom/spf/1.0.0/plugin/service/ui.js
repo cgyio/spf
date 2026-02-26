@@ -469,9 +469,11 @@ export default {
                     //去除图标库前缀的短图标名
                     short: null
                 };
-                
-            this.$each(icns, (icos, icn) => {
+
+            this.$each(icns, (icn, i) => {
+                if (icon==='btn-tuangou') console.log(icn);
                 if (icon.startsWith(icn)) {
+                    if (icon==='btn-tuangou') console.log(icn);
                     rtn.iconset = icn;
                     rtn.full = icon;
                     rtn.short = icon.replace(`${icn}-`, '');
@@ -524,22 +526,13 @@ export default {
             let is = this.$is,
                 mask = this.mask.ins;
             if (is.vue(mask)) {
-                //设置 zIndex
-                if (is.elm(mask.$el)) mask.setZindex(zIndex);
                 //将 maskProps 写入 mask 组件实例
                 if (is.plainObject(maskProps) && !is.empty(maskProps)) {
                     //!! 自动处理 maskProps 中的 on 事件参数，强制注册为 once
                     await mask.dcSet(maskProps, true);  
                 }
-
-                //如果 mask 已隐藏
-                if (mask.isDcShow !== true) {
-                    //调用 dcShow 显示动画
-                    await mask.dcShow();
-                    //触发 mask-on 事件
-                    mask.$emit('mask-on');
-                }
-                return true;
+                //执行显示动画
+                return await mask.dcShow();
             }
             return false;
         },
@@ -560,13 +553,8 @@ export default {
                 }, true);
             }
             if (is.vue(mask)) {
-                if (mask.isDcShow !== false) {
-                    //调用 dcHide 隐藏动画
-                    await mask.dcHide();
-                    //触发 mask-off 事件
-                    mask.$emit('mask-off');
-                }
-                return true;
+                //执行隐藏动画
+                return await mask.dcHide();
             }
             return false;
         },
@@ -581,7 +569,7 @@ export default {
                 //先显示并设置 mask 的 zIndex
                 await this.maskOn(maskProps);
                 //设置当前窗口的 zIndex
-                win.setZindex();
+                await win.setZindex();
                 //win.$el.style.zIndex = this.getZindex();
                 return true;
             }
@@ -707,7 +695,7 @@ export default {
         sizeKeyParse(skey) {
             if (!this.isSizeKey(skey)) return null;
             let len = skey.length;
-            return [skey, skey.substring(len-1), len];
+            return [skey, len===1 ? skey : skey.substring(len-1), skey==='m' ? 0 : len];
         },
         /**
          * 将 str|key 形式的 size 值，缩放指定的级数
@@ -751,7 +739,11 @@ export default {
                     if (nlvl === 0) {
                         ntp = 'm';
                     } else {
-                        ntp = otp==='s' ? 'l' : 's';
+                        if (nlvl>0) {
+                            ntp = otp;
+                        } else {
+                            ntp = otp==='s' ? 'l' : 's';
+                        }
                         nlvl = Math.abs(nlvl);
                     }
                 }
@@ -798,7 +790,7 @@ export default {
         sizeStrToKey(str) {
             let is = this.$is,
                 szmap = this.cssvar.extra.size.sizeStrMap;
-            if (!is.defined(szmap[str])) return null;
+            if (!is.string(str) || !is.defined(szmap[str])) return null;
             return szmap[str];
         },
         //size key 转为 str   xxl|xl|l|m  -->  huge|large|medium|normal
@@ -835,43 +827,108 @@ export default {
         },
 
         //将尺寸值 转为 [ 数字, 单位 ] 数组
-        sizeToArr(sz) {
-            let is = this.$is;
-            //只有 100px 形式的尺寸值才可以拆分为 [数字, 单位]
-            if (!this.isSizeVal(sz)) return null;
-            //默认单位 px
-            if (!is.realNumber(sz)) sz = sz+'px';
-
-            //字符串拆分数组
-            let szarr = sz.split(''),
-                //保存数字和小数点
-                sznarr = [];
-            for (let i=0;i<szarr.length;i++) {
-                let szi = szarr[i];
-                if (is.realNumber(szi) || szi === '.') {
-                    sznarr.push(szi);
-                } else {
-                    break;
-                }
-            }
-            if (sznarr.length<=0) return [];
-            let szn = sznarr.join(''),
-                szu = sz.replace(szn, '');
-            return [szn, szu];
+        sizeValToArr(sz) {
+            let is = this.$is,
+                isn = n => is.realNumber(n),    //纯数字形式，可以是 number|string  isNaN(n*1)===false
+                isu = n => is.numeric(n);       //类似 php 的 is_numeric 必须以纯数字开头的字符串
+            if (!isn(sz) && !isu(sz)) return null;
+            //如果是 number 数字，转为 string
+            if (isn(sz) && !is.string(sz)) sz = sz+'';
+            //拆分 数字 和 单位
+            let unit = sz.replace(/^\-?[\d.]{1,}/g, ''),
+                num = unit==='' ? sz*1 : (sz.substring(0, sz.length-unit.length))*1;
+            return [num, unit];
         },
+        //!! 待弃用，目前仅为兼容原代码
+        sizeToArr(sz) {return this.sizeValToArr(sz);},
+
+        /**
+         * 通用尺寸值 (100 或 100px 形式都可以) 加减乘除
+         */
+        //判断传入的尺寸值是否可以进行 加减乘除计算，不可以则返回 false，可以则返回 { nums: [纯数字, ... ], unit: '单位' }
+        sizeValIsCalcable(...ns) {
+            let is = this.$is,
+                iss = s => is.string(s) && s!=='',
+                isn = n => is.realNumber(n),    // 100 或 '100' 形式纯数字
+                isu = n => is.numeric(n),       // 100px 50% 形式 带单位数字
+                all = true,
+                nums = [],
+                exts = [];
+            this.$each(ns, n => {
+                if (!isn(n) && !isu(n)) {
+                    all = false;
+                    return false;
+                }
+                //拆分数字和单位
+                let nl = this.sizeValToArr(n),
+                    //收集拆分出来的 纯数字
+                    ni = (is.array(nl) && is.defined(nl[0]) && isn(nl[0])) ? nl[0] * 1 : null,
+                    //收集单位形式
+                    exi = (is.array(nl) && is.defined(nl[1]) && iss(nl[1])) ? nl[1] : null;
+                if (isn(ni)) nums.push(ni);
+                if (iss(exi) && !exts.includes(exi)) exts.push(exi); 
+            });
+            //console.log(nums, exts);
+            //如果有不是 isn|isu 形式的值
+            if (all!==true) return false;
+            //如果没有任何可计算的数字
+            if (nums.length<=0) return false;
+            //如果有多个单位
+            if (exts.length>1) return false;
+            return {
+                nums,
+                //可能是都不带单位
+                unit: exts.length<=0 ? '' : exts[0]
+            };
+        },
+        //对传入的 nums[] 依次执行 add|sub|mul|div 加|减|乘|除 输出时带上单位
+        sizeValCalcQueue(calc='add', ...sizes) {
+            //先处理传入的尺寸数值，得到拆分后的 纯数字 和 单一单位
+            let cli = this.sizeValIsCalcable(...sizes);
+            //console.log(...sizes);
+            if (cli===false) throw new Error('尺寸计算必须是纯数字或带单位数字，且单位必须统一');
+            //提取计算参数
+            let is = this.$is,
+                iss = s => is.string(s) && s!=='',
+                {nums, unit} = cli,
+                //计算结果
+                res = null;
+            switch (calc) {
+                //相加
+                case 'add': res = nums.reduce((s,n) => s+n); break;
+                //依次减去
+                case 'sub': res = nums.reduce((s,n) => s-n); break;
+                //相乘
+                case 'mul': res = nums.reduce((s,n) => s*n); break;
+                //依次除以
+                case 'div': 
+                    res = nums.reduce((s,n) => s/n); 
+                    //限制为 6 位小数
+                    res = Math.round(res * 1000000) / 1000000;
+                    break;
+                    
+            }
+            //返回带单位数值
+            if (iss(unit)) return `${res}${unit}`;
+            return res;
+        },
+        //加
+        sizeValAdd(size, ...add) {return this.sizeValCalcQueue('add', size, ...add);},
+        //减
+        sizeValSub(size, ...sub) {return this.sizeValCalcQueue('sub', size, ...sub);},
+        //乘
+        sizeValMul(size, ...mul) {return this.sizeValCalcQueue('mul', size, ...mul);},
+        //除
+        sizeValDiv(size, ...div) {return this.sizeValCalcQueue('div', size, ...div);},
 
         //根据 bar 单行元素的 高度，计算合适的内部字体尺寸
         sizeCalcBarFs(size) {
-            let is = this.$is,
-                // 72px --> [72, 'px']
-                szl = this.sizeToArr(size);
-            //无法解析尺寸值，则原样返回
-            if (!is.array(szl) || szl.length<=0) return size;
-            let szn = szl[0],
-                szu = szl[1] || '',
-                //!! 字号 = 行高/2.3
-                fs = Math.round(szn/2.3);
-            return `${fs}${szu}`;
+            //传入的 size 必须是实际尺寸数值，无法解析的直接原样返回
+            if (!this.isSizeVal(size)) return size;
+            //!! 字号 = 行高/2.3
+            let fs = this.sizeValDiv(size, 2.3);
+            if (!this.isSizeVal(fs)) return size;
+            return fs;
         },
 
 

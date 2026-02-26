@@ -1,0 +1,11 @@
+{
+    "name": "btn",
+    "iconset": "btn",
+    "multicolor": true,
+    "iconcss": "spf/assets/icon/base.css",
+
+    "ext": ["js","css","svg"],
+    
+    "root": "",
+    "root_bak": "https://at.alicdn.com/t/c/font_4578920_4xqgu3wpv3n.js"
+}
