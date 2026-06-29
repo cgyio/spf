@@ -1,0 +1,44 @@
+{
+    "name": "account_iso",
+    "title": "账号ISO表",
+    "desc": "记录账号的项目隔离数据",
+    "prepare": {
+        "idx": {
+            "unique": [],
+            "multiple": [],
+            "normal": ["uuid"]
+        }
+    },
+    "columns": {
+        "uuid":     ["UUID","账号全局唯一编号",12],
+        "iso":      ["ISO","此账号所在的项目隔离ID",4],
+        "entryat":  ["录入时间","此账号进入此ISO项目的时间",4]
+    },
+    "creation": {
+        "uuid":     "uuid NOT NULL",
+        "iso":      "iso NOT NULL",
+        "entryat":  "datetime NOT NULL DEFAULT now"
+    },
+    "join": {},
+    "column": {
+        "includes": ["uuid", "iso"],
+        "sort": ["uuid", "iso", "entryat"],
+        "search": ["uuid", "iso"],
+        "select": {
+            "uuid": {
+                "dynamic": true,
+                "multiple": false,
+                "source": {
+                    "table": "account",
+                    "value": "uuid",
+                    "label": "name"
+                }
+            }
+        },
+        "datetime": {
+            "entryat": {
+                "type": "datetime"
+            }
+        }
+    }
+}

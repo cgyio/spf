@@ -1,0 +1,55 @@
+{
+    "name": "role",
+    "title": "角色表",
+    "desc": "记录账号角色数据，赋予操作权限",
+    "prepare": {
+        "columns": [],
+        "idx": {
+            "unique": ["key"]
+        }
+    },
+    "columns": {
+        "project":  ["项目","此角色所属的项目ID",4],
+        "key":      ["角色键","角色的全局唯一键名",6],
+        "name":     ["角色","角色名称",4],
+        "desc":     ["说明","角色说明",8],
+        "auth":     ["权限","此角色拥有的操作权限，记录标准的操作标识OPRN",8]
+    },
+    "creation": {
+        "project":  "varchar(32) NOT NULL",
+        "key":      "varchar(32) NOT NULL",
+        "name":     "varchar(32) NOT NULL",
+        "desc":     "varchar(255)",
+        "auth":     "json NOT NULL DEFAULT '[]'"
+    },
+    "join": {
+        "use": false
+    },
+    "column": {
+        "includes": ["project","key","name","desc"],
+        "sort": ["project","key"],
+        "filter": ["project","auth"],
+        "search": ["name","key","project"],
+        "select": {
+            "auth": {
+                "dynamic": true,
+                "multiple": true,
+                "source": {
+                    "api": "operations/select",
+                    "post": {
+                        "orm": {
+                            "query": {
+                                "where": {
+                                    "project": "%{project}%"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "json": {
+            "auth": "indexed"
+        }
+    }
+}

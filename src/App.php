@@ -20,9 +20,19 @@ use Spf\util\Str;
 use Spf\util\Cls;
 use Spf\util\Path;
 use Spf\util\Url;
+use Spf\util\Curl;
+use Spf\util\Cache;
+
+use Spf\traits\CoreInsGetter;
+use Spf\traits\ExpandableResourceCollector;
 
 abstract class App extends Core 
 {
+    //快速获取核心类
+    use CoreInsGetter;
+    //!! 自动收集 ExpandableResource 通用可扩展资源
+    use ExpandableResourceCollector;
+
     /**
      * 单例模式
      * !! 覆盖父类
@@ -78,21 +88,35 @@ abstract class App extends Core
 
     /**
      * 此 App 应用类自有的 init 方法，执行以下操作：
-     *  0   生成(并缓存)此应用的 全部操作列表，同时生成 路由表
-     *  1   实例化参数中的所有 启用的模块
-     *  2   执行 此应用类 自定义的 初始化方法
+     *  0   自动收集此应用依赖的 ExpandableResource 通用可扩展资源
+     *  1   生成(并缓存)此应用的 全部操作列表，同时生成 路由表
+     *  2   实例化参数中的所有 启用的模块
+     *  3   执行 此应用类 自定义的 初始化方法
      * !! Core 子类必须实现的，App 子类不要覆盖
      * @return $this
      */
     final public function initialize()
     {
+        //!! 应用实例化时，Request 必须已创建
+        if (Request::$isInsed!==true) {
+            //报异常
+            throw new CoreException("应用实例化时，Request 请求实例还未创建", "initialize/init");
+        }
+
         //当前应用的 类名 路径形式 FooBar
         $appn = $this::clsn();
 
-        // 0 生成(并缓存)此应用的 全部操作列表，同时生成 路由表
+        //err msg
+        $errmsg = [];
+
+        // 0 自动收集此应用依赖的 ExpandableResource 通用可扩展资源
+        $exresCollected = static::collectExres($this);
+        if (!$exresCollected) $errmsg[] = "ExpandableResource 通用可扩展资源收集失败";
+
+        // 1 生成(并缓存)此应用的 全部操作列表，同时生成 路由表
         $this->operation = new Operation();
 
-        // 1 实例化参数中的所有 启用的模块
+        // 2 实例化参数中的所有 启用的模块
         $mods = $this->config->ctx["module"] ?? [];
         foreach ($mods as $modk => $modc) {
             //确认启用此模块
@@ -104,11 +128,21 @@ abstract class App extends Core
             Module::current($modc, $modcls);
         }
 
-        // 2 执行 此应用类 自定义的 初始化方法
+        // 3 执行 此应用类 自定义的 初始化方法
         $appInited = $this->initApp();
-        if (true !== $appInited) {
-            throw new CoreException("未能正确初始化应用 $appn", "initialize/init");
+        if (!$appInited) $errmsg[] = "应用未能正确执行 initApp 方法";
+
+        if (true !== ($exresCollected && $appInited)) {
+            if (Is::nemidx($errmsg)) {
+                $errmsg = "，原因：".implode(" 且 ", $errmsg);
+            } else {
+                $errmsg = "";
+            }
+            throw new CoreException("$appn 应用未能正确初始化$errmsg", "initialize/init");
         }
+
+        // 4 当前应用正确启动后，执行路由匹配
+        Request::$current->getOprc();
 
         return $this;
     }
@@ -127,9 +161,12 @@ abstract class App extends Core
     /**
      * 当前的 App 应用实例，执行匹配到的 响应操作，操作的主体类可能是 当前应用实例|某个模块的实例
      * !! 当前应用 响应 Request 请求的 核心入口方法，子类不要覆盖
+     * !! 如果当前应用启用了 Uac 权限控制，会在 module\uac\middleware\in\AuthorityControl 中间件中执行 权限检查
+     * !! 如果未通过 权限检查，则不会执行此方法，因此 此方法中不再执行权限检查
+     * @param Bool $return 返回操作结果，而不是 setData 到 $response 实例，默认 false
      * @return Bool
      */
-    final public function response()
+    final public function response($return=false)
     {
         try {
 
@@ -146,20 +183,14 @@ abstract class App extends Core
             $oprc = Request::$current->getOprc();
             //方法指向的 类全称
             $oprcls = $oprc["class"] ?? null;
-            $oprcls = Cls::find($oprcls);
-            if (!Is::nemstr($oprcls) || !class_exists($oprcls) || !is_subclass_of($oprcls, Core::class)) {
-                //操作信息指向的 类 有误
-                throw new AppException("响应方法指向了一个不存在的类 $oprcls", "app/response");
+            //获取 响应方法的调用者 通常 应为 $oprcls::$current
+            $caller = $this->operation->getCaller();
+            if (!is_object($caller) && !(Is::nemstr($caller) && class_exists($caller))) {
+                //获取 调用者失败
+                throw new AppException("响应方法指向了一个不存在的位置", "app/response");
             }
-            //操作指向的 类名
-            $oprclsn = $oprcls::clsn();
-
-            //获取 响应方法的调用者 应为 $oprcls::$current
-            if (!isset($oprcls::$current) || !($oprcls::$current instanceof $oprcls)) {
-                //如果操作指向的 核心类 还未实例化
-                throw new AppException("响应方法指向了一个不存在的模块或应用 $oprclsn", "app/response");
-            }
-            $caller = $oprcls::$current;
+            //标记这个 caller 是否 类 而不是 实例
+            $callerIsClass = Is::nemstr($caller) && class_exists($caller);
 
             //调用响应方法
 
@@ -184,7 +215,12 @@ abstract class App extends Core
                 }
 
                 //绑定匿名函数中的 $this === $caller 允许在函数体没 访问 $caller 的所有属性和方法 private|protected|public
-                $fc = \Closure::bind($fc, $caller, get_class($caller));
+                if ($callerIsClass) {
+                    //调用者是 类
+                    $fc = \Closure::bind($fc, null, $caller);
+                } else {
+                    $fc = \Closure::bind($fc, $caller, get_class($caller));
+                }
 
                 //执行这个匿名函数
                 $result = $fc(...$args);
@@ -192,12 +228,19 @@ abstract class App extends Core
                 //普通方法
                 if (!Is::nemstr($m) || !method_exists($caller, $m)) {
                     //响应方法 不存在于 调用者实例中
-                    throw new AppException("响应方法 $m 不在调用者 $oprclsn 中", "app/response");
+                    throw new AppException("响应方法 $m 不在调用者 $oprcls 中", "app/response");
                 }
-    
-                //执行方法
-                $result = $caller->$m(...$args);
+                if ($callerIsClass) {
+                    //调用者是 类
+                    $result = $caller::$m(...$args);
+                } else {
+                    //执行方法
+                    $result = $caller->$m(...$args);
+                }
             }
+
+            //!! 直接返回 操作的执行结果，通常用于 路由劫持
+            if ($return===true) return $result;
 
             //将响应方法 返回的结果 存入 Response::$current->data
             $setres = Response::$current->setData($result);
@@ -215,6 +258,95 @@ abstract class App extends Core
         }
 
     }
+
+    /**
+     * 在应用层，封装 $app->operation->invoke 方法
+     * !! 在任何 App|Module|Db|Model|Record|... 实例内部，都应通过 App::$current->invoke 执行其他操作调用
+     * !! 相当于 应用层的 路由劫持器
+     * !! 应用子类可以覆盖，添加自定义的 逻辑，但是最终都应通过 $this->operation->invoke 执行实际的 opr 操作
+     * @param Array $args 参数原样传入 operation->invoke 要求与该方法一致
+     * @return Mixed|null
+     */
+    public function invoke(...$args)
+    {
+        //应用子类可以添加 自定义的 逻辑
+        //...
+
+        //最后一定通过 operation->invoke 执行实际操作
+        return $this->operation->invoke(...$args);
+    }
+
+    /**
+     * ServiceApp 微服务应用 接口调用
+     * !! 在任何 App|Module|Db|Model|Record|... 实例内部，都应通过 App::$current->invokeService 调用 ServiceApp 接口
+     * @param String $service 微服务调用路径，一定是这种形式：  服务名/服务接口名/参数/参数...?query=str 
+     * @param Array $post 要 post 到 ServiceApp 接口的 数据 
+     * @param \Closure $callback 对 ServiceApp 接口返回的结果，做额外处理的 方法
+     *      @param Mixed $result ServiceApp 接口返回的原始数据
+     *      @return Mixed|null 额外处理后的 $result
+     * @return Mixed|null ServiceApp 接口返回的数据，可能经过额外处理
+     */
+    public function invokeService($service, $post=[], $callback=null)
+    {
+        if (!Is::nemstr($service) || strpos($service,"/")===false) return null;
+        $sva = explode("/", $service);
+        //服务名，定义在 $app->config->context["service"][] 中的键名
+        $svn = array_shift($sva);
+        $svn = Str::snake($svn, "_");
+        //service 参数
+        $services = $this->config->ctx["service"];
+        if (!isset($services[$svn]) || !Is::nemaso($services[$svn])) return null;
+        //当前调用的 ServiceApp 参数
+        $svc = $services[$svn];
+        //service_svn
+        $svnp = "service_".Str::snake($svc["name"], "_");
+        //oprn 前缀
+        $oprnpre = "[$svnp]";
+        $prelen = strlen($oprnpre);
+        //接口名
+        $apin = array_shift($sva);
+        $apin = Str::snake($apin, "_");
+        $apin = $svnp."_".$apin;
+
+        //到 $app->operation->defines() 中查找操作实际信息
+        $defs = $this->operation->defines();
+        $find = null;
+        foreach ($defs as $oprn => $oprc) {
+            if (substr($oprn, 0, $prelen)!==$oprnpre) continue;
+            if ($oprc["name"]===$apin) {
+                $find = Arr::copy($oprc);
+                break;
+            }
+        }
+        //未找到
+        if (!Is::nemaso($find)) return null;
+
+        //剩余的 url
+        $url = !empty($sva) ? implode("/", $sva) : "";
+        //补齐 找到的 操作信息中的 url
+        if (Is::nemstr($url)) {
+            $find["proxy"]["url"] = rtrim($find["proxy"]["url"])."/".$url; 
+        }
+
+        //开始调用
+        $caller = $this->operation->getCaller($find);
+        $method = $find["method"] ?? "serviceProxyer";
+        $isStatic = $find["isStatic"] ?? false;
+        if (!method_exists($caller, $method)) return null;
+        //调用
+        if ($isStatic) {
+            $result = $caller::$method($find, $post);
+        } else {
+            $result = $caller->$method($find, $post);
+        }
+
+        //对结果执行 额外处理
+        if ($callback instanceof \Closure) {
+            $result = $callback($result);
+        }
+
+        return $result;
+    }
     
     /**
      * 快捷访问 __get
@@ -231,6 +363,14 @@ abstract class App extends Core
         if ($key === "module" || $key === "mod") {
             $mods = Module::all();
             if (!empty($mods)) return (object)$mods;
+        }
+
+        /**
+         * $this->ModuleName        --> Module::$modules["module_name"]
+         * 访问已经实例化的 模块实例，未实例化 则返回 null
+         */
+        if (Module::has($key)!==false) {
+            return Module::all($key);
         }
 
         /**
@@ -382,5 +522,154 @@ abstract class App extends Core
         array_splice($parr, 0, 0, $appk);
         //返回
         return $uarr[0]."/".implode("/", $parr);
+    }
+
+    /**
+     * 返回当前 App 是否 base_app
+     * @return String|true|null 还未实例化 返回 null   是 base_app 返回 true  否则返回 appk
+     */
+    public static function isBaseApp()
+    {
+        //如果 App 应用还未实例化，返回 null
+        if (App::$isInsed !== true) return null;
+
+        $appk = App::$current::clsk();
+        if ($appk === "base_app") return true;
+
+        return $appk;
+    }
+
+
+
+    /**
+     * Spf 框架 App 应用的 通用接口方法
+     */
+
+    /**
+     * ServiceApp 微服务的 接口代理方法
+     * !! 系统中所有 对 ServiceApp 的调用，都应通过此方法
+     * !! 如果不是必须的，子应用不要覆盖
+     * @param Array $oprc 标准操作信息数组
+     * @param Array $post 要提交到 ServiceApp 接口的数据
+     * @return Mixed 接口返回的数据
+     */
+    public function serviceProxyer($oprc=[], $post=[])
+    {
+        if (!Operation::isStdOprc($oprc) || !isset($oprc["proxy"])) return null;
+        $proxy = $oprc["proxy"];
+        $url = $proxy["url"];
+        $ssl = $proxy["ssl"];
+        $login = $proxy["login"] ?? null;
+        if (!Is::nemaso($post)) $post = [];
+
+        //如果启用 uac
+        $jwt = null;
+        if ($oprc["auth"]===true) {
+            //从 runtime 缓存中获取 此 url 对应的 jwt-token
+            $uo = new Url($url);
+            $domain = $uo->domain;
+            $jwts = Cache::read("root/runtime/app/".$this::$clsk."/cache/token.php");
+            if (!Is::nemarr($jwts) || !isset($jwts[$domain])) {
+                //没有缓存，调用 login 接口
+                //TODO：...
+
+            } else {
+                //使用缓存
+                $jwt = $jwts[$domain];
+            }
+        }
+
+        //Curl
+        if ($oprc["auth"]===true) {
+            $res = $ssl ? Curl::jwt($url, $jwt, $post, "ssl") : Curl::jwt($url, $jwt, $post);
+        } else {
+            $res = $ssl ? Curl::post($url, $post, "ssl") : Curl::post($url, $post);
+        }
+        if (empty($res) || !Is::json($res)) return null;
+        $res = Conv::j2a($res);
+        //接口返回数据根据 Spf 框架的 response\Exporter 的标准输出结构，一定包含在 data 中
+        if (!Is::nemaso($res) || !isset($res["data"])) return null;
+
+        //如果 jwt 错误
+        if (isset($res["error"]) && $res["error"]===true && $res["data"]["errmsg"]==="not login") {
+            //重新调用 login 接口，使用 当前用户的 账号密码 或 统一的账号密码
+            //TODO:
+
+        }
+
+        //返回结果
+        return $res["data"];
+
+    }
+
+    /**
+     * api
+     * @name service_apis
+     * @title 获取服务接口列表
+     * @auth false
+     * 
+     * @param Array $args url 参数
+     * @return Array 此应用作为 ServiceApp 时，对外提供所有可用的 操作接口 列表
+     *  [
+     *      "name" => "appk 应用名 foo_bar 形式",
+     *      "title" => "应用(微服务)标题，来自 $app->intr",
+     *      "oprs" => [
+     *          "标准操作标识 oprn" => [
+     *              "oprn"  => "",
+     *              "name"  => "接口名称 foo_bar 形式",
+     *              "title" => "接口标题，中文",
+     *              "url"   => "外部访问地址"
+     *          ],
+     *          ...
+     *      ]
+     *  ]
+     */
+    public function serviceApisApi(...$args)
+    {
+        //读取所有 定义的 operation 操作
+        $defs = $this->operation->defines();
+        $rtn = [
+            "name" => $this::clsk(),
+            "title" => $this->intr."服务",
+            "oprs" => []
+        ];
+
+        /**
+         * 此应用作为 ServiceApp 对外提供服务时，
+         * !! 仅对外提供 两种操作接口：
+         * !!       应用提供的接口          以 api/app_name: 为操作标识前缀
+         * !!       数据模型提供的接口      以 api/model/ 为操作标识前缀
+         */
+        $appk = $this::clsk();
+        $appkPre = "api/$appk:";
+        $appkPrelen = strlen($appkPre);
+        $bzPre = "api/model/";
+        $bzPrelen = strlen($bzPre);
+        foreach ($defs as $oprn => $oprc) {
+            //跳过无效操作
+            if (substr($oprn, 0, 4)!=="api/") continue;
+            if (substr($oprn, 0, $appkPrelen)!==$appkPre && substr($oprn, 0, $bzPrelen)!==$bzPre) continue;
+
+            //route 路由正则
+            $rut = $oprc["route"] ?? null;
+            //路由正则 必须包在 /.../ 之间
+            if (!Is::nemstr($rut) || substr($rut, 0,1)!=="/" || substr($rut, -1)!=="/") continue;
+            //根据路由正则，得到此接口的访问地址
+            $rut = substr($rut, 1, -1);
+            //去除最后的 (\\.*)
+            $rut = str_replace("(\\.*)", "", $rut);
+            //去除其他字符，最为最终的 访问 url
+            $rut = str_replace(["\\","(",")","*","."],"", $rut);
+
+            //收集
+            $rtn["oprs"][$oprn] = [
+                "oprn"  => $oprn,
+                "name"  => $oprc["name"],
+                "title" => $this->intr."服务>".$oprc["title"],
+                "url"   => $rut,
+            ];
+        }
+
+        return $rtn;
     }
 }

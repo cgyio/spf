@@ -224,6 +224,38 @@ class Curl extends SpecialUtil
         return $result;
     }
 
+    //post with jwt-token
+    public static function jwt($url, $jwt, $data=null)
+    {
+        $args = func_get_args();
+        $url = array_shift($args);
+        $jwt = array_shift($args);
+        $data = !empty($args) ? array_shift($args) : [];
+        array_unshift($args, ["post", $data]);
+
+        $curl = new Curl($url);
+        $curl->addUsage(...$args);
+        
+        //单独设置 jwt
+        curl_setopt_array($curl->curl, [
+            //CURLOPT_RETURNTRANSFER => true, // 将响应结果返回，不直接输出
+            //自定义请求头
+            CURLOPT_HTTPHEADER => [
+                "authority: $jwt",
+            ],
+            CURLOPT_SSL_VERIFYPEER => true,  // 生产环境开启SSL验证（安全）
+            //CURLOPT_SSL_VERIFYHOST => 2,     // 验证SSL证书域名
+            CURLOPT_TIMEOUT => 30,           // 请求超时时间（秒）
+            // 强制使用 HTTP/2（部分接口必须指定才能识别 authority 头）
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_2_0
+        ]);
+
+        $result = $curl->exec();
+        $curl->close();
+        return $result;
+
+    }
+
     //wx用于微信平台
     public static function wx($url, $data = null)
     {

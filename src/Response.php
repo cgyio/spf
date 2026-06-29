@@ -50,6 +50,10 @@ class Response extends Core
     //准备输出的内容
     public $data = null;
 
+    //是否输出包裹了标准结构的 responseData 默认 true
+    //!! 仅对 api 形式输出有效
+    public $wrap = true;
+
     //获取到的 异常信息数组
     public $exceptions = [
         //按先后顺序 push 进来的 多个 BaseException 类实例
@@ -78,9 +82,14 @@ class Response extends Core
             //请求实例已创建
             $request = Request::$current;
             $ohds = $request->responseHeaders;
+            
+            //通过 $_GET 传入的 switch 开关
+            $this->switch = $request->switch;
+
             if ($request->oprcMatched === true) {
                 //请求的 操作方法已匹配到
                 $oprc = $request->getOprc();
+                //请求的 操作返回的 类型 api|view|src
                 $expt = $oprc["export"];
             }
         }
@@ -102,6 +111,10 @@ class Response extends Core
         $expcls = $this->getExporter();
         //创建 Exporter 实例
         $this->exporter = new $expcls($this);
+        //开关 ?api=yes 强制以 api 形式输出响应数据
+        if ($this->switch->api === true) {
+            $this->setType("api");
+        }
 
         // 4 如果 WEB_PAUSE==true 尝试中断响应
         if ($this->pause === true) {
@@ -208,6 +221,17 @@ class Response extends Core
             //处理异常
             $e->handleException();
         }
+    }
+
+    /**
+     * 切换是否包裹输出数据
+     * @param Bool $wrap 
+     * @return Bool
+     */
+    public function setWrap($wrap=true)
+    {
+        $this->wrap = $wrap;
+        return true;
     }
 
     /**

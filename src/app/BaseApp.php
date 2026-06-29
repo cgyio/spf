@@ -8,6 +8,7 @@
 namespace Spf\app;
 
 use Spf\App;
+use Spf\Runtime;
 use Spf\exception\AppException;
 
 class BaseApp extends App 
@@ -37,11 +38,25 @@ class BaseApp extends App
      */
     public function default(...$args)
     {
+        //var_dump($this->config->ctx);
+        //var_dump($this->operation->defines());
+        //var_dump($this->operation->routes());
+
+        //var_dump(Runtime::$env->path);
+        //var_dump(SPF_PATH);
+
+        //var_dump($this->ModuleOrm);
+
         //throw new AppException("响应方法错误测试", "app/response");
         //return $this->config->module;
         //return $this->module->orm;
-        var_dump(App::ModuleSrc());
-        var_dump($this->mod_uac);
-        var_dump($this->ModuleOrm);
+
+        //var_dump(App::ModuleSrc());
+        //var_dump($this->mod_uac);
+        //var_dump($this->ModuleOrm);
+
+        return [
+            "foo" => "bar"
+        ];
     }
 }

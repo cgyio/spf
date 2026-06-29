@@ -139,13 +139,15 @@ class Request extends Core
         $this->posts = new Posts($_POST);
         $this->inputs = new Inputs();
         $this->files = new Files();
+
         //预定义的 开关，可通过 $_GET 传入的
         $sw = $this->config->switches;
         $sws = [];
         foreach($sw as $k => $dv) {
             //检查是否通过 $_GET 传入了这些开关的 值
-            $kv = $this->gets->$k($dv);
-            $sws[$k] = strtolower($kv) === "yes";
+            //$kv = $this->gets->$k($dv);
+            //$sws[$k] = strtolower($kv) === "yes";
+            $sws[$k] = $this->gets->$k($dv);
         }
         $this->switch = (object)$sws;
 
@@ -243,6 +245,50 @@ class Request extends Core
     }
 
     /**
+     * 运行时 修改 oprc 操作匹配结果，执行 callback 自定义操作，恢复原 oprc，返回 callback 结果
+     * !! 用于 路由劫持
+     * @param Array $oprc 要替换为的 操作信息数组
+     * @param Array $uris 要替换的 uri 参数数组
+     * @param \Closure $callback 替换成新的 oprc 后，执行对应的 操作，返回结果
+     * @return Mixed $callback 的执行结果
+     */
+    public function __runtimeSetOprc($oprc, $uris=[], $callback=null)
+    {
+        if (!Operation::isStdOprc($oprc) || !$callback instanceof \Closure) return $this;
+
+        //原始 oprc
+        $origin = [
+            "oprc" => Arr::copy($this->oprc),
+            "uris" => array_merge([], $this->uris)
+        ];
+
+        //替换
+        $this->oprc = $oprc;
+        $this->uris = $uris;
+
+        //执行 callback
+        $rtn = $callback();
+
+        //恢复
+        $this->oprc = $origin["oprc"];
+        $this->uris = $origin["uris"];
+
+        //返回操作结果
+        return $rtn;
+    }
+    public function runtimeSetOprc($oprc, $uris=[])
+    {
+        if (!Operation::isStdOprc($oprc)) return $this;
+
+        //替换
+        $this->oprc = $oprc;
+        $this->uris = $uris;
+
+        //返回操作结果
+        return $this;
+    }
+
+    /**
      * 获取 $this->uris 
      * @return Array
      */
@@ -295,9 +341,7 @@ class Request extends Core
     public function handleAppCreatedEvent($triggerBy=null)
     {
         if (!$triggerBy instanceof App) return;
-
-        //应用实例化完成后，立即通过 getOprc 方法，匹配请求的 操作信息
-        $this->getOprc();
+        
     }
 
     /**
@@ -310,14 +354,7 @@ class Request extends Core
     public function handleResponseCreatedEvent($triggerBy=null)
     {
         if (!$triggerBy instanceof Response) return;
-        
-        //将通过 $_GET 传入的 switch 开关，附加到 Response 响应实例
-        $triggerBy->switch = $this->switch;
 
-        //开关 ?api=yes 强制以 api 形式输出响应数据
-        if ($this->switch->api === true) {
-            $triggerBy->setType("api");
-        }
     }
 
 

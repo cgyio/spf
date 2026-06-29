@@ -1,0 +1,10 @@
+{
+    "name": "deskvue",
+    "iconset": "deskvue",
+    "multicolor": true,
+    "iconcss": "spf/assets/icon/base.css",
+
+    "ext": ["js","css","svg"],
+    
+    "root": ""
+}

@@ -17,8 +17,13 @@ use Spf\util\Arr;
 use Spf\util\Cls;
 use Spf\util\Path;
 
+use Spf\traits\CoreInsGetter;
+
 abstract class Middleware extends Core 
 {
+    //快速获取核心类
+    use CoreInsGetter;
+
     /**
      * 单例模式
      * !! 覆盖父类，具体模块子类必须覆盖
@@ -28,6 +33,14 @@ abstract class Middleware extends Core
     public static $isInsed = false;
     //标记 是否可以同时实例化多个 此核心类的子类
     public static $multiSubInsed = true;
+
+    /**
+     * !! 手否手动执行中间件的 标记
+     * 如果是手动执行，则不会自动调用 exit 方法，而是返回 中间件 handle 的结果 true|false
+     */
+    public static $manual = false;
+    //手动执行中间件的 handle 结果 true|false
+    public static $manualHandleResult = null;
 
     /**
      * 标准的 中间件列表 数组格式
@@ -64,17 +77,48 @@ abstract class Middleware extends Core
         $clsn = static::clsn();
         //当前中间件的 路径名 foo_bar
         $clsk = static::clsk();
+        //当前中间件的 类型 in|out
+        $mitp = static::typeIs();
+        if (!Is::nemstr($mitp)) {
+            //此中间件无法判断 in|out
+            throw new CoreException("无法判断中间件 $clsn 的类型", "initialize/config");
+        }
         //中间件配置类 类名 MiddlewareFooBarConfig
-        $cfgn = "Middleware".$clsn."Config";
+        $cfgn = "Middleware".Str::camel($mitp, true).$clsn."Config";
 
         //查找 参数配置类的 类全称
         $cfgcls = null;
-        //优先在 应用路径下 查找对应的 中间件配置类
-        $cfgcls = Cls::find("middleware/$appk/$clsk/$cfgn");
+        //优先在 当前应用路径下 查找对应的 中间件配置类
+        $cfgcls = Cls::find("app/$appk/middleware/config/$cfgn");
+        //如果当前应用下不存在 此中间件的配置参数
+        if (empty($cfgcls) || !class_exists($cfgcls)) {
+            //根据 此中间件所属的 App | Module 查找配置文件
+            $bto = static::belongTo();
+            if (!Is::nemaso($bto)) {
+                //此中间件不属于任何 App | Module 表示这是框架默认中间件
+                //在 框架默认的路径下查找
+                $cfgcls = Cls::find("middleware/config/$cfgn", "Spf\\");
+            } else {
+                $mappk = $bto["app"];
+                $mmodk = $bto["module"];
+                if (Is::nemstr($mappk) && Is::nemstr($mmodk)) {
+                    //此中间件被定义在 某个应用内部的模块中
+                    $cfgcls = Cls::find("app/$mappk/module/$mmodk/middleware/config/$cfgn");
+                } else if (Is::nemstr($mappk)) {
+                    //此中间件定义在其他 App 下
+                    $cfgcls = Cls::find("app/$mappk/middleware/config/$cfgn");
+                } else {
+                    //此中间件被定义在 某个框架模块下 或 某个网站模块下
+                    $cfgcls = Cls::find("module/$mmodk/middleware/config/$cfgn");
+                }
+            }
+        }
+        //如果  仍未找到 中间件的配置参数
         if (empty($cfgcls) || !class_exists($cfgcls)) {
             //在 框架默认的路径下查找
-            $cfgcls = Cls::find("middleware/$clsk/$cfgn", "Spf\\");
+            $cfgcls = Cls::find("middleware/config/$cfgn", "Spf\\");
         }
+        //使用 默认配置
         if (empty($cfgcls) || !class_exists($cfgcls)) {
             //默认路径下，也没有此中间件的 配置类，则使用 MiddlewareConfig 类，此类一定存在
             $cfgcls = Cls::find("config/MiddlewareConfig", "Spf\\");
@@ -110,6 +154,11 @@ abstract class Middleware extends Core
         
         // 0 执行 handle
         $res = $this->handle();
+        if (static::$manual===true) {
+            //如果是手动执行此中间件，直接返回 handle 结果
+            static::$manualHandleResult = $res;
+            return $this;
+        }
 
         // 1 触发 终止响应
         if ($res===false) $this->exit();
@@ -139,16 +188,14 @@ abstract class Middleware extends Core
 
 
     /**
-     * 静态工具
-     */
-
-    /**
+     * !! 外部入口方法
      * 依次执行 入站|出站 中间件，实例化，执行 handle 方法
      * !! 中间件执行时 App 应用必须已经实例化
      * @param String $type 入站|出站 类型 默认 in
+     * @param Bool $return 是否返回过滤结果，而不是 终止响应，默认 false
      * @return void
      */
-    public static function process($type="in")
+    public static function process($type="in", $return=false)
     {
         if (App::$isInsed !== true) return;
         //获取 当前应用 关联的 中间件列表
@@ -156,7 +203,8 @@ abstract class Middleware extends Core
         //var_dump($midcs);
         $mids = $midcs[$type] ?? [];
         if (!Is::nemarr($mids)) return;
-        //var_dump($mids);
+
+        //if ($type==="out") var_dump($mids);
         //return;
 
         //按顺序 执行 中间件实例化，执行 handle 方法
@@ -164,20 +212,103 @@ abstract class Middleware extends Core
             //中间件 配置参数
             $midc = $midcs[$midk] ?? [];
 
-            //自动补全 类名路径的 middleware/ 前缀
-            $pre = "middleware/";
-            if (substr($midk, 0, strlen($pre))!==$pre) $midk = $pre.$midk;
-            $midcls = Cls::find($midk);
+            //获取 中间件类全称
+            $midcls = static::has($midk);
             //如果不存在此类
             if (!class_exists($midcls)) continue;
+
+            //如果是 返回过滤结果
+            if ($return) {
+                //手动标记
+                $midcls::$manual = true;
+                $midcls::$manualHandleResult = null;
+            }
 
             //实例化 此中间件，将自动执行 handle
             $mido = Middleware::current($midc, $midcls);
 
             //如果没有终止响应，则 释放此中间件实例
             unset($mido);
+
+            //如果是 返回过滤结果
+            if ($return) {
+                //记录过滤结果
+                $res = $midcls::$manualHandleResult;
+
+                //取消手动标记
+                $midcls::$manual = true;
+                $midcls::$manualHandleResult = null;
+
+                //如果是 false 立即返回，不继续执行后续 中间件
+                if ($res!==true) return false;
+            }
         }
 
+        //如果是 返回过滤结果
+        if ($return) return true;
+
+    }
+
+    /**
+     * !! 外部入口
+     * 手动执行 中间件过滤，实例化， 执行 handle 方法，返回 handle 结果
+     * @param String $midcls 中间件类全称  或 Cls::find 可识别的 类路径
+     * @return Bool 
+     */
+    public static function manualProcess($midcls)
+    {
+        //获取 中间件类全称
+        $midcls = static::has($midk);
+        //如果不存在此类  返回 true 表示不做控制
+        if (!class_exists($midcls)) return true;
+
+        //手动标记
+        $midcls::$manual = true;
+        $midcls::$manualHandleResult = null;
+        
+        //实例化 此中间件，将自动执行 handle
+        $mido = Middleware::current([], $midcls);
+        unset($mido);
+
+        //读取 handle 结果
+        $res = $midcls::$manualHandleResult;
+
+        //清除 标记和结果
+        $midcls::$manual = false;
+        $midcls::$manualHandleResult = null;
+
+        //返回 结果
+        return $res;
+    }
+
+
+
+    /**
+     * 静态工具
+     */
+
+    /**
+     * 判断传入的 中间件类 是否存在  可以传入 类全称 或 类路径，可以省略 middleware/ 前缀
+     * @param String $midcls 中间件类全称  或 Cls::find 可识别的 类路径
+     * @return String|false 存在则返回 类全称 否则返回 false
+     */
+    public static function has($midk) 
+    {
+        if (!Is::nemstr($midk)) return false;
+
+        //中间件类前缀
+        $pre = "middleware/";
+        $prelen = strlen($pre);
+
+        //先检查一次
+        $midcls = Cls::find($midk);
+        if (!class_exists($midcls) && substr($midk, 0, $prelen)!==$pre) {
+            //如果没找到中间件类，自动补全 类名路径的 middleware/ 前缀
+            $midcls = Cls::find($pre.$midk);
+        }
+
+        if (!class_exists($midcls)) return false;
+        return $midcls;
     }
 
     /**
@@ -266,5 +397,53 @@ abstract class Middleware extends Core
         $old = Arr::extend($old, $new);
         //返回
         return $old;
+    }
+
+    /**
+     * 判断当前 中间件类的 类型 in|out
+     * @return String|null
+     */
+    public static function typeIs()
+    {
+        $clsp = strtolower(static::class);
+        if (strpos($clsp, "\\in\\")!==false) return "in";
+        if (strpos($clsp, "\\out\\")!==false) return "out";
+        return null;
+    }
+
+    /**
+     * 判断当前中间件 是否在某个 App 或 Module 下被定义
+     * 返回 所属 App 或 Module 的 名称 foo_bar
+     * @return Array|null
+     *  [
+     *      "app" => null,
+     *      "module" => "module_name"
+     *  ]
+     * !! 同时属于 App 和 Module 表示这个中间件被定义在 某个应用内部的 模块内
+     */
+    public static function belongTo()
+    {
+        $rtn = [
+            "app" => null,
+            "module" => null
+        ];
+
+        $clsp = strtolower(static::class);
+        $ks = array_merge([], array_keys($rtn));
+        foreach ($ks as $k) {
+            if (strpos($clsp, "\\".$k."\\")===false) continue;
+            $clspa = explode("\\".$k."\\", $clsp);
+            $clspa = explode("\\", $clspa[1]);
+            if (!Is::nemstr($clspa[0])) continue;
+            $rtn[$k] = $clspa[0];
+        }
+        
+        $emp = true;
+        foreach ($ks as $k) {
+            $emp = $emp && is_null($rtn[$k]);
+        }
+        if ($emp===true) return null;
+
+        return $rtn;
     }
 }

@@ -679,4 +679,32 @@ class Path extends Util
         return $fs;
     }
 
+    /**
+     * 从给定的 路径中解析出可能存在的 App 应用名
+     * @param String $path 路径，可以是实际物理路径 或 可被 Path::find() 识别的路径
+     * @return String 找到的 App 应用名 foo_bar 形式  如果路径不存在则直接解析 [.../]app/app_name[/...] 结构
+     */
+    public static function inapp($path)
+    {
+        if (!Is::nemstr($path)) return null;
+        $p = Path::find($path, Path::FIND_BOTH);
+        if (file_exists($p) || is_dir($p)) {
+            //DS --> /
+            $p = str_replace(DS, "/", $p);
+        } else {
+            $p = Str::replace([DS, "\\"], "/", $path);
+        }
+        if (!Is::nemstr($p)) return null;
+
+        //查找  [.../]app/app_name[/...] 结构
+        $pattern = "/(.*\/)?app\/([a-zA-Z0-9_$]+)(\/.*)?/";
+        $mt = preg_match($pattern, $p, $matches);
+        if ($mt!==1) return null;
+        //找到 App 应用名
+        $appn = $matches[2] ?? null;
+        if (!Is::nemstr($appn)) return null;
+        //返回 App 应用名 foo_bar 形式
+        return Str::snake($appn, "_");
+    }
+
 }

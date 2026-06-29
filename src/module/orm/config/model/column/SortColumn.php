@@ -1,0 +1,73 @@
+<?php
+/**
+ * SPF-Orm 数据库处理模块
+ * 数据库配置解析工具类
+ * 专门解析 sort 特殊类型的 工具类
+ * 
+ * 处理数据库配置参数中的  $conf["model"]["model_name"]["column"]["sort"] 项目
+ */
+
+namespace Spf\module\orm\config\model\column;
+
+use Spf\module\orm\config\model\SpecialColumn;
+use Spf\util\Is;
+use Spf\util\Str;
+use Spf\util\Arr;
+use Spf\util\Path;
+use Spf\util\Cls;
+
+use Spf\module\orm\config\model\column\traits\IndexedConf;
+
+class SortColumn extends SpecialColumn 
+{
+    //引用 trait
+    //特殊类型参数 是 indexed 字段名数组
+    use IndexedConf;
+
+    /**
+     * 此特殊字段类型的 名称 foo_bar
+     * 在配置参数中存在 $conf["model"]["model_name"]["column"][...] 的配置项
+     * !! 覆盖父类
+     */
+    protected $special = "sort";
+
+    
+
+    /**
+     * 对传入的 此类型特殊字段的 配置参数，进行有效检查，合并默认值，返回值将被缓存到 $this->origin
+     * !! 已在 traits/IndexedConf 中实现
+     * @param String|Array $conf 要解析的 数据库配置参数中的 此类型字段的 配置参数
+     * @return String|Array|null 如果传入的参数无效，返回 null
+     */
+    //protected function fixOption($conf=null) {}
+
+    /**
+     * 解析入口
+     * !! 必须实现
+     * @param Array $conf 传入待解析的 此类型特殊字段的 配置参数
+     * @return Array 返回解析后得到的 将被写入 ColumnParser 数据模型(表)字段解析器实例的 $temp 中的数据
+     */
+    public function parse()
+    {
+        //直接调用 trait 方法
+        $rtn = $this->parseIndexedConf();
+
+        //增加前端参数中的 缓存标记，用于前端操作时，缓存每个可排序字段的 排序参数
+        $rtn["front"] = [
+            "table" => [
+                "cache" => [
+                    "sort" => []
+                ]
+            ]
+        ];
+        foreach ($this->origin as $colk) {
+            //写入默认的 排序参数，前端修改某个字段的排序参数后，将会缓存在前端
+            //!! 如果此字段是 autoincrement 字段，默认 降序排列
+            //!! 此处指定的默认排序参数，会被前端缓存的 覆盖掉
+            $rtn["front"]["table"]["cache"]["sort"][$colk] = $this->colTemp($colk, "isId")===true ? "desc" : "none";
+        }
+
+        return $rtn;
+    }
+
+}

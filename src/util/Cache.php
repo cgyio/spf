@@ -45,15 +45,16 @@ class Cache extends SpecialUtil
     //缓存数据读取到 指定对象中后，标记 这是缓存数据
     protected static $signKey = "__CACHE_SIGN__";
 
-    //默认的缓存过期时间
+    //默认的缓存过期时间，=0 则表示缓存永不过期
     protected static $expire = 60*60;  // 1h
 
     /**
      * 读取 缓存内容
      * @param String $path 要读取的缓存文件路径 Path::find 路径，不存在则会尝试创建
+     * @param Bool $sign 是否向缓存数据中 添加 signKey 默认 true
      * @return Array|null
      */
-    public static function read($path)
+    public static function read($path, $sign=true)
     {
         //框架必须开启了 运行时缓存
         if (self::$enable !== true) return null;
@@ -83,13 +84,17 @@ class Cache extends SpecialUtil
         $exp = self::$expire;
         $ct = $cache[$tk] ?? null;
         $ct = is_null($ct) ? 0 : strtotime($ct);
-        //缓存过期，不读取
-        if ($ct<=0 || time()-$ct>$exp) return [];
+        //缓存过期，不读取 
+        if ($ct<=0 || ($exp>0 && time()-$ct>$exp)) return [];
 
         //清除缓存中的 时间戳
         unset($cache[$tk]);
         //增加标记
-        $cache[$sk] = true;
+        if ($sign===true) {
+            $cache[$sk] = true;
+        } else {
+            unset($cache[$sk]);
+        }
         //返回数据
         return $cache;
     }

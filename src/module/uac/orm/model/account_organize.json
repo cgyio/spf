@@ -1,0 +1,53 @@
+{
+    "name": "account_role",
+    "title": "账号组织表",
+    "desc": "记录账号的组织数据",
+    "prepare": {
+        "idx": {
+            "unique": [],
+            "multiple": [],
+            "normal": ["uuid", "orgid"]
+        }
+    },
+    "columns": {
+        "uuid":     ["UUID","账号全局唯一编号",12],
+        "orgid":    ["组织代码","此账号所在的组织代码",6],
+        "entryat":  ["录入时间","此账号进入此组织的时间",4]
+    },
+    "creation": {
+        "uuid":     "uuid NOT NULL",
+        "orgid":    "varchar(12) NOT NULL",
+        "entryat":  "datetime NOT NULL DEFAULT now"
+    },
+    "join": {},
+    "column": {
+        "includes": ["uuid", "orgid"],
+        "sort": ["uuid", "orgid", "entryat"],
+        "search": ["uuid", "orgid"],
+        "select": {
+            "uuid": {
+                "dynamic": true,
+                "multiple": false,
+                "source": {
+                    "table": "account",
+                    "value": "uuid",
+                    "label": "name"
+                }
+            },
+            "orgid": {
+                "dynamic": true,
+                "multiple": false,
+                "source": {
+                    "table": "organize",
+                    "value": "orgid",
+                    "label": "name"
+                }
+            }
+        },
+        "datetime": {
+            "entryat": {
+                "type": "datetime"
+            }
+        }
+    }
+}

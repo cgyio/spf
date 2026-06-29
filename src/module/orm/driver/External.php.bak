@@ -1,0 +1,51 @@
+<?php
+/**
+ * SPF-Orm 数据库操作类   数据库驱动
+ * driver/External 操作外部数据库
+ * 
+ * 所有实现了 SPF-Db 数据操作接口的 外部数据库系统，可作为 external 类型数据库，被实例化为当前会话应用的 某个数据库实例
+ * 
+ * SPF-Db 数据库操作接口包括：
+ *      /conf                       --> GET  返回完整的数据库配置参数 {...}
+ *      /connect                    --> POST 创建 SPF-Db 数据库安全连接，参数：{uid:'', pwd:''} 返回 jwtToken
+ *      !! 下列 CURD 操作接口必须带 Authority 请求头
+ *      /[model]/create             --> POST 创建记录，参数：[{记录},...]
+ *      /[model]/update             --> POST 更新记录，参数：{query:{标准查询条件}, data:{记录}}
+ *      /[model]/retrieve           --> POST 查询记录，参数：{标准查询条件}
+ *      /[model]/delete             --> POST 删除记录，参数：{标准查询条件}
+ *      
+ * 
+ */
+
+namespace Spf\module\orm\driver;
+
+use Spf\module\orm\Driver;
+
+class External extends Driver 
+{
+    /**
+     * 默认的数据库连接参数
+     * !! 覆盖父类，指定 external 类型数据库的 连接参数形式
+     */
+    protected static $dftOptions = [
+        //!! 必须   外部数据库访问接口 地址前缀，直接拼接 /[api_name] 即可访问对应接口
+        "url" => "",    // https://host/foo/bar/db/[dbn]
+        //!! 必须   外部数据库接口访问的 权限控制
+        "uid" => "",
+        "pwd" => "",
+
+        //可选  可以指定标准接口的别名
+        "interface" => [
+            "connect"   => "/connect",
+            "config"    => "/conf",
+            "model"     => "/%{MDK}%/model",
+            "create"    => "/%{MDK}%/create",
+            "update"    => "/%{MDK}%/update",
+            "retrieve"  => "/%{MDK}%/retrieve",
+            "delete"    => "/%{MDK}%/delete",
+        ],
+
+    ];
+
+    //
+}

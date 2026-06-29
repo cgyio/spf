@@ -1491,9 +1491,8 @@ cgy.def({
     },
 
     //用promise方式，实现条件执行，需要轮询 _until(() =>{}).then(() => {})
-    until(condition, waittime=2000) {
-        let timegap = 100,  //条件轮询时间间隔
-            timeto = 0;     //已等待时间
+    until(condition, waittime=2000, timegap=100) {
+        let timeto = 0;     //已等待时间
         return new Promise((resolve, reject) => {
             if (!cgy.is(condition,'function')) {
                 //return reject(new Error('cgy.until 方法，传入的条件必须为 Function 返回值为 Boolean'));

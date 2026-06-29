@@ -12,9 +12,9 @@ class Cls extends Util
     /**
      * 获取 类全称
      * foo/bar  -->  NS\foo\Bar
-     * @param String $path      full class name
-     * @param String $ns        namespace 前缀 默认使用常量 NS
-     * @return Class            not found return null
+     * @param String|Array $path    full class name
+     * @param String $ns            namespace 前缀 默认使用常量 NS
+     * @return Class                not found return null
      */
     public static function find($path = "", $ns = null)
     {
@@ -30,7 +30,8 @@ class Cls extends Util
         }
         $ns = substr($ns, -1)!=="\\" ? $ns."\\" : $ns;
         //查询的 类名路径 转为数组  foo/bar,jaz/tom  -->  [ foo/bar, jaz/tom ]
-        $ps = Is::nemstr($path) ? explode(",", $path) : $path;
+        $ps = Is::nemstr($path) ? explode(",", $path) : (Is::nemidx($path) ? $path : []);
+        if (!Is::nemidx($ps)) return null;
         //查找 类
         $cl = null;
         for ($i=0; $i<count($ps); $i++) {
@@ -56,7 +57,7 @@ class Cls extends Util
                 break;
             }
             
-            if ($hasns!==true) {
+            if ($hasns!==true && $ns!==$dftns) {
                 //如果未指定 $ns 前缀，则再查找一次 使用 默认前缀的 类
                 $cls = $dftns . implode("\\", $pia);
                 if (class_exists($cls)) {
@@ -84,7 +85,7 @@ class Cls extends Util
     }
 
     /**
-     * 从类全程中 去除可能存在的 NS 前缀
+     * 从类全称中 去除可能存在的 NS 前缀
      * @param String $cls 类全称
      * @param String $ns        namespace 前缀 默认 null
      * @return String 去除 NS 前缀后的 类路径 foo/bar_jaz/...，可以作为 self::find 方法的参数
@@ -590,7 +591,7 @@ class Cls extends Util
             //@param, @return 项目不处理
             if (in_array(strtolower($ik), ["param","return"])) continue;
             //获取信息项目值
-            $iv = count($ra)<2 ? null : $ra[1];
+            $iv = count($ra)<2 ? null : implode(" ", array_slice($ra, 1));
             //null,true,false 字符串转为对应值
             if (Is::ntf($iv)) {
                 eval("\$iv = ".$iv.";");

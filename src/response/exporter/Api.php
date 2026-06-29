@@ -29,7 +29,7 @@ class Api extends Exporter
     /**
      * 当前响应类型的 $response->data 的 数据结构
      * api 类型的 数据结构
-     * !! 子类必须覆盖
+     * !! 覆盖父类
      */
     public $stdData = [
         //如果是 异常输出，此处标记
@@ -126,6 +126,8 @@ class Api extends Exporter
         $ed = Conv::a2j($pd);
         $code = $ecp->isInnerException()===true ? 500 : 200;
 
+        $ec = $ecp->ctx("code_no_pre");
+
         //eko
         $this->eko($ed, $code, $pd);
         
@@ -141,15 +143,50 @@ class Api extends Exporter
     {
         //responseData
         $rd = $this->response->data;
-        //echo
-        $ed = Arr::extend($this->stdData, [
-            "data" => $rd
-        ]);
-        $ed = Conv::a2j($ed);
+        //包裹结构
+        if ($this->response->wrap) {
+            $ed = Arr::extend($this->stdData, [
+                "data" => $rd
+            ]);
+        } else {
+            $ed = $rd;
+        }
 
         //eko
-        $this->eko($ed);
+        $this->eko(Conv::a2j($ed));
 
         exit;
+    }
+
+    /**
+     * echo 步骤，将要输出的内容 echo 到响应体
+     * !! 覆盖父类
+     * @param Mixed $eData 可以是 json | html | Resource实例
+     * @param Int $code 响应状态码 默认 200
+     * @param Mixed $oData 转换前的数据 默认为 $this->response->data
+     * @return exit
+     */
+    protected function eko($eData, $code=200, $oData=null)
+    {
+        /**
+         * 针对 输出 json 格式内容
+         * !! 从缓冲区收集 var_dump 内容，并添加到输出数据中
+         */
+        if (!Is::json($eData) || ob_get_level()<=0) return parent::eko($eData, $code, $oData);
+
+        $ed = Conv::j2a($eData);
+        if (!(is_array($ed) && (empty($ed) || Is::associate($ed)))) return parent::eko($eData, $code, $oData);
+
+        //!! 从缓冲区收集 var_dump 内容
+        $dump = ob_get_contents();
+        //var_dump 存入输出结构
+        if (!empty($dump)) $ed["dump"] = $dump;
+        //清空缓冲区
+        ob_clean();
+
+        //恢复 json 数据
+        $eData = Conv::a2j($ed);
+        
+        return parent::eko($eData, $code, $oData);
     }
 }

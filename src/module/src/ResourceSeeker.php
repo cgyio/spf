@@ -70,9 +70,13 @@ final class ResourceSeeker
         $uri = self::seekPath(...$args);
         if (!Is::nemstr($uri)) return null;
 
+        //var_dump($uri);
+
         //解析 URI 获取资源的 sourceType 以及相关其他参数
         $opt = self::seekSourceType($uri);
         if (!Is::nemarr($opt) || !isset($opt["type"]) || !in_array($opt["type"], Resource::$sourceTypes)) return null;
+
+        //var_dump($opt);
 
         //准备要返回的 资源参数
         $opts = Arr::extend(self::$stdResourceOpts, [
@@ -186,6 +190,8 @@ final class ResourceSeeker
         //是否包含 .min.
         $hasmin = strpos($path, ".min.")!==false;
         if ($hasmin) $nomin = str_replace(".min.",".",$path);
+
+        //var_dump("---- seekLocal ---- ".$path);
 
         //构建查询 路径数组
         $pathes = [];

@@ -1,6 +1,6 @@
 <?php
 /**
- * 框架 可复用类特征
+ * SPF 框架 可复用类特征
  * 通用的 基础类功能：
  *      获取类名 FooBar | foo_bar
  *      获取类type  NS\foo_bar\jaz\Tom::is(false|true)  ==  foo_bar | FooBar

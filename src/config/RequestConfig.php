@@ -19,9 +19,9 @@ class RequestConfig extends Configer
         //可通过 $_GET 传入的 开关标记  ?foo=yes|no
         "switches" => [
             //是否通过 dump 方式输出数据 默认 no
-            "dump" => "no",
+            "dump" => false,
             //是否强制以 api 方法输出数据
-            "api" => "no",
+            "api" => false,
         ],
     ];
 

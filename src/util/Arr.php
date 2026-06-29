@@ -96,6 +96,8 @@ class Arr extends Util
                 $property->setAccessible(true); //允许访问私有/保护属性
                 $value = $property->getValue($clone);
                 //深拷贝属性值并重新赋值
+                //!! 如果属性值为另一个 object ，不继续深拷贝，而是返回 引用
+                //!! 即 object 对象只深拷贝一层属性，对于 object 类型的属性值，则返回引用
                 $property->setValue($clone, self::copy($value));
             }
 
@@ -560,6 +562,87 @@ class Arr extends Util
                 continue;
             }
             $rtn[$pre.$k] = $sub;
+        }
+        return $rtn;
+    }
+
+    /**
+     * 将关联数组中 包含指定前缀的键值，收集到以前缀为键名的键值数组中，形成 二维数组
+     * 例如：
+     *  [
+     *      "foo" => "bar",
+     *      "pre_foo" => "bar",
+     *      "pre_bar" => "jaz",
+     *  ] 转换后：
+     *  [
+     *      "foo" => "bar",
+     *      "pre" => [
+     *          "foo" => "bar",
+     *          "bar" => "jaz"
+     *      ],
+     *  ]
+     * @param Array $arr
+     * @param String $pre 指定前缀
+     * @param String $glup 指定连接符 默认 _
+     * @return Array 
+     */
+    public static function collectPrefix($arr, $pre, $glup="_")
+    {
+        if (!Is::nemstr($glup)) $glup = "_";
+        if (!Is::associate($arr)) return [];
+        if (!Is::nemstr($pre)) return $arr;
+        if (substr($pre, strlen($glup)*-1)!==$glup) $pre .= $glup;
+        $prelen = strlen($pre);
+        $prek = substr($pre, 0, strlen($glup)*-1);
+        $rtn = [
+            $prek => []
+        ];
+        foreach ($arr as $k => $v) {
+            if (substr($k, 0, $prelen)!==$pre) {
+                $rtn[$k] = $v;
+                continue;
+            }
+            $pk = substr($k, $prelen);
+            $rtn[$prek][$pk] = $v;
+        }
+        return $rtn;
+    }
+
+    /**
+     * 将元素为 关联数组 的 indexed 数组，按元素的 某个键值 进行去重，返回去重后的 indexed 数组
+     * 例如：
+     *  [
+     *      [id=>1, foo=>bar1, ...],
+     *      [id=>2, foo=>bar2, ...],
+     *      [id=>2, foo=>bar22, ...],
+     *      [id=>3, foo=>bar3, ...],
+     *  ] 按 id 去重后：
+     *  [
+     *      [id=>1, foo=>bar1, ...],
+     *      [id=>2, foo=>bar2, ...],
+     *      [id=>3, foo=>bar3, ...],
+     *  ]
+     * @param Array $arr
+     * @param String $key 按照此键名对应的键值，进行去重
+     *                    !! 支持多维数组键名序列  如： foo/bar/... 
+     * @return Array 去重后的 indexed 数组
+     */
+    public static function uniqueByKey($arr, $key)
+    {
+        if (!Is::nemidx($arr)) return [];
+        if (!Is::nemstr($key)) return $arr;
+        $rtn = [];
+        //已出现过的值
+        $vals = [];
+        foreach ($arr as $v) {
+            if (!Is::nemaso($v)) continue;
+            //查找 $key 对应的值
+            $val = static::find($v, $key);
+            if (is_null($val)) continue;
+            if (!in_array($val, $vals)) {
+                $vals[] = $val;
+                $rtn[] = $v;
+            }
         }
         return $rtn;
     }

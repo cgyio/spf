@@ -6,6 +6,7 @@
 
 namespace Spf\config;
 
+use Spf\App;
 use Spf\Middleware;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -48,6 +49,17 @@ class ModuleConfig extends Configer
             ...
             !! 经过 Module::findDependency 方法处理后，此参数将变更为 indexed 数组，包含所有依赖的模块的 modk
             */
+        ],
+
+        //此模块必须依赖的 通用可扩展资源类
+        "expandableResource" => [
+            "dependency" => [
+                //资源类基类的 类全称 或 可被 Cls::find 识别的类路径 ...
+            ],
+            //!! 是否开启 资源缓存 由 使用此模块的 App 决定，此处不需要设置
+            //"enableCache" => true,
+            //!! 资源缓存路径 由 使用此模块的 App 决定，此处不需要设置
+            //"cache" => "runtime/app/%{APPK}%/expandable_resource.json",
         ],
 
         //此模块必须的 中间件，要删除 全局|应用中 定义的某个中间件，可在 类名路径前增加 __delete__ 标记
@@ -121,6 +133,17 @@ class ModuleConfig extends Configer
         //将 middleware 参数写入 context
         $this->context["middleware"] = $mids;
 
+        //!! 模块执行配置参数处理时，应用已经实例化
+        //替换 配置参数中的 %{APPK}% %{APPN}%
+        $appk = App::$current::clsk();
+        $appn = App::$current::clsn();
+        $this->context = $this->fixConfVal($this->context, function($v) use ($appk, $appn) {
+            if (!Is::nemstr($v)) return $v;
+            if (strpos($v, "%{APPK}%")!==false) $v = str_replace("%{APPK}%", $appk, $v);
+            if (strpos($v, "%{APPN}%")!==false) $v = str_replace("%{APPN}%", $appn, $v);
+            return $v;
+        });
+
         return $this;
     }
 
@@ -130,7 +153,7 @@ class ModuleConfig extends Configer
      *      NS\module\app_name\foo_bar\ModuleFooBarConfig   -->  FooBar
      * @return String 模块类名 FooBar 形式
      */
-    public static function moduleClsn()
+    public static function __moduleClsn()
     {
         $cls = static::class;
         $clsn = Cls::name($cls);

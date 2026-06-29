@@ -18,6 +18,7 @@ use Spf\util\Str;
 use Spf\util\Arr;
 use Spf\util\Cls;
 use Spf\util\Path;
+use Spf\util\Conv;
 
 class Exporter 
 {
@@ -146,6 +147,8 @@ class Exporter
 
         //TODO: 响应其他 开关的 输出方式
         //...
+
+
 
         //正常输出
         $this->setContentType();

@@ -1,0 +1,53 @@
+{
+    "name": "account_auth",
+    "title": "账号权限表",
+    "desc": "记录账号的额外权限数据",
+    "prepare": {
+        "idx": {
+            "unique": [],
+            "multiple": [],
+            "normal": ["uuid", "iso", "auth"]
+        }
+    },
+    "columns": {
+        "uuid":     ["UUID","账号全局唯一编号",12],
+        "iso":      ["ISO","此账号权限所在的项目隔离ID",4],
+        "auth":     ["权限","此账号拥有的权限OPRN",4],
+        "entryat":  ["录入时间","此账号拥有此权限的时间",4]
+    },
+    "creation": {
+        "uuid":     "uuid NOT NULL",
+        "iso":      "iso NOT NULL",
+        "auth":     "varchar(128) NOT NULL",
+        "entryat":  "datetime NOT NULL DEFAULT now"
+    },
+    "join": {},
+    "column": {
+        "includes": ["uuid", "iso", "auth"],
+        "sort": ["uuid", "iso", "auth", "entryat"],
+        "search": ["uuid", "iso", "auth"],
+        "select": {
+            "uuid": {
+                "dynamic": true,
+                "multiple": false,
+                "source": {
+                    "table": "account",
+                    "value": "uuid",
+                    "label": "name"
+                }
+            },
+            "auth": {
+                "dynamic": true,
+                "multiple": false,
+                "source": {
+                    "api": "operations/select"
+                }
+            }
+        },
+        "datetime": {
+            "entryat": {
+                "type": "datetime"
+            }
+        }
+    }
+}

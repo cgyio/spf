@@ -1,0 +1,53 @@
+{
+    "name": "role_auth",
+    "title": "角色权限表",
+    "desc": "记录角色的权限数据",
+    "prepare": {
+        "idx": {
+            "unique": [],
+            "multiple": [],
+            "normal": ["roleid", "iso", "auth"]
+        }
+    },
+    "columns": {
+        "roleid":   ["角色编码","角色的全局唯一编码",6],
+        "iso":      ["ISO","此角色权限所在的项目隔离ID",4],
+        "auth":     ["权限","此角色拥有的权限OPRN",4],
+        "entryat":  ["录入时间","此角色拥有此权限的时间",4]
+    },
+    "creation": {
+        "roleid":   "varchar(32) NOT NULL",
+        "iso":      "iso NOT NULL",
+        "auth":     "varchar(128) NOT NULL",
+        "entryat":  "datetime NOT NULL DEFAULT now"
+    },
+    "join": {},
+    "column": {
+        "includes": ["roleid", "iso", "auth"],
+        "sort": ["roleid", "iso", "auth", "entryat"],
+        "search": ["roleid", "iso", "auth"],
+        "select": {
+            "roleid": {
+                "dynamic": true,
+                "multiple": false,
+                "source": {
+                    "table": "role",
+                    "value": "roleid",
+                    "label": "name"
+                }
+            },
+            "auth": {
+                "dynamic": true,
+                "multiple": false,
+                "source": {
+                    "api": "operations/select"
+                }
+            }
+        },
+        "datetime": {
+            "entryat": {
+                "type": "datetime"
+            }
+        }
+    }
+}

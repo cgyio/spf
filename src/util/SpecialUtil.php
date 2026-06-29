@@ -58,6 +58,47 @@ class SpecialUtil
     }
 
     /**
+     * 在运行时，动态改变工具参数，然后执行 callback 完成后再回复 工具参数到原始值
+     * @param Array $conf 运行时要指定的 工具参数
+     * @param Closure $callback 回调函数
+     * @return Mixed $callback 回调函数的返回值
+     */
+    public static function runtimeExec($conf=[], $callback=null)
+    {
+        //!! enable 参数也可以运行时修改
+        //if (static::$enable!==true) return null;
+        //必须指定回调函数
+        if (!is_callable($callback)) return null;
+        //是否指定了要修改 工具的参数
+        $mod = Is::nemarr($conf);
+
+        //执行回调前 修改工具参数
+        if ($mod) {
+            foreach ($conf as $uk => $uv) {
+                //静态属性名称转换为 fooBar 形式
+                $uk = Str::camel($uk, false);
+                static::$$uk = $uv;
+            }
+        }
+
+        //执行回调
+        $rtn = $callback();
+
+        //回调执行完成后，恢复工具参数到初始值
+        if ($mod) {
+            $init = static::$initConf;
+            foreach ($init as $uk => $uv) {
+                //静态属性名称转换为 fooBar 形式
+                $uk = Str::camel($uk, false);
+                static::$$uk = $uv;
+            }
+        }
+
+        //返回执行结果
+        return $rtn;
+    }
+
+    /**
      * forDev
      * 输出此工具类 在当前会话下的 启动参数
      * @return Array

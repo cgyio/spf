@@ -18,8 +18,16 @@ use Spf\util\Arr;
 use Spf\util\Cls;
 use Spf\util\Path;
 
+use Spf\traits\CoreInsGetter;
+use Spf\traits\ExpandableResourceCollector;
+
 abstract class Module extends Core 
 {
+    //快速获取核心类
+    use CoreInsGetter;
+    //!! 自动收集 ExpandableResource 通用可扩展资源
+    use ExpandableResourceCollector;
+
     /**
      * 单例模式
      * !! 覆盖父类，具体模块子类必须覆盖
@@ -91,10 +99,11 @@ abstract class Module extends Core
     
     /**
      * 此模块类自有的 init 方法，执行以下操作：
-     *  0   为应用实例增加 新的响应方法，将这些新的响应方法 添加到 App::$current->operation->context[] 并更新 路由表
-     *  1   为应用实例增加 新的中间件，这些新的中间件 
-     *  2   执行模块自定义的 init 方法
-     *  3   将当前的 模块实例，缓存到 Module::$modules[module_name]
+     *  0   自动收集此模块依赖的 ExpandableResource 通用可扩展资源
+     *  1   执行模块自定义的 init 方法
+     *  2   为应用实例增加 新的响应方法，将这些新的响应方法 添加到 App::$current->operation->context[] 并更新 路由表
+     *  3   为应用实例增加 新的中间件，这些新的中间件 
+     *  4   将当前的 模块实例，缓存到 Module::$modules[module_name]
      * !! Core 子类必须实现的，Module 子类不要覆盖
      * @return $this
      */
@@ -129,20 +138,35 @@ abstract class Module extends Core
             }
         }
 
-        // 0 为应用实例增加 新的响应方法，修改 操作列表 | 路由表
-        $oprsInjected = $this->injectOprs();
+        //err msg
+        $errmsg = [];
 
-        // 1 为应用实例增加 新的中间件
-        $midsInjected = $this->injectMiddleware();
+        // 0 自动收集此模块依赖的 ExpandableResource 通用可扩展资源
+        $exresCollected = static::collectExres($this);
+        if (!$exresCollected) $errmsg[] = "ExpandableResource 通用可扩展资源收集失败";
 
-        // 2 执行模块自定义的 init 方法
+        // 1 执行模块自定义的 init 方法
         $modInited = $this->initModule();
+        if (!$modInited) $errmsg[] = "模块未能正确执行 initModule 方法";
 
-        if (true !== ($oprsInjected && $midsInjected && $modInited)) {
-            throw new CoreException("未能正确初始化模块 $modn", "initialize/init");
+        // 2 为应用实例增加 新的响应方法，修改 操作列表 | 路由表
+        $oprsInjected = $this->injectOprs();
+        if (!$oprsInjected) $errmsg[] = "未能正确修改当前应用实例的操作列表";
+
+        // 3 为应用实例增加 新的中间件
+        $midsInjected = $this->injectMiddleware();
+        if (!$midsInjected) $errmsg[] = "未能正确添加新的中间件";
+
+        if (true !== ($exresCollected && $modInited && $oprsInjected && $midsInjected)) {
+            if (Is::nemidx($errmsg)) {
+                $errmsg = "，原因：".implode(" 且 ", $errmsg);
+            } else {
+                $errmsg = "";
+            }
+            throw new CoreException("$modn 模块未能正确初始化$errmsg", "initialize/init");
         }
 
-        // 3 将当前的 模块实例，缓存到 Module::$modules[module_name]
+        // 4 将当前的 模块实例，缓存到 Module::$modules[module_name]
         Module::$modules[$modk] = $this;
 
         return $this;
@@ -237,18 +261,23 @@ abstract class Module extends Core
          */
         if ($key === "all") {
             $mods = self::$modules;
-            $emods = [];
+            //!! 不需要检查
+            //$emods = [];
+            /*
             foreach ($mods as $modk => $modins) {
                 if (!$modins instanceof Module) continue;
                 $emods[$modk] = $modins;
             }
+            */
             if (!empty($args)) {
                 $modk = $args[0];
                 if (!Is::nemstr($modk)) return null;
                 $modk = Str::snake($modk, "_");
-                return $emods[$modk] ?? null;
+                //return $emods[$modk] ?? null;
+                return $mods[$modk] ?? null;
             }
-            return $emods;
+            //return $emods;
+            return $mods;
         }
 
         /**
@@ -287,6 +316,11 @@ abstract class Module extends Core
             //应用名路径形式 foo_bar
             $appk = App::$current::clsk();
             //在 应用路径下查找 模块类
+            //if ($modk==="pms_test") {
+            //    var_dump($modn);
+            //    var_dump("module/$appk/$modn");
+            //    var_dump(Cls::find("module/$appk/$modn"));
+            //}
             $modcls = Cls::find("module/$appk/$modn");
             if (Is::nemstr($modcls) && class_exists($modcls)) return $modcls;
         }
@@ -321,7 +355,7 @@ abstract class Module extends Core
                 $old[$modk] = $modc;
             } else {
                 //后定义的 extend 覆盖原参数
-                $old[$modc] = Arr::extend($old[$modk], $modc);
+                $old[$modk] = Arr::extend($old[$modk], $modc);
             }
         }
 

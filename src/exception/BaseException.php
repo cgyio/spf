@@ -10,6 +10,7 @@ namespace Spf\exception;
 
 use Spf\Env;
 use Spf\Response;
+use Spf\Middleware;
 use Spf\util\Log;
 use Spf\util\Is;
 use Spf\util\Arr;
@@ -152,9 +153,11 @@ class BaseException extends \Exception
 
         //存在 预定义的 异常信息
         //将 异常码(不带前缀) 转换为 完整的异常码(带前缀) string
-        $fullcode = static::addCodePre(is_numeric($code) ? $code : $exception[2]);
+        $ecode = is_numeric($code) ? $code : $exception[2];
+        $fullcode = static::addCodePre($ecode);
         //处理 预定义的 异常信息 字符串模板
         $fullmsg = static::fixMsgTemplate($exception[1], $msg);
+        //var_dump($msg);
         //var_dump($fullcode);
         //var_dump($fullmsg);
 
@@ -164,7 +167,7 @@ class BaseException extends \Exception
             //输出的异常码 带前缀
             "code" => $fullcode,
             //不带前缀的 异常码
-            "code_no_pre" => (int)$code,
+            "code_no_pre" => (int)$ecode,
 
             //预设异常参数
             //异常标题
@@ -172,7 +175,7 @@ class BaseException extends \Exception
             //处理后的 已经替换模板字符的 msg
             "message" => $fullmsg,
             //缓存 key-path 当前异常 在预设的 exceptions 数组中的 xpath
-            "xpath" => static::getKeyPath($code),
+            "xpath" => static::getKeyPath($ecode),
 
             //已处理 标记
             "handled" => false,
@@ -243,10 +246,12 @@ class BaseException extends \Exception
             $full === true
         ) {
             //详细 错误信息
+            var_dump($this->ctx("xpath"));
             $info_d = [
                 "ekey" => $this->getEkey(),
                 "file" => $this->getFile(),
                 "line" => $this->getLine(),
+                "xpath" => $this->ctx("xpath"),
                 //"trace" => empty($this->ctx("trace")) ? $this->getTrace() : $this->ctx("trace"),
                 "trace" => $this->ctx("trace"),
             ];
@@ -306,7 +311,7 @@ class BaseException extends \Exception
     /**
      * 判断当前异常 是 框架内部异常 还是 
      * 如果是 框架内部异常，在输出异常信息时，需要同时输出 500 状态码
-     * 应用层异常，不需要在输出时 同时输出 500 错误
+     * 应用层异常，输出 200 状态码
      * @return Bool true 表示 框架内部异常 false 表示 应用层异常
      */
     public function isInnerException()
@@ -419,6 +424,7 @@ class BaseException extends \Exception
      */
     protected function exit()
     {
+        //var_dump("---- throw error to exit ----");
         //如果 Response 响应实例 还未创建，则 创建 响应实例，写入 当前异常实例
         if (Response::$isInsed !== true) {
             $response = Response::current();
@@ -428,6 +434,9 @@ class BaseException extends \Exception
             //使用已创建的 响应实例
             $response = Response::$current;
         }
+
+        //!! 出站中间件
+        Middleware::process("out");
 
         //调用 响应实例 输出异常信息
         $response->export();
@@ -470,7 +479,8 @@ class BaseException extends \Exception
 
         //创建 
         $e = new BaseException(
-            $msg, 
+            //$msg, 
+            static::rawEncode($msg),
             $code, 
             [
                 //file、line 作为额外的 异常信息
@@ -532,7 +542,8 @@ class BaseException extends \Exception
 
         //创建 
         $e = new BaseException(
-            $msgstr,
+            //$msgstr,
+            static::rawEncode($msgstr),
             $code,
             [
                 //将 file、line、trace 作为额外异常信息
@@ -771,10 +782,12 @@ class BaseException extends \Exception
             //参数不正确，直接返回 抛出时提供的 msg
             return $msg;
         } 
-        //开始替换 模板字符
+
+        //!! 使用 , 分割字符串，以替代 %{n}% 模板
         $msa = explode(",",$msg);
         $msa = array_map(function($mi){
-            return trim($mi);
+            //!! 替换可能存在的 static::$rawComma
+            return static::rawDecode(trim($mi));
         }, $msa);
         foreach ($msa as $i => $mi) {
             $cmsg = str_replace("%{".($i+1)."}%", $mi, $cmsg);
@@ -783,7 +796,25 @@ class BaseException extends \Exception
     }
 
     /**
-     * 判断
+     * 传入的 异常信息可能包含从其他异常中 $e->getMessage() 获取的信息字符串
+     * !! 因使用 , 分割字符串，以替代 %{n}% 模板，需要把获取到的其他异常信息中的 , 替换为 _raw_comma_
+     * !! 其他异常信息被包裹在 _raw_(...)_raw_ 中
+     * !! 分为 rawEncode() 和 rawDecode() 两个方法
      */
+    public static $rawSign = ["_raw_(", ")_raw_"];
+    public static $rawComma = "_raw_comma_";
+    //rawEncode( $e->getMessage() )
+    final public static function rawEncode($msg)
+    {
+        if (!Is::nemstr($msg)) return "";
+        return str_replace(",", static::$rawComma, $msg);
+        //return static::$rawSign[0].$msg.static::$rawSign[1];
+    }
+    //rawDecode( " ... _raw_(...)_raw_ ... " )
+    final public static function rawDecode($msg)
+    {
+        if (!Is::nemstr($msg)) return "";
+        return str_replace(static::$rawComma, ",", $msg);
+    }
 
 }

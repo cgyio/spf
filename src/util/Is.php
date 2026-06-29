@@ -132,6 +132,16 @@ class Is extends Util
     {
         return is_array($var) && !empty($var);
     }
+    //Is::nemarr() && Is::indexed()
+    public static function nemidx($var = null) 
+    {
+        return self::nemarr($var) && self::indexed($var);
+    }
+    //Is::nemarr() && Is::associate()
+    public static function nemaso($var=null)
+    {
+        return self::nemarr($var) && self::associate($var);
+    }
 
 
     /**
@@ -303,6 +313,17 @@ class Is extends Util
     {
         $ctp = Color::isColorString($var);
         return $ctp !== false;
+    }
+
+
+    /**
+     * 判断数字类型
+     */
+    //是否数字或数字字符串
+    public static function realnum($var=null)
+    {
+        if (!is_numeric($var)) return false;
+        return (int)$var==$var || (float)$var==$var;
     }
 
 

@@ -1,0 +1,53 @@
+{
+    "name": "account",
+    "title": "账号表",
+    "desc": "记录账号权鉴数据",
+    "prepare": {
+        "idx": {
+            "unique": ["uuid","openid","name"],
+            "multiple": [],
+            "normal": []
+        }
+    },
+    "columns": {
+        "uuid":     ["UUID","账号全局唯一编号",12],
+        "openid":   ["OPID","此账号关联的权鉴小程序用户的openid",8],
+        "name":     ["名称","此账号的登录名称，全局唯一",4],
+        "pswd":     ["密码","此账号的登录登陆密码",4]
+    },
+    "creation": {
+        "uuid":     "uuid NOT NULL DEFAULT v7",
+        "openid":   "varchar(64)",
+        "name":     "varchar(20) NOT NULL",
+        "pswd":     "varchar(32) NOT NULL"
+    },
+    "join": {},
+    "column": {
+        "includes": ["uuid","openid","name"],
+        "sort": ["uuid"],
+        "search": ["uuid","name"],
+        "select": {},
+        "json": {}
+    },
+    "front": {
+        "table": {
+            "hide": ["uuid","openid","pswd"],
+            "mode": {}
+        },
+        "form": {
+            "hide": [],
+            "validator": {},
+            "file": {
+
+            },
+            "inputer": {
+                "avator": {
+                    "inputFilesMaxLength": 0,
+                    "uploadTo": "${uid}",
+                    "accept": "image/*,.svg",
+                    "showListMode": "item"
+                }
+            }
+        }
+    }
+}

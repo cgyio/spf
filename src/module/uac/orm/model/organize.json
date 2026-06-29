@@ -1,0 +1,69 @@
+{
+    "name": "organize",
+    "title": "组织表",
+    "desc": "记录用户组织数据",
+    "prepare": {
+        "idx": {
+            "unique": ["orgid"],
+            "multiple": [],
+            "normal": ["name"]
+        }
+    },
+    "columns": {
+        "orgid":    ["组织代码","此用户组织的全局唯一编号",6],
+        "iso":      ["ISO","此组织所属的项目隔离ID",6],
+        "fid":      ["上级","此组织的上级组织的组织代码",6],
+        "name":     ["名称","此组织的名称",6],
+        "desc":     ["描述","此组织的描述信息",12],
+        "createat": ["创建日期","此组织的创建日期",6],
+        "director": ["负责人","此组织的负责人UUID",4]
+    },
+    "creation": {
+        "orgid":    "varchar(12) NOT NULL",
+        "iso":      "iso NOT NULL",
+        "fid":      "varchar(12)",
+        "name":     "varchar(20) NOT NULL",
+        "desc":     "varchar(255)",
+        "createat": "datetime NOT NULL DEFAULT now",
+        "director": "uuid"
+    },
+    "join": {
+        "[>]organize (superior)": {
+            "organize.fid": "superior.orgid"
+        },
+        "[<]organize (inferior)": {
+            "organize.orgid": "inferior.fid"
+        },
+        "[<]account_organize": "orgid"
+    },
+    "column": {
+        "includes": ["orgid", "iso", "fid", "name", "createat"],
+        "sort": ["orgid", "iso", "createat", "director"],
+        "search": ["orgid", "iso", "name", "desc"],
+        "select": {
+            "fid": {
+                "dynamic": true,
+                "multiple": false,
+                "source": {
+                    "table": "organize",
+                    "value": "orgid",
+                    "label": "name"
+                }
+            },
+            "director": {
+                "dynamic": true,
+                "multiple": false,
+                "source": {
+                    "table": "account",
+                    "value": "uuid",
+                    "label": "name"
+                }
+            }
+        },
+        "datetime": {
+            "createat": {
+                "type": "datetime"
+            }
+        }
+    }
+}

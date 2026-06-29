@@ -136,6 +136,19 @@ class Str extends Util
     }
 
     /**
+     * 去除字符串可能存在的 外层 '' ""
+     * @param String $str
+     * @return String
+     */
+    public static function trimQuote($str)
+    {
+        if (!Is::nemstr($str)) return $str;
+        $str = trim($str, "'");
+        $str = trim($str, "\"");
+        return $str;
+    }
+
+    /**
      * case 转换
      */
 

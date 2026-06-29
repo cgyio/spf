@@ -6190,7 +6190,7 @@ const defineSpfWin = {
         sty: {
             init: {
                 class: {
-                    root: 'spf-win flex-y flex-x-stretch',
+                    root: 'spf-win win flex-y flex-x-stretch',
                 }
             },
             prefix: 'win',

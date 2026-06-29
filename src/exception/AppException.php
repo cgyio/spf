@@ -71,7 +71,38 @@ class AppException extends BaseException
         ],
     ];
     
+    /**
+     * 异常处理方法：终止响应，输出异常信息
+     * !! 覆盖父类
+     * @return void
+     */
+    protected function exit()
+    {
+        //如果 Response 响应实例 还未创建，则 创建 响应实例，写入 当前异常实例
+        if (Response::$isInsed !== true) {
+            $response = Response::current();
+            //写入 异常实例
+            $response->setException($this);
+        } else {
+            //使用已创建的 响应实例
+            $response = Response::$current;
+        }
 
+        //!! 模型特殊类型的 AppException 需要转为 返回错误码
+        $rtnCodes = [
+            "route/missapp"     => 404,
+            "route/missoprc"    => 404,
+        ];
+        //检查当前错误是否需要输出 错误码
+        $xpath = $this->context["xpath"] ?? "";
+        if (isset($rtnCodes[$xpath])) {
+            $response->setCode($rtnCodes[$xpath]);
+        }
+
+        //调用 响应实例 输出异常信息
+        $response->export();
+        exit;
+    }
 
     /**
      * 判断当前异常是否需要终止响应

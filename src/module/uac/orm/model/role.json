@@ -1,0 +1,32 @@
+{
+    "name": "role",
+    "title": "角色表",
+    "desc": "记录账号角色数据，赋予操作权限",
+    "prepare": {
+        "idx": {
+            "unique": ["roleid"],
+            "multiple": [],
+            "normal": ["name"]
+        }
+    },
+    "columns": {
+        "roleid":   ["角色编码","角色的全局唯一编码",6],
+        "iso":      ["ISO","此角色所属的项目隔离ID",4],
+        "name":     ["角色","角色名称",4],
+        "desc":     ["说明","角色说明",8]
+    },
+    "creation": {
+        "roleid":   "varchar(32) NOT NULL",
+        "iso":      "iso NOT NULL",
+        "name":     "varchar(32) NOT NULL",
+        "desc":     "varchar(255)"
+    },
+    "join": {},
+    "column": {
+        "includes": ["iso","roleid","name"],
+        "sort": ["iso","roleid"],
+        "filter": ["iso"],
+        "search": ["name","roleid","iso"],
+        "select": {}
+    }
+}

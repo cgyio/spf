@@ -50,7 +50,24 @@ class AppConfig extends Configer
             ],
         ],
 
-        //定义为全局启用的 route|module|middleware
+        //此应用必须依赖的 通用可扩展资源类
+        "expandableResource" => [
+            "dependency" => [
+                //资源类基类的 类全称 或 可被 Cls::find 识别的类路径 ...
+            ],
+            //是否开启 资源缓存
+            "enableCache" => true,
+            //资源缓存的 文件路径
+            "cache" => "runtime/app/%{APPK}%/expandable_resource.json",
+        ],
+
+        /**
+         * 在此应用配置类构造时传入的 框架启动参数 $opt[] 
+         * 从其中筛选出此处定义的项目，作为 app 全局参数
+         * !! 在 fixOpt 方法中自动生成 此处不需要手动定义
+         * 这些全局参数将会被当前 app 的自定义参数覆盖
+         * 全局参数可选： route|module|middleware|service
+         */
         /*"global" => [
             "route" => [],
             "module" => [],
@@ -58,6 +75,7 @@ class AppConfig extends Configer
                 "in" => [],
                 "out" => [],
             ],
+            "service" => [],
         ],*/
 
         //定义在此应用中的 路由，全局路由将会合并到此数组
@@ -75,6 +93,16 @@ class AppConfig extends Configer
                 //资源输出 不受 WEB_PAUSE 影响
                 "pause" => false,
             ],
+
+            //测试模块 框架功能测试
+            "test" => [
+                "enable" => true,
+                //!! 仅在 开发模式下 可用
+                "dev" => true,
+                //不受 WEB_PAUSE 影响
+                "pause" => false,
+            ],
+
             /*
             "module_name" => [
                 "enable" => true,
@@ -107,6 +135,125 @@ class AppConfig extends Configer
             ...
             */
         ],
+
+        /**
+         * Spf 框架的 ServiceApp 机制，分布式应用系统
+         * 
+         * 此 应用中 将要使用的 ServiceApp
+         * !! 任意 App 应用，都可以被外部的 其他应用 作为 ServiceApp 来使用
+         * !! ServiceApp 可以部署在 本项目|本服务器|其他服务器 上，通过接口调用
+         * !! 所有可被作为 ServiceApp 被其他应用使用的 应用，都必须基于 Spf 框架（需注意 框架版本）
+         * 
+         * 在当前请求的 App 应用初始化阶段，会扫描 此参数中定义的所有 ServiceApp，访问通用的 operations 接口，获取各
+         * ServiceApp 对外提供的 可用操作列表（以 Operation::$stdOprs 数组形式对外提供），
+         * 当前应用，会将这些操作，合并到 $app->operation 实例中，
+         * 这样 所有 ServiceApp 的所有操作接口，都会被纳入当前应用的 operation 操作与匹配体系
+         * 当前应用内部直接通过 $app->invokeService() 即可调用这些 ServiceApp 对外提供的 功能
+         *      $app->invokeService(
+         *          "服务名称/服务接口/参数1/参数2...?a=1&b=2",
+         *          [
+         *              模拟 post 给接口的 json 数据 ...
+         *          ], 
+         *          function($result) {
+         *              对 接口返回的数据，做额外加工 ...
+         *              return $result;
+         *          }
+         *      )
+         * 
+         * 使用举例：
+         *      当前项目 prj_aaa 根目录为 www/project/aaa
+         *          其中包含应用 aaa_foo 应用目录为 www/project/aaa/app/aaa_foo
+         *              此应用的访问地址：https://aaa.domain.com/aaa_foo/... 
+         *          同项目中还有另一个应用 aaa_bar 应用目录为 www/project/aaa/app/aaa_bar
+         *              此应用的访问地址：https://aaa.domain.com/aaa_bar/... 
+         *      同服务器中还有另一个项目 prj_bbb 根目录为 www/project/bbb
+         *          其中包含应用 bbb_foo 应用目录为 www/project/bbb/app/bbb_foo
+         *              此应用的访问地址：https://bbb.domain.com/bbb_foo/... 
+         *      外部其他服务器中有项目 prj_ccc 根目录为 otherwww/project/ccc 
+         *          其中包含应用 ccc_foo 应用目录为 otherwww/project/ccc/app/ccc_foo
+         *              此应用的访问地址：https://ccc.otherdomain.com/ccc_foo/... 
+         * 
+         * 则 在当前应用 aaa_foo 中，这样调用应用 aaa_bar|bbb_foo|ccc_foo 作为 ServiceApp
+         * 在 应用 aaa_foo 的配置参数中指定 service 参数：
+         *      "service" => [
+         *          !! 服务名称可与 服务应用的实际的应用名不同，推荐统一加 service_project_ 前缀
+         *          "service_aaa_bar" => [
+         *              # 真实的 ServiceApp 名称 kabab-case
+         *              "name"  => "aaa_bar",
+         * 
+         *              # 服务应用的实际访问地址
+         *              !! 如果是同项目下的，domain 相同，则可以省略
+         *              "url"   => "/aaa_bar",
+         * 
+         *              # 如果 服务应用开启了 Uac 控制，还需要指定 账号|密码，否则 uac 设为 false
+         *              !! 如果 服务应用 与 当前应用 共享一套 Uac 体系(例如：指向相同的 Mysql库，以及相同的 用户表|角色表)，
+         *              !! 则 uac 参数可设为 true
+         *              !! 同项目|同服务器 中的 应用，通常采用此种模式，因此 同项目|同服务器 中的 服务应用 uac 一般是 true
+         *              "uac"   => true,
+         * 
+         *              # 可以额外对 服务应用的 接口 做 本地映射
+         *              !! 通常不推荐
+         *              "api"   => [
+         *                  "实际接口名" => "本地映射的接口名",
+         *                  ...
+         *              ],
+         * 
+         *              # 可以额外指定，标准操作信息数组 的覆盖参数
+         *              !! 将覆盖 此 ServiceApp 的所有操作 被合并到 $app->operation 时生成的 标准操作信息数组
+         *              "extra" => [
+         *                  # 可以设置 此 ServiceApp 不受 WEB_PAUSE 维护标记影响
+         *                  "pause" => false
+         *              ],
+         *          ],
+         * 
+         *          "service_bbb_foo" => [
+         *              "name"  => "bbb_foo",
+         *              !! 如果 服务应用的 访问地址 有 不同的 domain 则不能省略
+         *              "url:   => "https://bbb.domain.com/bbb_foo",
+         *              !! 通常情况下 同服务器中的 应用，都会 共享一套 Uac 体系，因此 uac = true
+         *              "uac"   => true,
+         *              "api"   => [],
+         *          ],
+         * 
+         *          "service_ccc_foo" => [
+         *              "name"  => "ccc_foo",
+         *              "url"   => "https://ccc.otherdomain.com/ccc_foo",
+         * 
+         *              !! 针对外部服务器中的 服务应用，也可以通过 Orm 模块指向相同的 Mysql用户库用户表角色表，来共享一套 Uac
+         *              !! 如果 未共享 Uac 
+         *              !! 则需要在 当前应用的 用户库用户表中，为每个用户指定 对应 service 服务的 账号和密码
+         *              !! 此处设为 uac = "custom"
+         *              "uac"   => "custom",
+         * 
+         *              !! 如果 当前应用的 Uac 体系中，未能为每个用户指定 对应 service 服务的 账号和密码
+         *              !! 则可以在此处指定 所有 当前应用用户 通用的 服务应用的 账号密码
+         *              "uac"   => [
+         *                  "usr" => "通用账号",
+         *                  "pwd" => "通用密码"
+         *              ],
+         * 
+         *              !! 如果 服务应用 未开启 Uac 模块，直接设为 false
+         *              "uac"   => false,
+         * 
+         *              "api"   => [],
+         *          ],
+         *      ],
+         *          
+         *      
+         */
+        "service" => [
+            /*
+            "service_name" => [
+                "name" => "",
+                "url" => "",
+                "uac" => true,
+                "api" => [],
+                "extra" => [],
+            ],
+            ...
+            */
+        ],
+        
     ];
     
 
@@ -173,22 +320,6 @@ class AppConfig extends Configer
             //合并 module 同时 提取并合并依赖的其他模块
             $cmods = $queue[$i]["module"] ?? [];
             $mods = Module::extend($mods, $cmods);
-            /*if (!Is::nemarr($cmods)) continue;
-            foreach ($cmods as $modk => $modc) {
-                if (!isset($modc["enable"]) || $modc["enable"]!==true) {
-                    //覆盖的设置中 模块不启用，则从已有模块中 删除此模块
-                    if (isset($mods[$modk])) unset($mods[$modk]);
-                    continue;
-                }
-                //执行 覆盖
-                if (!isset($mods[$modk])) {
-                    //后定义的 push 到原数组中
-                    $mods[$modk] = $modc;
-                } else {
-                    //后定义的 extend 覆盖原参数
-                    $mods[$modc] = Arr::extend($mods[$modk], $modc);
-                }
-            }*/
             //从 原有的 参数数组中 删除 module 参数
             unset($queue[$i]["module"]);
 
@@ -200,12 +331,19 @@ class AppConfig extends Configer
 
         //合并其他参数
 
-        //去除 opt 中的 global
+        //合并 global 中的其他参数，去除 opt 中的 global
         $opt = $this->opt;
         if (isset($opt["global"])) {
+            //global->route  合并到 当前应用的 route 
             if (isset($opt["global"]["route"])) {
                 $opt["route"] = Arr::copy($opt["global"]["route"]);
             }
+            //global->service  合并到 当前应用的 service 
+            if (isset($opt["global"]["service"])) {
+                $opt["service"] = Arr::copy($opt["global"]["service"]);
+            }
+
+            //去除 opt 中的 global 参数
             unset($opt["global"]);
         }
 

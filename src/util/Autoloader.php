@@ -54,31 +54,35 @@ class Autoloader extends SpecialUtil
         $alo = self::getComposerAutoloader();
         if (empty($alo)) return false;
 
-        //将 webroot 目录下的 所有特殊路径 添加到对应的 命名空间 下
-        self::patchDir(ROOT_PATH);
-
         //将所有 可用的 应用目录下 的 特殊路径 添加到对应的 命名空间 下
         if (is_dir(APP_PATH)) {
-            //将 APP_PATH 作为 NS\\app\\*** 命名空间的 类文件路径
-            self::addPsr4(
-                ["app","App"],
-                APP_PATH
-            );
+
             //遍历 应用
             $dh = opendir(APP_PATH);
             while ( false !== ($app = readdir($dh)) ) {
                 if (in_array($app, [".",".."])) continue;
                 if (!is_dir(APP_PATH.DS.$app)) continue;
+
+                //添加 应用目录下的 特殊路径
+                self::patchDir(APP_PATH.DS.$app, $app);
+                
                 //将每个 应用目录 也添加到 NS\\app\\*** 命名空间下
                 self::addPsr4(
                     ["app","App"],
                     APP_PATH.DS.$app
                 );
-                //添加 应用目录下的 特殊路径
-                self::patchDir(APP_PATH.DS.$app, $app);
             }
             closedir($dh);
+            
+            //将 APP_PATH 作为 NS\\app\\*** 命名空间的 类文件路径
+            self::addPsr4(
+                ["app","App"],
+                APP_PATH
+            );
         }
+
+        //将 webroot 目录下的 所有特殊路径 添加到对应的 命名空间 下
+        self::patchDir(ROOT_PATH);
 
         return true;
     }
@@ -120,6 +124,8 @@ class Autoloader extends SpecialUtil
         );
 
         //module | model | middleware | view | exception 等 特殊路径
+        //NS\\module\\***               --> root/module/***
+        //NS\\module\\app_name\\***     --> root/app/app_name/module/***
         $sd = self::$specialDirs;
         foreach ($sd as $sk) {
             self::addPsr4(
@@ -133,7 +139,7 @@ class Autoloader extends SpecialUtil
      * 获取当前的 composer autoloader 类实例
      * @return \Composer\Autoload\ClassLoader 实例  或  null
      */
-    protected static function getComposerAutoloader()
+    public static function getComposerAutoloader()
     {
         //先检查缓存
         $alo = self::$composerAutoloader;
@@ -194,10 +200,27 @@ class Autoloader extends SpecialUtil
         });
         if (!Is::nemarr($pres)) return;
 
+        //var_dump("----autoload patch----");
+        //$dump = implode(";", $pres);
+        //var_dump([
+        //    $dump => $path
+        //]);
+
         //批量调用 autoloader->addPsr4()
         foreach ($pres as $pri) {
             $alo->addPsr4($pri, $path);
         }
+    }
+
+    /**
+     * forDev: 
+     * dump("PrefixesPsr4")     --> var_dump(ComposerAutoloader->getPrefixesPsr4())
+     */
+    public static function dump($m)
+    {
+        $alo = self::getComposerAutoloader();
+        $mn = "get".$m;
+        var_dump($alo->$mn());
     }
 
 

@@ -30,9 +30,7 @@ use Spf\traits\Operation as OperationTrait;
 abstract class Core 
 {
     //引用 trait
-    use OperationTrait {
-        OperationTrait::__callStatic as operationTraitCallStatic;
-    }
+    use OperationTrait;
 
     /**
      * 单例模式
@@ -274,9 +272,40 @@ abstract class Core
      */
     public static function __callStatic($key, $args)
     {
+        $cls = static::class;
+
         /**
-         * static::foo()            -->  static::$current->foo
-         * static::insFoo(...args)     -->  static::$current->foo(...args)
+         * NS\foo_bar\Jaz::is()         -->  foo_bar
+         * NS\foo_bar\Jaz::is(true)     -->  FooBar
+         */
+        if ($key === "is") {
+            //去除类全称的 NS 头
+            $clsp = Cls::rela($cls);
+            if (!Is::nemstr($clsp)) return null;
+            $clsp = explode("/", trim($clsp,"/"));
+            if (count($clsp)<=0) return null;
+            $isk = Str::snake($clsp[0],"_");
+            if (!empty($args) && $args[0]===true) return Str::camel($isk, true);
+            return $isk;
+        }
+
+        /**
+         * Class::isFooBarCls()     -->  is_subclass_of( Class::class, Cls::find("foo/bar") )
+         *                          -->  判断 此类全称 是否存在 NS\[foo_bar]\...
+         */
+        if ( false !== ($cp = Str::between($key, "is", "Cls"))) {
+            $pclk = Str::snake($cp, "/");
+            $pcls = Cls::find($pclk);
+            if (empty($pcls)) $pcls = Cls::find($pclk, "Spf\\");
+            if (class_exists($pcls)) return is_subclass_of($cls, $pcls);
+
+            //解析类全称，判断在 NS 之后是否存在 $key
+            return static::is() === Str::snake($cp,"_");
+        }
+
+        /**
+         * static::foo()                -->  static::$current->foo
+         * static::insFoo(...args)      -->  static::$current->foo(...args)
          * 以 静态方法 形式 调用 单例的 属性|方法
          * !! 核心类单例必须已经创建
          */
@@ -297,8 +326,8 @@ abstract class Core
             }
         }
 
-        //调用 BaseTrait::__callStatic
-        return static::operationTraitCallStatic($key, $args);
+        
+        return null;
     }
 
 
@@ -308,5 +337,24 @@ abstract class Core
      * 静态工具
      * !! 子类不要覆盖
      */
+
+    /**
+     * 返回当前类的 类名 FooBar 格式
+     * @return String
+     */
+    final public static function clsn()
+    {
+        return Cls::name(static::class);
+    }
+
+    /**
+     * 返回当前类的 类名 foo_bar 格式
+     * @return String
+     */
+    final public static function clsk()
+    {
+        $clsn = static::clsn();
+        return Str::snake($clsn, "_");
+    }
     
 }

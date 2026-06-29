@@ -1,0 +1,35 @@
+{
+    "driver": "mysql",
+    "connect": {
+        "host": "127.0.0.1",
+        "port": 3306,
+        "database": "%{DBN}%",
+        "username": "",
+        "password": ""
+    },
+    "name": "%{DBN}%",
+    "title": "统一账号库",
+    "desc": "可被多项目多应用同时使用的统一账号数据库，必须在各使用的 App 应用内创建一份此配置文件的副本（使用 mixin 方式；driver，connect，name，title，desc项目不会被继承，由各应用自行定义）。如果有自定义的数据模型类，应在对应的 模型名下定义实际的 class 类名路径。自定义的模型类不许扩展自默认的模型类",
+
+    
+    "required": ["account","role"],
+
+    "model": {
+        "_default_": {
+            "name": "%{MDK}%",
+            "class": "model/%{MDN}%"
+        },
+
+        "account": {
+            "prepare": {
+                "extends": "spf/module/orm/model/common/account.json"
+            }
+        },
+
+        "role": {
+            "prepare": {
+                "extends": "spf/module/orm/model/common/role.json"
+            }
+        }
+    }
+}

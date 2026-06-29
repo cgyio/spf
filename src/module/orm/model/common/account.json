@@ -1,0 +1,82 @@
+{
+    "name": "account",
+    "title": "账号表",
+    "desc": "记录账号权鉴数据",
+    "prepare": {
+        "idx": {
+            "unique": ["uuid","openid","name"],
+            "multiple": [],
+            "normal": []
+        }
+    },
+    "columns": {
+        "uuid":     ["UUID","账号全局唯一编号",12],
+        "openid":   ["OPID","此账号关联的权鉴小程序用户的openid",8],
+        "project":  ["项目","此账号所在的所有项目，记录项目ID",8],
+        "name":     ["名称","此账号的登录名称，全局唯一",4],
+        "pswd":     ["密码","此账号的登录登陆密码",4],
+        "role":     ["角色","此账号拥有的所有角色，记录角色ID",8],
+        "auth":     ["权限","在角色之外此账号还拥有的操作权限，记录标准的操作标识OPRN",8]
+    },
+    "creation": {
+        "uuid":     "uuid",
+        "openid":   "varchar(64)",
+        "project":  "json NOT NULL DEFAULT '[]'",
+        "name":     "varchar(20) NOT NULL",
+        "pswd":     "varchar(32) NOT NULL",
+        "role":     "json NOT NULL DEFAULT '[]'",
+        "auth":     "json NOT NULL DEFAULT '[]'"
+    },
+    "join": {
+        "use": false
+    },
+    "column": {
+        "includes": ["uuid"],
+        "sort": ["uuid"],
+        "search": ["uuid"],
+        "select": {
+            "role": {
+                "dynamic": true,
+                "multiple": true,
+                "source": {
+                    "table": "role",
+                    "value": "id",
+                    "label": "name"
+                }
+            },
+            "auth": {
+                "dynamic": true,
+                "multiple": true,
+                "source": {
+                    "api": "operations/select"
+                }
+            }
+        },
+        "json": {
+            "project": "indexed",
+            "role": "indexed",
+            "auth": "indexed"
+        }
+    },
+    "front": {
+        "table": {
+            "hide": ["uuid","openid","pswd"],
+            "mode": {}
+        },
+        "form": {
+            "hide": [],
+            "validator": {},
+            "file": {
+
+            },
+            "inputer": {
+                "avator": {
+                    "inputFilesMaxLength": 0,
+                    "uploadTo": "${uid}",
+                    "accept": "image/*,.svg",
+                    "showListMode": "item"
+                }
+            }
+        }
+    }
+}
