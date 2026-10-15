@@ -8,15 +8,11 @@
  * 数据模型(表)配置参数中的 prepare 预处理参数形式：见 Preparer::$dftOption[]
  * 
  * 
- * 
- * !! ExpandableResource 通用可扩展资源，可在 应用级>网站级>框架级 扩展此资源类
- * !! 需要在 自定义 Preparer 类的 whenCollect() 方法中，将自定义的 $specialColumns[] 通用特殊字段 
- * !! 合并到 Preparer::$specialColumnsCollection[] 中
- * 
  */
 
 namespace Spf\module\orm\config\model;
 
+use Spf\module\orm\Behavior;
 use Spf\module\orm\OrmException;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -25,147 +21,8 @@ use Spf\util\Cls;
 use Spf\util\Path;
 use Spf\util\Conv;
 
-use Spf\traits\ExpandableResource;
-
-abstract class Preparer 
+class Preparer 
 {
-    //引用  可扩展底层资源类  特征
-    use ExpandableResource;
-    //!! trait 中要求的，子类不要覆盖
-    protected static $exresName = "preparer";
-    protected static $exresClassPath = [
-        "module/orm/config/model",
-        "db/config/model"
-    ];
-    public static $isCollected = false;
-    
-    /**
-     * 当某个 Preparer 子类被 collect 收集时，将此子类的 $specialColumns[] 合并到 Preparer::$specialColumnsCollection[]
-     * !! trait 中要求的，子类根据需要覆盖
-     * !! 可以在特定的解析类中，自行处理 解析顺序，例如插入某个其他解析类之前或之后
-     * @return Bool
-     */
-    protected static function whenCollect()
-    {
-        $scols = static::$specialColumns;
-        if (!Is::nemaso($scols)) return true;
-
-        //合并到 基类 Preparer::$specialColumnsCollection[] 中
-        //!! 子类定义的 将覆盖 基类定义的
-        Preparer::$specialColumnsCollection = Arr::extend(
-            Preparer::$specialColumnsCollection, 
-            $scols,
-            //!! indexed 数组使用 覆盖的方式合并
-            true
-        );
-
-        return true;
-    }
-
-
-
-    /**
-     * Orm 支持的 通用特殊字段
-     * !! 子类不要覆盖
-     * 可通过 数据模型参数 prepare["columns"] 中指定 要使用的特殊字段
-     * 将会自动添加 字段参数 到 数据模型参数的 creation|columns|column|... 这些项目中
-     * !! Exres 子类可以扩展 特殊字段，将被自动收集到这里
-     */
-    protected static $specialColumnsCollection = [
-        //这些是 默认的 特殊字段
-
-        //common 所有 SPF-Orm 数据库模块的数据模型都必须在 开头包含的 字段
-        "common" => [
-            //标示这些特殊字段将被 prepend or append 默认 append
-            "append" => false,
-            //要添加的 特殊字段
-            "columns" => [
-                //所有表都必须在开头有 id 字段，定义的参数将被合并到 数据模型参数中，然后交由 Parser 解析器统一解析
-                "id" => [
-                    //字段元数据  [ 中文字段名, 字段说明, 前端表格组件中字段的显示宽度% ]
-                    "columns" => ["ID","自增序号",3],
-                    //字段的 creation-sql 使用 Types 定义的字段类型，约束字符使用任意支持的 数据库 Driver 形式都可以
-                    "creation" => "integer PRIMARY KEY AUTOINCREMENT",
-                    //字段的 特殊类型参数
-                    "column" => [
-                        "includes" => ["id"],
-                        "sort" => ["id"],
-                        "filter" => ["id"]
-                    ]
-                ],
-            ],
-        ],
-
-        //final 所有 SPF-Orm 数据库模块的数据模型都必须在 结尾包含的 字段
-        "final" => [
-            //必须在结尾
-            "append" => true,
-            "columns" => [
-                "info" => [
-                    "columns" => ["备注","此记录的备注",3],
-                    "creation" => "varchar",
-                    "column" => [
-                        "includes" => ["info"],
-                        "search" => ["info"],
-                    ]
-                ],
-                "extra" => [
-                    "columns" => ["更多","此记录的更多数据",5],
-                    "creation" => "json NOT NULL DEFAULT '{}'",
-                    "column" => [
-                        "includes" => ["extra"],
-                        "search" => ["extra"],
-                        "json" => [
-                            "extra" => "associate"
-                        ]
-                    ]
-                ],
-                "enable" => [
-                    "columns" => ["生效","此记录是否生效(逻辑删除标记)",3],
-                    "creation" => "switch NOT NULL DEFAULT 1",
-                    "column" => [
-                        //索引
-                        //"indexs" => [
-                        //    "idx_enable" => "(`enable`)",
-                        //],
-                        "includes" => ["enable"],
-                        "filter" => ["enable"],
-                        "switch" => ["enable"],
-                    ]
-                ],
-                "disat" => [
-                    "columns" => ["失效时间","此记录的失效时间",5],
-                    "creation" => "datetime",
-                    "column" => [
-                        "sort" => ["disat"],
-                        "filter" => ["disat"],
-                        "datetime" => [
-                            "disat" => [
-                                "type" => "datetime",
-                                "default" => [
-                                    "value" => "now",
-                                    "params" => [
-                                        "when" => ["logic_delete"]
-                                    ],
-                                ]
-                            ]
-                        ]
-                    ]
-                ],
-            ],
-        ],
-
-    ];
-
-    /**
-     * 当前 Preparer 子类定义的 特殊字段
-     * !! 子类必须指定
-     * 结构与 Preparer::$specialColumnsCollection[] 一致
-     */
-    protected static $specialColumns = [
-        //子类定义...
-    ];
-
     /**
      * 默认的 prepare 数据模型(表) 与处理参数结构
      * !! 子类不要覆盖
@@ -173,7 +30,7 @@ abstract class Preparer
     protected static $dftOption = [
 
         //!! 用于预处理的 Preparer 子类，默认 preparer/Base ，可以指定使用扩展的 预处理类
-        "class" => "base",  //foo_bar
+        //"class" => "base",  //foo_bar
 
         //数据模型(表) 参数可以继承自某个通用数据模型，指定此通用模型的 配置文件路径，Path::find() 可识别
         "extends" => "",    //!! 如果后缀名 与 当前数据库的 $db->config->ctx["dbConfigExt"] 一致，则可省略文件后缀名
@@ -181,9 +38,12 @@ abstract class Preparer
         //可通过 columns 指定需要自动补全的 通用特殊字段字段
         //!! 特殊字段会被收集到 Preparer::$specialColumnsCollection[] 中
         //!! common 和 final 特殊字段不需要手动指定，会自动添加
-        "columns" => [
+        //"columns" => [
             //"package", ...
-        ],
+        //],
+
+        //!! 当前数据模型 需要引入的 Behavior 行为列表
+        "behavior" => [],
 
         //指定 索引参数
         //!! 必须在 columns 参数之后定义
@@ -215,6 +75,8 @@ abstract class Preparer
 
     //缓存 数据模型(表) 名称  foo_bar 
     protected $modk = "";
+    //模型类全称
+    protected $model = "";
 
     /**
      * 构造
@@ -229,6 +91,7 @@ abstract class Preparer
 
         //缓存
         $this->modk = $modk;
+        $this->model = $conf["class"];
         $this->origin = $conf;
         $this->option = $conf["prepare"];
 
@@ -253,15 +116,15 @@ abstract class Preparer
         $conf = static::fixOption($conf);
 
         //调用指定的 预处理类，默认 Base
-        $clsk = $conf["prepare"]["class"] ?? "base";
-        $cls = Preparer::support($clsk);
+        //$clsk = $conf["prepare"]["class"] ?? "base";
+        //$cls = Preparer::support($clsk);
         //!! 如果指定 预处理类不存在，使用 base
-        if (!class_exists($cls)) {
-            $cls = Preparer::support("base");
-        }
+        //if (!class_exists($cls)) {
+        //    $cls = Preparer::support("base");
+        //}
 
         //实例化
-        $po = new $cls($modk, $conf);
+        $po = new Preparer($modk, $conf);
         //执行 parse 方法，返回处理结果
         $rtn = $po->parse();
         //释放资源
@@ -282,8 +145,8 @@ abstract class Preparer
         //按顺序执行 预处理操作
         // 0    处理 extends 继承其他数据模型参数
         $this->prepareExtends();
-        // 1    处理 columns 通用字段
-        $this->prepareColumns();
+        // 1    处理 behavior 模型行为
+        $this->prepareBehavior();
         // 2    处理 idx 索引定义
         $this->prepareIdx();
 
@@ -359,27 +222,31 @@ abstract class Preparer
     }
 
     /**
-     * 处理 columns 参数
-     * 为数据模型统一增加一些通用字段
+     * 处理 Behavior 模型行为引用
      * @return Bool
      */
-    protected function prepareColumns()
+    protected function prepareBehavior()
     {
-        //向 option["columns"] 参数数组的 开头处/结尾处 分别添加 common/final 特殊通用字段
-        //用于增加 id 以及 info/extra/enable/disat 通用字段
-        $cols = $this->option["columns"] ?? [];
-        if (!Is::nemarr($cols) || !Is::indexed($cols)) $cols = [];
-        if (!in_array("common", $cols)) array_unshift($cols, "common");
-        if (!in_array("final", $cols)) array_push($cols, "final");
-        $this->option["columns"] = $cols;
+        //向 option["behavior"] 参数数组的 开头处/结尾处 分别添加 common/extra
+        $bhvs = $this->option["behavior"] ?? [];
+        if (!Is::nemarr($bhvs) || !Is::indexed($bhvs)) $bhvs = [];
+        if (!in_array("common", $bhvs)) array_unshift($bhvs, "common");
+        if (!in_array("extra", $bhvs)) array_push($bhvs, "extra");
+        $this->option["behavior"] = $bhvs;
 
         //依次添加 columns 中指定的 特殊通用字段
-        $scols = Preparer::$specialColumnsCollection;
-        foreach ($cols as $col) {
+        $scols = Behavior::$columnSetCollection;
+        //所有的 behaviors 参数
+        $ctxs = [
+            "behaviors" => [],
+        ];
+        foreach ($bhvs as $bhv) {
+            //Behavior 子类必须已经被收集过
+            if (false === ($bhvcls = Behavior::support($bhv))) continue;
             //跳过不存在的 特殊字段
-            if (!isset($scols[$col]) || !Is::nemaso($scols[$col])) continue;
+            if (!isset($scols[$bhv]) || !Is::nemaso($scols[$bhv])) continue;
             //特殊字段配置
-            $colc = $scols[$col];
+            $colc = $scols[$bhv];
             //要插入的 字段
             $colcs = $colc["columns"] ?? [];
             if (!Is::nemaso($colcs)) continue;
@@ -388,9 +255,17 @@ abstract class Preparer
             if (!is_bool($append)) $append = true;
             //调用 addColumns 方法，插入特殊字段
             $this->addColumns($colcs, $append);
+
+            //调用 Behavior 的 prepare 方法，返回要写入 模型参数中的 数据
+            $ctx = $bhvcls::prepare($this->model);
+            if (Is::nemaso($ctx)) {
+                //!! indexed 数组合并形式：覆盖
+                $ctxs = Arr::extend($ctxs, $ctx, true);
+            }
         }
 
-        return true;
+        //behaviors 数据写入 模型配置参数中
+        return $this->setCtx($ctxs);
     }
     
     /**

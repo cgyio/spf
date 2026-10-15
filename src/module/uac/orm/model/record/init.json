@@ -207,6 +207,7 @@
             ["ms.qypms",    "ms.qypms:normal",      "api/qypms:service_apis"],
 
             ["ms.qypms",    "ms.qypms:normal",      "api/module/uac:account"],
+            ["ms.qypms",    "ms.qypms:normal",      "api/module/orm:available"],
             
             ["ms.qypms",    "ms.qypms:db",          "api/db/%{DBN}%:backup_db"],
             ["ms.qypms",    "ms.qypms:db",          "api/db/%{DBN}%:restore_db"],

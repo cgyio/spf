@@ -242,9 +242,10 @@ class Datetime extends Types
     /**
      * getter
      * @name str
-     * @title 时间字符
+     * @title 文本
      * @type String
      * @jstype String
+     * @width 6
      * @param Int $val 实际字段的值 时间戳
      * @return String|null 转换为对应时间字符串
      */

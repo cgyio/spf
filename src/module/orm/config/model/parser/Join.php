@@ -11,6 +11,36 @@
  * !!       表名.字段名  或  别名.字段名
  * !! 如果关联表 和 主表 使用相同字段名，则 简写的情况下只需要写 字段名  ！！不推荐简写
  * 
+ * 在数据库配置文件 json 中 join 参数的写法：
+ * 
+ *  "join": {
+ *      !! 主表和关联表 有相同的关联字段
+ *      "[>]table_name (table_alias)": "col_name",
+ * 
+ *      !! 主表字段 与 关联表字段不同名
+ *      "[>]table_name (table_alias)": {
+ *          !! 主表字段名: 关联表字段名
+ *          "main_table.col_a": "table_alias.col_b",
+ *      },
+ * 
+ *      !! 可带额外的查询参数，必须用 AND 包裹
+ *      "[>]table_name (table_alias)": {
+ *          "main_table.col_a": "table_alias.col_b",
+ *          "AND": {
+ *              !! 标准 Medoo where 语法
+ *              "table_alias.col_c[~]": "关键字",
+ *          }
+ *      },
+ * 
+ *      !! 可以给关联表指定一个不同的表标题，用于前端显示
+ *      "[>]table_name (table_alias):表标题": {
+ *          "main_table.col_a": "table_alias.col_b",
+ *          ...
+ *      }
+ * 
+ *      
+ *  }
+ * 
  */
 
 namespace Spf\module\orm\config\model\parser;
@@ -48,8 +78,11 @@ class Join extends Parser
         //!! 是否可以 join 其他表，表示存在有效的 join 参数
         "available" => false,
 
-        //提取出的 所有被 join 的关联表 表名
-        "tables" => [],                 //关联表 表名 数组，foo_bar
+        //提取出的 所有被 join 的关联表 表名数组，foo_bar[]
+        //!! 默认情况下，这里是真实表名，在以下情况下这里会保存 别名：
+        //!!    1   关联到自身
+        //!!    2   同一张表被关联了多次
+        "tables" => [],
 
         //提取出的 主表中所有有关联关系的 字段名
         "columns" => [],
@@ -140,6 +173,9 @@ class Join extends Parser
         //如果关联表存在 别名，记录别名，没别名则为空
         "alias" => "",
 
+        //关联表 title 默认是关联表参数中的 title
+        "title" => "",
+
         //使用到的关联字段
         //!! 必须是 表名.字段名  有别名时则 别名.字段名
         "columns" => [
@@ -207,10 +243,12 @@ class Join extends Parser
             //!! 自动将 select 字段(source 为其他表数据) 转换为 LEFT JOIN
             $selc = $colc["select"]["source"];
             $stbn = $selc["table"];
+            $stit = $selc["title"] ?? $stbn;
             $scol = $selc["value"];
             $spk = "[>]".$stbn;
             $jtbc = Arr::extend([], $this->dftJoinTable, [
                 "table" => $stbn,
+                "title" => $stit,
                 //!! select 参数中的 source table 一定是 LEFT JOIN
                 "type" => "[>]",
                 "columns" => [
@@ -218,7 +256,9 @@ class Join extends Parser
                 ],
                 "param" => [
                     $spk => [
-                        "$modk.$colk" => "$stbn.$scol"
+                        //!! 不需要 关联表名. 前缀，Medoo 会在生成SQL时自动添加
+                        //"$modk.$colk" => "$stbn.$scol",
+                        "$modk.$colk" => $scol,      
                     ]
                 ],
             ]);
@@ -228,6 +268,9 @@ class Join extends Parser
             if (!in_array($stbn, $ctx["tables"])) $ctx["tables"][] = $stbn;
             if (!in_array($scol, $ctx["columns"])) $ctx["columns"][] = $colk;
             if (!isset($ctx["param"][$stbn])) $ctx["param"][$stbn] = $jtbc;
+
+            //!! $ctx["available"] 设为 true
+            if ($ctx["available"]!==true) $ctx["available"] = true;
             
             return true;
         });
@@ -284,8 +327,14 @@ class Join extends Parser
 
             /**
              * join 配置参数 键名格式：
-             *      [>]table_name (alias)
+             *      [>]table_name (alias):表标题
              */
+            $jtit = "";
+            if (strpos($k, ":") !== false) {
+                $ka = explode(":", $k);
+                $jtit = trim($ka[1]);
+                $k = $ka[0];
+            }
             $mt = preg_match(
                 "/^(\[[<>]{1,2}\])([a-zA-Z0-9_]+)(\s?\(\s?[a-zA-Z0-9_]+\s?\))?$/",
                 $k,
@@ -293,20 +342,41 @@ class Join extends Parser
             );
             if ($mt!==1) continue;
             $ka = array_slice($matches, 1);
-            if (Count($ka)<2) continue;
+            if (count($ka)<2) continue;
             //join type
             $jtp = $ka[0];
             $jtbn = $ka[1];
             $jal = count($ka)>2 ? trim(substr(trim($ka[2]), 1, -1)) : "";
             $jpre = $jal!=="" ? $jal : $jtbn;
+            if ($jtit === "") $jtit = $jpre;
 
             //写入 $ctx["tables"]
-            if ($jtbn!==$modk && !in_array($jtbn, $ctx["tables"])) $ctx["tables"][] = $jtbn;
+            //if ($jtbn!==$modk && !in_array($jtbn, $ctx["tables"])) $ctx["tables"][] = $jtbn;
+            if (!in_array($jtbn, $ctx["tables"])) {
+                //!! 关联到自身
+                if ($jtbn === $modk) {
+                    //!! 必须使用 别名
+                    if ($jal !== "") {
+                        if (!in_array($jal, $ctx["tables"])) $ctx["tables"][] = $jal;
+                    }
+                }
+                //普通关联表
+                else {
+                    $ctx["tables"][] = $jtbn;
+                }
+            } else {
+                //!! 如果 tables 列表中已经包含此关联表，可能是一张表有多次关联，不同的别名
+                //!! 必须使用别名
+                if ($jal !== "") {
+                    if (!in_array($jal, $ctx["tables"])) $ctx["tables"][] = $jal;
+                }
+            }
 
             //准备 关联表标准参数
             $jtbc = Arr::extend([], $this->dftJoinTable, [
                 "table" => $jtbn,
                 "alias" => $jal,
+                "title" => $jtit,
                 "type" => $jtp,
             ]);
 

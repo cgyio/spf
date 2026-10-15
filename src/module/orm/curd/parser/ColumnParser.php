@@ -56,6 +56,11 @@ class ColumnParser extends CurdParser
     //解析得到的 column 参数
     public $column = [];
 
+    //如果要查询的字段列表中包含 计算字段，则缓存到这里
+    public $getter = [
+        //"tbn" => [ getters ... ],
+    ];
+
     /**
      * 缓存 deployColumns 方法的结果
      * !! 在每次 setParam 方法后自动清空此缓存
@@ -150,7 +155,9 @@ class ColumnParser extends CurdParser
         }
 
         //清空 deployed 缓存
-        $this->deployed = [];
+        $this->clearDeployed();
+
+        //清空 
         
         return $this;
     }
@@ -163,7 +170,7 @@ class ColumnParser extends CurdParser
     public function resetParam()
     {
         $this->column = [];
-        $this->deployed = [];
+        $this->clearDeployed();
         $this->raw = [];
         return $this->initParam();
     }
@@ -270,8 +277,22 @@ class ColumnParser extends CurdParser
             //!! 如果这个表已经查询了全部字段，则跳过
             if (in_array($vs, $alls)) continue;
 
+            //!! 如果解析得到的 tbn 不存在
+            $allmod = $this->curd->db->hasModel($tbn);
+            if ($allmod===false) continue;
+
+            //这个表中的全部字段
+            $all = $this->curd->db->config->ctx("model/$tbn/columns");
+
             //普通字段
             if (!in_array($v, ["*","$"])) {
+                //!! 剔除无效字段名
+                if (!in_array($v, $all)) continue;
+                //!! 剔除非原生字段，缓存到 $curd->columnParser->getter 中
+                if ($allmod::isRealInDbColumn($v)!==true) {
+                    $this->setGetterColumn($tbn, $v);
+                    continue;
+                }
                 $_col = $vp.".".$v;
                 //!! 如果不是 当前表的字段，且没有别名，自动增加 字段别名
                 if ($ali!=="" || $tbn!==$modk) $_col .= " (".$vp."_".$v.")";
@@ -285,13 +306,12 @@ class ColumnParser extends CurdParser
             if ($v==="*") {
                 //记录这个表
                 $alls[] = $vs;
-                //这个表中的全部字段
-                $all = $this->curd->db->config->ctx("model/$tbn/columns");
-                $allmod = $this->curd->db->hasModel($tbn);
-                if ($allmod===false) continue;
                 foreach ($all as $ac) {
-                    $acc = $allc[$ac];
-                    if ($allmod::isRealInDbColumn($ac)!==true) continue;
+                    if ($allmod::isRealInDbColumn($ac)!==true) {
+                        $this->setGetterColumn($tbn, $ac);
+                        continue;
+                    }
+                    //$acc = $allc[$ac];
                     //收集字段
                     $_col = $vp.".".$ac;
                     //!! 如果不是 当前表的字段，且没有别名，自动增加 字段别名
@@ -347,105 +367,90 @@ class ColumnParser extends CurdParser
         return $this->deployed;
     }
 
-
-
     /**
-     * Medoo 可在 column 参数中，每个字段后增加 类型标注：
-     *      [
-     *          "table.column (col_alias) [json]",
-     *          ...
-     *      ]
-     * SPF-Orm 模块建立了 Types 字段类型系统，可以自动处理 数据记录的 类型转换问题
-     * 因此 不需要执行字段类型标注
+     * 将计算字段添加到 getter 缓存
+     * $curd->column("*") 会自动添加所有计算字段
+     * @param String $tbn 当前主表，或关联表，表名 foo_bar
+     * @param String $col 字段名，必须是有效的 计算字段名
+     * @return $this
      */
-
-    /**
-     * 处理 查询字段名
-     *      *               --> 展开 [ colk, ... ]  如果启用 join 则为 [ modk.colk, ... ]
-     *      modk.*          --> 展开 [ modk.colk, ... ]
-     *      关联表.colk     --> 关联表.colk (关联表_colk)   创建别名
-     *      
-     * @param String $fdn 字段名  or  表名.字段名
-     * @return String 表名.字段名 (别名)
-     */
-    protected function __setColumnType($fdn)
+    protected function setGetterColumn($tbn, $col)
     {
-        if ($fdn=="*") return $this->setColumnTypeAll();
-        if (substr($fdn, -2)==".*") {
-            // table.*
-            return $this->setColumnTypeAll(str_replace(".*","",$fdn));
-        }
-        $db = $this->curd->db;
-        $model = $this->curd->model;
-        $modk = $model::$modk;
-        $useJoin = $this->curd->joinParser->use;
-        if (strpos($fdn, ".")===false) {
-            //字段名  -->  表名.字段名 [类型]
-            if ($model::hasColumn($fdn) && !$model::isGetterColumn($fdn)) {
-                //如果 useJoin 则   字段名 --> 表名.字段名
-                if ($useJoin) $fdn = $modk.".".$fdn;
-            }
-        } else {
-            //表名.字段名  -->  表名.字段名 [类型]
-            $fda = explode(".", $fdn);
-            $tbn = $fda[0];
-            $nfdn = $fda[1];
-            if (false!==($nmodel = $db->hasModel($tbn))) {
-                if ($nmodel::hasColumn($nfdn) && !$nmodel::isGetterColumn($nfdn)) {
-                    $fdn = $fdn." (".str_replace(".","_",$fdn).")";
+        $mod = $this->curd->db->hasModel($tbn);
+        if ($mod===false) return $this;
+        if ($mod::isGetterColumn($col)!==true) return $this;
+        if (!isset($this->getter[$tbn])) $this->getter[$tbn] = [];
+        if (!in_array($col, $this->getter[$tbn])) $this->getter[$tbn][] = $col;
+        return $this;
+    }
+
+    /**
+     * 清空 deployed 缓存，每次 setParam 调用后执行
+     * @return $this
+     */
+    protected function clearDeployed()
+    {
+        $this->deployed = [];
+        //清除 getter 缓存
+        $this->getter = [];
+        return $this;
+    }
+
+    /**
+     * 根据解析得到的 column 参数，生成要全量输出到前端的 Record 记录 mapper
+     * 通常由 Record|RecordSet 实例调用 export 方法时，使用此方法
+     */
+    public function getRecordMapper()
+    {
+        $mapper = [];
+
+        //当前数据表
+        $modk = $this->model::$modk;
+
+        //普通 columns 带查询字段，一定是 table.col 格式的字符串列表
+        $cols = $this->getParam();
+        if (Is::nemidx($cols)) {
+            foreach ($cols as $coli) {
+                $ca = explode(".", $coli);
+                $tbn = $ca[0];
+                $coli = $ca[1];
+                if ($tbn === $modk) {
+                    //主表字段
+                    $mapper[] = $coli;
+                } else {
+                    //关联表字段
+                    $cb = explode("(", $coli);
+                    $coli = trim($cb[0]);
+                    $mapper[] = "$tbn.$coli";
                 }
             }
         }
-        return $fdn;
-    }
 
-    /**
-     * 以递归方式处理输入的 查询字段名数组
-     * @param Array $column 与 medoo column 参数格式一致
-     * @return Array 返回处理后的数组
-     */
-    protected function __setColumnTypeArr($column=[])
-    {
-        if (!Is::nemarr($column)) return $column;
-        $fixed = [];
-        foreach ($column as $k => $v) {
-            if (Is::nemarr($v)) {
-                $fixed[$k] = $this->setColumnTypeArr($v);
-            } else if (Is::nemstr($v)) {
-                $v = $this->setColumnType($v);
-                if (!is_array($v)) $v = [ $v ];
-                $fixed = array_merge($fixed, $v);
-            } else {
-                $fixed = array_merge($fixed, [ $v ]);
+        //getter 计算字段
+        $gets = $this->getter;
+        if (Is::nemaso($gets)) {
+            foreach ($gets as $tbn => $gs) {
+                if ($tbn === $modk) {
+                    //主表计算字段
+                    $mapper = array_merge($mapper, $gs);
+                } else {
+                    //关联表 计算字段
+                    foreach ($gs as $gi) {
+                        $mapper[] = "$tbn.$gi";
+                    }
+                }
             }
         }
-        return $fixed;
-    }
 
-    /**
-     * 将 * 转换为 columns []
-     * @param String $model 指定要查询的 columns 的 数据表(模型) 类，不指定则为当前 $this->curd->model
-     * @return Array [ 表名.字段名 (别名), ... ]
-     */
-    protected function __setColumnTypeAll($model=null)
-    {
-        //是否处理 主表
-        $isCurrent = empty($model);
-        $model = $isCurrent ? $this->curd->model : $this->curd->db->hasModel($model);
-        if (empty($model)) return [];
-        $modk = $model::$modk;
-        $fds = $this->curd->db->config->ctx("model/".$modk."/columns");
-        //去除 计算字段
-        $fds = array_merge([], array_filter($fds, function($colk) use ($model) {
-            return $model::isRealInDbColumn($colk);
-        }));
-        //如果处理的不是主表，需要在 字段名前 增加 表名. 前缀
-        if (!$isCurrent) {
-            $fds = array_map(function ($i) use ($modk) {
-                return $modk.".".$i;
-            }, $fds);
+        //raw 如果传入了 原始的 输出 mapper
+        $raw = $this->raw;
+        if (!empty($raw)) {
+            //merge
+            $mapper = array_merge($mapper, $raw);
         }
-        return $this->setColumnTypeArr($fds);
+
+        //返回获取到的 Record 记录输出 mapper
+        return $mapper;
     }
 
 }

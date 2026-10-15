@@ -11,6 +11,7 @@ use Spf\module\orm\Model;
 use Spf\module\orm\RecordSet;
 use Spf\module\orm\Curd;
 use Spf\module\orm\Types;
+use Spf\module\orm\Behavior;
 use Spf\util\Is;
 use Spf\util\Str;
 use Spf\util\Arr;
@@ -117,6 +118,7 @@ class Record
             $this->fromDb = $data;
             //conv
             $this->origin = static::conv("from", $data);
+            //var_dump($this->origin);
             $this->context = Arr::copy($this->origin);
             //!! 缓存传入的 curd
             if ($curd instanceof Curd) {
@@ -231,6 +233,27 @@ class Record
     /**
      * 数据输出方法
      */
+
+    /**
+     * 记录输出到前端
+     * @return Array
+     */
+    final public function export()
+    {
+        //需要读取来源 curd 参数
+        $curd = $this->curd;
+
+        //如果无来源 curd 直接返回 context
+        if (!$curd) return $this->ctx;
+        //curd 中的 column 参数解析器
+        $cp = $curd->columnParser;
+
+        //构建输出 mapper
+        $mapper = $cp->getRecordMapper();
+        if (empty($mapper)) return $this->ctx;
+
+        return $this->mapper($mapper);
+    }
 
     /**
      * 获取当前记录实例的 字段值 
@@ -569,6 +592,15 @@ class Record
             return static::callTypesGetter($colk, $this);
         }
 
+        //在模型启用的 某个 behavior 中定义的 getter
+        if ($gtp===2) {
+            $gc = static::columnConf($colk."/getter");
+            $gcls = $gc["class"];
+            $gm = $gc["method"];
+            //通过 Behavior 子类的 callGetter 方法执行 getter 方法
+            return $gcls::callGetter($gm, $this);
+        }
+
         return null;
     }
 
@@ -732,6 +764,25 @@ class Record
 
             default:                return null;
         }
+    }
+
+    /**
+     * __call
+     */
+    public function __call($key, $args)
+    {
+        /**
+         * 调用当前模型的 Behavior 扩展方法
+         * Record 实例可以调用 biz 类型方法
+         *      $record->behaviorNameFooBar(...)
+         */
+        if (false !== ($bhvcls = Behavior::hasMethod($key, $this))) {
+            $mthIs = $bhvcls::methodIs($key);
+            if ($mthIs !== "biz") return null;
+            return Behavior::callMethod($key, $args, $this);
+        }
+
+        return null;
     }
 
 

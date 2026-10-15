@@ -6,8 +6,25 @@
  * 通常通过 php://input 传入符合查询条件，其格式为：
  * 
  *  [
+ *      # 可以在 数组顶层，或在 query 键下
  *      "query" => [
- *          "search" => "foo,bar，jaz",
+ *          # join 关联表参数
+ *          !! 其结构与 $curd->joinParser->setParam(...) 方法参数结构一致
+ *          "join" => [ ... 关联表名|别名, ... ],
+ *          "join" => [
+ *              !! 也可以是 Medoo 标准 join 参数格式
+ *              "[>]table" => "col_name",
+ *              "[>]table" => [
+ *                  "table.col" => "col"
+ *              ]
+ *          ],
+ * 
+ *          # column 查询字段参数
+ *          !! 其结构与 $curd->columnParser->setParam(...) 方法参数结构一致
+ *          "column" => [ "*", "$", "table.col", "alias.col", ... ],
+ * 
+ *          # where 系列参数
+ *          "sk" => "foo,bar，jaz",
  *          "filter" => [
  *              "column" => [
  *                  "logic" => ">=",
@@ -15,25 +32,44 @@
  *              ],
  *              ...
  *          ],
- *          "sort" => [
- *              "column" => "DESC",
- *              "column2" => "",
+ *          !! json 类型字段的查询参数，结构与 $curd->whereParser->parseJsonWhere() 参数结构一致
+ *          "json" => [
+ *              "col_a" => [
+ *                  "key_a%" => ["val_a", "val_b"],
+ *                  ...
+ *              ],
  *              ...
  *          ],
- *          "page" => [
- *              "size" => 100,
- *              "ipage" => 3
- *          ],
- * 
+ *          "match" => [...],
+ *          "group" => [...],
+ *          "having" => [...],
  *          # 手动指定 额外的 查询参数
  *          "where" => [
  *              "column[!~]" => "foobar",
  *              ...
  *          ],
  * 
- *          # 还可以指定其他参数
- *          "limit" => 10,
- *          "match" => ...
+ *          # sort 排序参数
+ *          "sort" => [
+ *              "column" => "DESC",
+ *              "column2" => "",
+ *              ...
+ *          ],
+ * 
+ *          # limit 分页系列参数
+ *          "page" => [
+ *              "size" => 100,
+ *              "ipage" => 3
+ *          ],
+ *          "limit" => 10 | [100,200],
+ * 
+ *          !! 前端传入这些参数，不会自动处理，仅存入 $curd->queryer->context[]
+ *          !! 由外层的 具体业务方法，自行读取 $curd->queryer->context[...] 进行判断和处理
+ *          !! 因为 通过 query([...]) 方法执行自动查询，需要返回查询结果，
+ *          !! 这些传入的 特殊参数（例如：debug, method）会影响实际返回的查询结果，可能不是预期的数据类型
+ *          !! 因此，由具体的业务方法自行判断执行，此处仅缓存本次 curd 中的 query 参数 
+ *          "debug" => true,
+ *          "method" => "select",  # 可选不同的 medoo 方法
  *      ]
  *  ]
  * 
@@ -62,18 +98,26 @@ class Queryer
     protected $cp = null;
     protected $jp = null;
 
-    //符合查询条件 参数可用键名，将按顺序解析这些参数
+    //指定解析方法，将依次执行这些解析方法
     protected $keys = [
-        "sort",
-        "search",
-        "filter",
-        "where",
-        "page",
-        "limit",
+        //join 参数解析方法
+        "join",
 
-        //额外的
+        //column 参数解析方法
         "column",
-        "match"
+
+        //filter|sk|json|match|group|having|where 参数解析方法
+        "where",
+
+        //sort 参数解析方法
+        "sort",
+
+        //page|limit 参数解析方法
+        "page",
+
+        //!! 额外参数，需要外层业务方法自行手动处理，此处不自动处理的
+        //debug|method|... 参数
+        "manual",
     ];
 
     //解析后得到的参数
@@ -128,14 +172,14 @@ class Queryer
             if (Is::nemarr($input)) {
                 if (isset($input["query"])) {
                     $input = $input["query"];
-                } else {
+                }/* else {
                     $inp = [];
                     foreach ($this->keys as $key) {
                         if (!isset($input[$key])) continue;
                         $inp[$key] = $input[$key];
                     }
                     $input = array_merge([], $inp);
-                }
+                }*/
             } else {
                 $input = [];
             }
@@ -162,8 +206,75 @@ class Queryer
      */
 
     /**
+     * parseJoin 解析 join 参数
+     * @return Queryer $this
+     */
+    protected function parseJoin()
+    {
+        $join = $this->context["join"] ?? [];
+        if (!Is::nemarr($join)) return $this;
+        
+        //[ 表名， 别名， ... ]
+        if (Is::nemidx($join)) {
+            $this->jp->setParam(...$join);
+            return $this;
+        }
+
+        //[ Medoo 标准 join 参数形式 ]
+        $this->jp->setParam($join);
+        return $this;
+    }
+
+    /**
+     * parseColumn 解析 column 参数
+     * @return Queryer $this
+     */
+    protected function parseColumn()
+    {
+        $column = $this->context["column"] ?? [];
+        if (!Is::nemstr($column) && !Is::nemidx($column)) return $this;
+        //var_dump($column);
+        if (Is::nemstr($column)) {
+            $this->cp->setParam($column);
+        } else if (Is::nemidx($column)) {
+            $this->cp->setParam(...$column);
+        }
+        return $this;
+    }
+
+    /**
+     * parseWhere 同时解析 sk/filter/json/match/group/having/where 参数
+     * @return Queryer $this
+     */
+    protected function parseWhere()
+    {
+        $filter = $this->context["filter"] ?? [];
+        $sk = $this->context["sk"] ?? "";
+        $json = $this->context["json"] ?? [];
+        $match = $this->context["match"] ?? [];
+        $group = $this->context["group"] ?? [];
+        $having = $this->context["having"] ?? [];
+        $where = $this->context["where"] ?? [];
+
+        $this->wp->filter($filter);
+        $this->wp->sk($sk);
+        if (Is::nemaso($json)) {
+            foreach ($json as $colk => $jc) {
+                $this->wp->whereJson($colk, $jc);
+            }
+        }
+        $this->wp->match($match);
+        $this->wp->group($group);
+        $this->wp->having($having);
+        
+        $this->wp->setParam($where);
+
+        return $this;
+    }
+
+    /**
      * parseSort 排序参数
-     * @return QueryBuilder $this
+     * @return Queryer $this
      */
     protected function parseSort()
     {
@@ -181,25 +292,8 @@ class Queryer
     }
 
     /**
-     * parseWhere 同时解析 search/filter/where 参数
-     * @return QueryBuilder $this
-     */
-    protected function parseWhere()
-    {
-        $filter = $this->context["filter"] ?? [];
-        $search = $this->context["search"] ?? "";
-        $where = $this->context["where"] ?? [];
-
-        $this->wp->filter($filter);
-        $this->wp->search($search);
-        $this->wp->setParam($where);
-
-        return $this;
-    }
-
-    /**
      * parsePage 同时解析 page/limit 参数
-     * @return QueryBuilder $this
+     * @return Queryer $this
      */
     protected function parsePage()
     {
@@ -217,5 +311,16 @@ class Queryer
         return $this;
     }
 
+    /**
+     * parseManual 处理传入的 额外参数
+     * debug|method|... 等参数
+     * !! 通常此处不需要处理，由外层具体业务方法读取 $curd->queryer->context[...] 自行判断，执行操作
+     * @return Queryer $this
+     */
+    protected function parseManual()
+    {
+
+        return $this;
+    }
 
 }

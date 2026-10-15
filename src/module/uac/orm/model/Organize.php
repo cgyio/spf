@@ -40,6 +40,20 @@ class Organize extends Model
     public static $config = null;
     //标记 此数据模型(表) 配置参数已经被解析并初始化
     public static $isConfed = false;
+    //标记此模型引用的 Behavior 行为
+    public static $behaviors = [
+        /*
+        "behavior_name" => [
+            "class" => "Behavior 子类全称",
+            "extended" => [
+                # 此 Behavior 为 数据模型 扩展的方法
+                "curd" => [ 方法名数组 ... ],
+                "filter" => [],
+                "biz" => [],
+            ],
+        ],
+        */
+    ];
 
     
 }

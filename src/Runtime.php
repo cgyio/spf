@@ -94,6 +94,7 @@ final class Runtime extends Core
          * 处理框架启动参数中的 request 参数项
          */
         Runtime::$request = Request::current($opt);
+        //var_dump('req');
 
         /**
          * step 4   实例化 App 应用类，当前请求的应用类 实例化后，将执行下列操作：
@@ -104,12 +105,14 @@ final class Runtime extends Core
          */
         $appcls = Runtime::$request->getApp();
         Runtime::$app = App::current($opt, $appcls);
+        //var_dump('app');
         
         /**
          * step 5   依次 实例化并执行 入站中间件 过滤
          * 如果有 中间件过滤不通过，将终止响应
          */
         Middleware::process("in");
+        //var_dump('mid in');
 
         /**
          * step 6   创建 Response 响应类实例，当前 响应类 实例化后，将执行下列操作：
@@ -121,6 +124,7 @@ final class Runtime extends Core
          * 处理框架启动参数中的 response 参数项
          */
         Runtime::$response = Response::current($opt);
+        //var_dump('rep');
 
         /**
          * step 7   执行响应方法，将方法返回的数据结果，存入 Response 响应实例的 data 属性

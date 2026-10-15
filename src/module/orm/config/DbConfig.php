@@ -179,9 +179,10 @@ class DbConfig extends Configer
          * 参数结构与 module/orm/config/Preparer::$dftOption[] 一致
          */
         "prepare" => [
-            "class" => "",
+            //"class" => "",
             "extends" => "",
-            "columns" => [],
+            //"columns" => [],
+            "behavior" => [],
             "idx" => [
                 "unique" => [],
                 "normal" => [],
@@ -214,6 +215,7 @@ class DbConfig extends Configer
              *      [>|<|<>|><]表名 => "字段名"  或  [ "此表中字段名" => "关联表中字段名" ]
              * 
              * "[>]关联表名" => "主表关联表使用的相同字段名",
+             * "[>]关联表名 (别名):关联表自定义标题" => "主表关联表使用的相同字段名",
              * "[>]关联表名" => [
              *     "主表字段" => "关联表字段",
              *     "AND" => [
@@ -403,6 +405,7 @@ class DbConfig extends Configer
                         # 来自其他数据表
                         "db" => "",         # 支持跨库查询
                         "table" => "",      # 关联表
+                        "title" => "",      # 给关联表指定一个标题，用于前端显示
                         "label" => "",      # 用于显示的 关联表字段名(计算字段名)，不指定则使用 value 字段名
                         "value" => "",      # 关联的目标表字段，不指定则使用当前字段名
                         # 支持添加关联表的筛选条件，只引用部分关联表数据
@@ -433,6 +436,21 @@ class DbConfig extends Configer
         ],
 
         /**
+         * 可以手动指定 getter 计算字段的配置参数
+         * !! 最终会被覆盖到生成的 exportModelConf["column"]["getter_name"][...]  
+         */
+        "getter" => [
+            /*
+            !! 例如特殊字段类型自带的 计算字段，其字段 title 通常不能适配当前表，可以手动指定其 字段 title 显示在表头
+            "uuid_uuid_str" => [
+                "title" => "注册时间",
+                "desc" => "用户的注册时间",
+                ...
+            ],
+            */
+        ],
+
+        /**
          * 定义前端显示参数
          */
         "front" => [
@@ -443,17 +461,18 @@ class DbConfig extends Configer
                 /**
                  * 定义前端显示时的 table-mode 显示模式
                  */
-                "modes" => [
+                "mode" => [
                     //默认显示模式
                     "default" => [
                         //显示模式名称
                         "title" => "默认模式",
                         //显示所有 未被 hide 的字段，可指定需要显示的字段 []
-                        "columns" => "*",
+                        "columns" => [],
                         //是否经典表格模式
                         "isClassic" => true,
-                        //isClassic !== true 非经典表格模式下，记录行可指定特定的 前端 vue 组件名，组件 props 必须包含 record{}
-                        "vue" => "",    //组件名必须在前端已存在
+                        //isClassic !== true 非经典表格模式下，记录行可指定特定的 前端组件名，组件 props 必须包含 record{}
+                        "component" => "",    //组件名必须在前端已存在
+                        "props" => [],
                     ],
                     //
                     /*
@@ -462,6 +481,20 @@ class DbConfig extends Configer
                         "title" => "极简模式",
                         "columns" => [ "col_1", "col_2", "getter_1", ... ],
                         "isClassic" => true,
+                    ],
+                    ...
+                    */
+                ],
+                //数据表 行高亮参数
+                //!! 先定义的优先级更高
+                "highlight" => [
+                    /*
+                    [
+                        "where" => [
+                            "col_a,col_b" => "return rs.col_a > 0 && rs.col_b < 100;"
+                        ],
+                        "level" => "...",
+                        "style" => [...]
                     ],
                     ...
                     */
@@ -600,6 +633,22 @@ class DbConfig extends Configer
             ],
         ],
 
+        //!! 模型引用的 Behavior 行为参数
+        "behaviors" => [
+            /*
+            "behavior_name" => [
+                "class" => "Behavior 类全称",
+                "extended" => [
+                    # Behavior 子类扩展的 系列方法
+                    "curd" => [ 方法名列表 ],
+                    "filter" => [],
+                    "biz" => [],
+                ],
+            ],
+            ...
+            */
+        ],
+
         //解析生成 此数据模型(表) 中包含的所有 字段，
         //!! 包含各类型 自动生成|手动定义 的 计算字段 getters
         "columns" => [
@@ -647,20 +696,20 @@ class DbConfig extends Configer
                 //在表中隐藏的 字段
                 "hide" => [],
                 //表模式
-                "mode" => [
-                    //默认模式
-                    "default" => [
-                        "title" => "默认模式",
-                    "columns" => [/* 默认显示的 字段列表 */],
-                        "isClassic" => true,
-                        "vue" => "",
-                    ],
-                ],
+                "mode" => [],
+                //高亮规则
+                "highlight" => [],
             ],
             //表单
             "form" => [
                 //在表单中 隐藏的 字段
                 "hide" => [],
+                //字段验证器
+                "validator" => [],
+            ],
+            //各支持的 前端兼容层 自有参数，其结构 与 front 机构一致
+            "frontend" => [
+                //"front_name" => [ ... 前端库自有的 front 参数，以及 inputer 参数 ... ]
             ],
         ],
 
@@ -761,20 +810,6 @@ class DbConfig extends Configer
         "hideInForm"    => false,   //是否在 form 中隐藏
         "hasValidator"  => false,   //是否需要前端验证输入
         "validator"     => null,    //前端验证函数名
-        
-        /**
-         * 前端 form 组件中此字段的 inputer 组件的 参数
-         * !! 需要在 $orm->config->ctx["frontComponentLib"] 中指定前端渲染的 SPF-Vcom 基础组件库
-         * !! Orm 模块 在 module/orm/ui/ 路径下必须定义对应的 解析类   例如：
-         * !!   $orm->config->ctx["frontComponentLib"] === "spf" 则必须定义解析类：Spf\module\orm\ui\Spf
-         */
-        "inputer" => [
-            "type" => "",       //!! 组件名称，根据字段特殊类型，以及字段数据类型自动选择 inputer 组件名，
-            "props" => [        //组件 props
-                //将会根据字段的特殊类型，自动合并对应 props
-                //!! 例如 isTime === true 将会自动合并 time 参数 到 inputer 组件 props
-            ],
-        ],
 
     ];
 

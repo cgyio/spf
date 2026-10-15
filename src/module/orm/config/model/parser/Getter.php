@@ -5,6 +5,8 @@
  * 
  * 处理 数据模型(表) 类中 定义的 fooBarGetter 方法，生成计算字段
  * 
+ * !! 如果模型引用了 Behavior 扩展行为，还会扫描 对应的 behavior 子类中定义的 getter 计算字段
+ * 
  * !! 还会额外检查 字段类型 Types 类中 可能存在的 某些特殊字段类型自有的 Getter 方法，创建对应的 计算字段
  * 例如：
  *      Datetime 类型字段       自动创建 col_name_datetime_str 计算字段 自动输出 Y-m-d H:i:s 字符串
@@ -31,6 +33,7 @@ namespace Spf\module\orm\config\model\parser;
 use Spf\module\orm\OrmException;
 use Spf\module\orm\config\DbConfig;
 use Spf\module\orm\config\model\Parser;
+use Spf\module\orm\Behavior;
 use Spf\module\orm\Types;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -79,6 +82,7 @@ class Getter extends Parser
             "method" => "",         //getter 方法名全称
             "args" => [],           //默认传递的 参数
             "isStatic" => false,    //是否静态调用
+            "isBehavior" => false,  //此计算字段是否定义在 behavior 中
         ],
 
         //默认 width 3
@@ -128,7 +132,7 @@ class Getter extends Parser
                 "getter",               //必须包含 * getter 注释
                 null,                   //没有额外筛选方法
                 //$collector              //自定义的 方法信息处理方法
-                function($mi, $mc) use (&$getters, $colk, $ctp) {
+                function($mi, $mc) use (&$getters, $colk, $ctx, $ctp) {
                     //特殊类型字段的 计算字段名
                     $nname = $colk."_".$ctp."_".$mc["name"];
                     $conf = $this->parseGetter($mi, $mc, [
@@ -138,6 +142,12 @@ class Getter extends Parser
                             "args" => [$colk],
                         ]
                     ]);
+                    //处理类型计算字段的 title
+                    if (isset($ctx["title"]) && $ctx["title"]!=="") {
+                        $conf["title"] = $ctx["title"]." (".$conf["title"].")";
+                    }
+                    //处理类型计算字段的 width 参数
+                    $conf["width"] = $ctx["width"];
                     $getters[$nname] = $conf;
                     return $conf;
                 }
@@ -145,6 +155,47 @@ class Getter extends Parser
 
             return true;
         });
+
+        // 2    检查当前模型引用的 Behavior 子类中可能定义的 Getter
+        $bhvs = $this->context["behaviors"] ?? [];
+        foreach ($bhvs as $bhvn => $bhvi) {
+            $bhvcls = $bhvi["class"] ?? null;
+            if (!isset($bhvcls)) continue;
+
+            //优先使用 缓存的 扫描结果，因为一个 Behavior 子类可以被多个模型引用，可能已经扫描过
+            $bhvgets = $bhvcls::getGettersCache();
+            if (Is::nemaso($bhvgets)) {
+                //!! indexed 数组合并方式为 覆盖
+                $getters = Arr::extend($getters, $bhvgets, true);
+                continue;
+            }
+
+            //收集 Behavior 定义的 getters
+            $bhvgets = [];
+            $inbhv = Cls::specific(
+                $bhvcls,                //当前 Behavior 类全称
+                "public,&!static",      //非静态，public 方法
+                "getter",               //必须包含 * getter 注释
+                null,                   //没有额外筛选方法
+                //自定义的 方法信息处理方法
+                function($mi, $mc) use (&$bhvgets) {
+                    $conf = $this->parseGetter($mi, $mc);
+                    $mn = $conf["name"];
+                    $bhvgets[$mn] = $conf;
+                    return $conf;
+                }
+            );
+
+            //将收集到的 getters 写回 Behavior 子类缓存
+            if (Is::nemaso($bhvgets)) {
+                $bhvcls::cacheGetters($bhvgets);
+                //!! indexed 数组合并方式为 覆盖
+                $getters = Arr::extend($getters, $bhvgets, true);
+            }
+        }
+
+        //!! 如果 origin 参数中手动指定了某些 getter 字段的 元数据，则覆盖自动生成的 getter 参数
+        $getters = $this->overrideGetters($getters);
 
         //写入 $temp
         $gks = array_merge([], array_keys($getters));
@@ -214,5 +265,25 @@ class Getter extends Parser
         }
 
         return $rtn;
+    }
+
+    /**
+     * 如果 origin 原始配置的 getter[] 包含 getter 计算字段的 手动配置参数，则覆盖自动生成的
+     * @param Array $getters 自动生成的 getter 字段参数列表
+     * @return Array 手动覆盖后的 getters 参数列表
+     */
+    protected function overrideGetters($getters = [])
+    {
+        if (!Is::nemaso($getters)) return $getters;
+        //原始参数中的 column
+        $ocolumns = $this->origin["getter"] ?? [];
+        if (!Is::nemaso($ocolumns)) return $getters;
+        foreach ($getters as $coln => $colc) {
+            $ocolc = $ocolumns[$coln] ?? [];
+            if (!Is::nemaso($ocolc)) continue;
+            //手动指定的，覆盖自动生成的
+            $getters[$coln] = Arr::extend($colc, $ocolc);
+        }
+        return $getters;
     }
 }

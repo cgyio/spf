@@ -34,6 +34,7 @@ use Spf\module\Orm;
 use Spf\module\orm\OrmException;
 use Spf\module\orm\Driver;
 use Spf\module\orm\Curd;
+use Spf\module\orm\Behavior;
 use Spf\module\orm\config\DbConfig;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -112,6 +113,7 @@ class Db
             $modcls::$modk = $modk;
             $modcls::$modn = Str::camel($modk, true);
             $modcls::$config = (object)$modc;
+            $modcls::$behaviors = $modc["behaviors"] ?? [];
             return true;
         });
 
@@ -383,6 +385,13 @@ class Db
              * $db->Modn->fooBarColumns     --> $db->Modn->specialColumns(foo_bar)
              */
             if (substr($key, -7)==="Columns") return $cmod::specialColumns(Str::snake(substr($key,0,-7),"_"));
+
+            /**
+             * !! 最后尝试读取 $curd->*** 实例属性
+             */
+            if (isset($curd->$key)) return $curd->$key;
+
+            return null;
         }
 
         return null;
@@ -431,6 +440,23 @@ class Db
                 $rtn = call_user_func_array([$cmod, $key], $args);
                 //模型类方法 如果返回 类全称，则继续链式调用
                 if ($rtn===$cmod) return $this;
+                return $rtn;
+            }
+
+            /**
+             * 执行 当前模型的 Behavior 扩展方法
+             * 可以是 curd | biz 类型方法：
+             *      curd 类型： $db->ModelName->where(...)->curdFooBar(...)->select()
+             *      biz类型：   $db->ModelName->behaviorNameFooBar(...)
+             * !! biz 类型的方法，不能依赖某个具体的 Record 实例数据
+             */
+            if (false !== ($bhvcls = Behavior::hasMethod($key, $this))) {
+                $mthIs = $bhvcls::methodIs($key);
+                if ($mthIs === false || !in_array($mthIs, ["curd", "biz"])) return null;
+                $rtn = Behavior::callMethod($key, $args, $this);
+                if ($mthIs === "curd") {
+                    if ($rtn instanceof Curd) return $this;
+                }
                 return $rtn;
             }
 
@@ -654,6 +680,8 @@ class Db
                 "columns" => $mcls::realInDbColumns(),
                 //计算字段
                 "getters" => $mcls::getterColumns(),
+                //front 前端参数
+                "front" => $modc["front"],
                 //数据记录的 TS interface 仅包含 真实字段
                 "tsInterface" => [],
                 //所有字段(包含计算字段)的 结构化参数

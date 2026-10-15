@@ -174,6 +174,13 @@ class EnvConfig extends CoreConfig
                 "lvl" => Logger::DEBUG,
             ],
 
+            //Task 长耗时任务处理类
+            "task" => [
+                "enable" => true,
+                //Task 缓存路径，默认在网站根目录 [webroot]/runtime/task 路径下
+                "cachePath" => "runtime/task"
+            ],
+
         ],
 
         

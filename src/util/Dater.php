@@ -59,6 +59,15 @@ class Dater extends Util
     }
 
     /**
+     * 获取毫秒时间戳
+     * @return Int
+     */
+    public static function microtime()
+    {
+        return round(microtime(true) * 1000);
+    }
+
+    /**
      * 工作时间段解析，返回 时，分，时长秒数
      * @param Int $st 工作日开始秒数，默认 self::$wdts
      * @param Int $et 工作日结束秒数，默认 self::$wdte

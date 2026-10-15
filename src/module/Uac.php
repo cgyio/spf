@@ -86,9 +86,9 @@ class Uac extends Module
         }
 
         //初始解析 jwt-token 生成登录用户实例
-        $this->initLogin();
+        return $this->initLogin();
 
-        return true;
+        //return true;
     }
 
 
@@ -126,15 +126,17 @@ class Uac extends Module
         $vali = $this->jwt->validate();
         //缓存结果
         $this->jwtValidate = $vali;
+        //var_dump($vali);
         $success = $vali["success"] ?? false;
+        //var_dump($success);
         //如果解析不成功，则抛出必须抛出的异常，未登录 或 登录过期的情况不要抛异常
         if (!$success) {
-            $this->throwException(false);
-            return false;
+            return $this->throwException(false);
+            //return false;
         }
         
         //如果 jwt-token 存在且有效 则 创建当前登录账号的 实例
-        $usr = $this->loginAccount();
+        $usr = $this->loginAccount(true);
         if (!$usr instanceof Record) return false;
 
         //一切正常
@@ -143,9 +145,10 @@ class Uac extends Module
 
     /**
      * 如果 jwt-token 解析正常，则从 payload 中解析并创建 登录用户的 实例
+     * @param Bool $silence 是否静默失败，不抛出错误，默认 false，仅在初始化过程中保持静默
      * @return Record|null 如果未能获取到有效的用户记录实例，返回 null
      */
-    public function loginAccount()
+    public function loginAccount($silence = false)
     {
         //如果 $this->usr 已存在
         if ($this->usr instanceof Record) return $this->usr;
@@ -157,16 +160,23 @@ class Uac extends Module
         $payload = $vali["payload"] ?? [];
         $uuid = $payload["uuid"] ?? null;
         $usr = $this->getAccountByUuid($uuid);
+
+        //var_dump($uuid);
+
         //未获取到有效的用户记录，报账号异常
         if (!$usr instanceof Record) {
-            throw new UacException("Token,未能获取账号信息，此账号可能存在问题，请联系管理员", "login/failed");
+            if ($silence !== true) {
+                throw new UacException("Token,未能获取账号信息，此账号可能存在问题，请联系管理员", "login/failed");
+            }
             return null;
         }
 
         //!! 检查 手动登出标记 isLogout，如果存在则返回 已登出异常
         if (isset($usr->extra["isLogout"])) {
-            throw new UacException("用户已登出", "jwt/islogout");
-            return null;
+            if ($silence !== true) {
+                throw new UacException("用户已登出", "jwt/islogout");
+            }
+            //return null;
         }
 
         //缓存 登录的帐号实例
@@ -182,8 +192,25 @@ class Uac extends Module
     {
         $vali = $this->jwtValidate;
         $success = $vali["success"] ?? false;
-        return $success && $this->usr instanceof Record;
+        if (!$success || !($this->usr instanceof Record)) return false;
+        //是否 手动登出
+        if ($this->isManualLogout() === true) return false;
+        return true;
     }
+
+    /**
+     * 判断当前用户已经手动登出
+     * @return Bool
+     */
+    public function isManualLogout()
+    {
+        if (!($this->usr instanceof Record)) return false;
+        //usr 登录用户
+        $usr = $this->usr;
+        if (isset($usr->extra["isLogout"])) return true;
+        return false;
+    }
+
 
     /**
      * api
@@ -259,13 +286,19 @@ class Uac extends Module
      * @name logout
      * @title 用户登出
      * @desc 用户手动登出，Token 将失效
-     * @auth true
-     * @role all
+     * @auth false
      * 
      * !! 用户手动点击登出后，将在 account 表中 extra 字段 增加 isLogout 项，值为 1
      */
     public function logoutApi(...$args)
     {
+        if ($this->isLogin() !== true) {
+            //返回 用户已登出 异常
+            throw new UacException("用户还未登录", "jwt/notlogin");
+            return null;
+        }
+
+        //手动登出
         $this->usr->extendExtra = [
             "isLogout" => 1
         ];
@@ -287,8 +320,13 @@ class Uac extends Module
     public function accountApi(...$args)
     {
         if ($this->isLogin()!==true) {
-            //输出未登陆错误
-            $this->throwException(true);
+            if ($this->isManualLogout() === true) {
+                //如果 用户手动登出
+                throw new UacException("用户已登出", "jwt/islogout");
+            } else {
+                //用户还未登录，输出未登陆错误
+                $this->throwException(true);
+            }
             return null;
         }
 

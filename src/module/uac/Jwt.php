@@ -301,6 +301,8 @@ class Jwt
             "usr" => $usrdata
         ];
 
+        //var_dump($jwt_payload);
+
         $hp = base64_encode(Conv::a2j($jwt_header)).".".base64_encode(Conv::a2j($jwt_payload));
         $jwt_signature = $this->sign($alg, $hp, $secret);
 
@@ -338,6 +340,8 @@ class Jwt
         //var_dump($aud);
 
         //来源不一致，说明 token 可能被篡改
+        //var_dump($jwt_payload["aud"]);
+        //var_dump($aud);
         if (!isset($jwt_payload["aud"]) || $jwt_payload["aud"]!=$aud) {
             return $this->rtnValiRes("differentAudience", [
                 "token_aud" => $jwt_payload["aud"],

@@ -49,5 +49,18 @@
                 "type": "datetime"
             }
         }
+    },
+    "front": {
+        "table": {
+            "hide": [],
+            "mode": {
+                "default": {
+                    "columns": [
+                        "account.name", "*"
+                    ],
+                    "isClassic": true
+                }
+            }
+        }
     }
 }

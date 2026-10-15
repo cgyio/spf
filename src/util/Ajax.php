@@ -31,6 +31,14 @@ class Ajax extends SpecialUtil
     //本次会话是否 ajax
     public $true = false;
 
+    //是否预检请求
+    public $isOptions = false;
+
+    //缓存本次 ajax 会话的 origin
+    public $origin = null;
+    //本次 ajax 会话的 origin 是否在允许的 domain 列表中
+    public $allowed = true;
+
     //来源 前一页
     public $referer = "";
 
@@ -45,8 +53,9 @@ class Ajax extends SpecialUtil
     {
         $this->true = $this->isAjaxRequest();
         $this->referer = Server::referer();
+        $this->isOptions = $this->isOptionsRequest();
         
-        if ($this->true) {
+        if ($this->true || $this->isOptions) {
             //如果是 ajax 请求，处理跨域
             $this->handleCors();
         }
@@ -66,17 +75,29 @@ class Ajax extends SpecialUtil
     }
 
     /**
+     * 判断当前请求是否 OPTIONS 预检
+     * @return Bool
+     */
+    protected function isOptionsRequest()
+    {
+        return Server::get("request-method", "GET") === "OPTIONS";
+    }
+
+    /**
      * 处理 AJAX 跨域
      * 入口
      */
     protected function handleCors()
     {
+        //获取 origin ，并 检查是否允许
+        $this->checkRequestOrigin();
+        //不允许直接 exit
+        if ($this->allowed !== true) exit;
+
+        //增加 CORS 头 到 responseHeaders[]
+        $this->addCorsHeaders();
         //如果 request.method==OPTIONS 预检请求，直接响应
         $this->responseOptionsRequest();
-        //检查 origin
-        $this->checkRequestOrigin();
-
-        //if ()
     }
 
     /**
@@ -86,7 +107,10 @@ class Ajax extends SpecialUtil
      */
     protected function checkRequestOrigin()
     {
-        $origin = Server::get("Http-Origin", "*");
+        $origin = Server::get("Http-Origin", null);
+        //var_dump($origin);
+        $this->origin = $origin;
+        //框架启动参数中必须包含 [ "web" => [ "ajaxallowed" => ",foo.com,bar.com,localhost,..." ] ]
         $domains = WEB_AJAXALLOWED;
         $allowed = false;
         for ($i=0;$i<count($domains);$i++) {
@@ -96,13 +120,25 @@ class Ajax extends SpecialUtil
                 break;
             }
         }
-        if ($allowed) {
-            $this->responseHeaders["Access-Control-Allow-Origin"] = $origin;
-        } else {
-            $this->responseHeaders["Access-Control-Allow-Origin"] = $this->url->domain;
-            //$this->responseHeaders["Access-Control-Allow-Origin"] = "*";
-        }
+        //var_dump($origin);
+        //var_dump($allowed);
+        $this->allowed = $allowed;
         return $allowed;
+    }
+
+    /**
+     * 如果当前请求是 Ajax 且 来源域名在 允许的 域名列表中
+     * 生成 CORS 头，并添加到 responseHeaders 中
+     * @return void
+     */
+    protected function addCorsHeaders()
+    {
+        if ($this->allowed === true) {
+            $this->responseHeaders["Access-Control-Allow-Origin"] = $this->origin;
+            $this->responseHeaders["Access-Control-Allow-Credentials"] = "true";
+            $this->responseHeaders["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS";
+            $this->responseHeaders["Access-Control-Allow-Headers"] = "Content-Type,Authorization,Accept,X-Requested-With";
+        }
     }
 
     /**
@@ -113,23 +149,24 @@ class Ajax extends SpecialUtil
      */
     protected function responseOptionsRequest()
     {
-        $method = Server::get("request-method", "GET");
-        if ($method=="OPTIONS") {
-            $allowed = $this->checkRequestOrigin();
-            if ($allowed) {
+        if ($this->allowed === true) {
+            if ($this->isOptions === true) {
+                /* !! 已在 addCorsHeaders 方法中处理过 responseHeaders
                 //$this->headers["Access-Control-Request-Method"] ?? "*";
                 $method = Server::get("Http-Access-Control-Request-Method", "*");
                 //$this->headers["Access-Control-Request-Headers"] ?? "GET,POST";
                 $hds = Server::get("Http-Access-Control-Request-Headers", "GET,POST");
                 $this->responseHeaders["Access-Control-Allow-Methods"] = $method;
                 $this->responseHeaders["Access-Control-Allow-Headers"] = $hds;
+                */
+
+                //直接响应 OPTIONS 请求
+                $hds = $this->responseHeaders;
+                foreach ($hds as $k => $v) {
+                    header("$k: $v");
+                }
+                exit;
             }
-            //直接响应 OPTIONS 请求
-            $hds = $this->responseHeaders;
-            foreach ($hds as $k => $v) {
-                header("$k: $v");
-            }
-            exit;
         }
     }
 }

@@ -32,7 +32,24 @@
     "front": {
         "table": {
             "hide": ["uuid","openid","pswd"],
-            "mode": {}
+            "mode": {
+                "mini": {
+                    "title": "极简模式",
+                    "columns": [
+                        "name", "info", "extra", "enable"
+                    ],
+                    "isClassic": true,
+                    "vue": ""
+                },
+                "role": {
+                    "title": "角色模式",
+                    "columns": [
+                        "name", "info", "extra", "enable", "role_list"
+                    ],
+                    "isClassic": true,
+                    "vue": ""
+                }
+            }
         },
         "form": {
             "hide": [],

@@ -76,11 +76,13 @@ class Api extends Parser
         $modt = $this->origin["title"];
 
         //收集 api 方法
-        $collector = function($oprc) use ($pre, $dbn, $dbt, $modk, $modt) {
+        $collector = function($oprc, $bhvn = null) use ($pre, $dbn, $dbt, $modk, $modt) {
             //api 原名 foo_bar
             $an = $oprc["name"];
+            //如果这是 Behavior 定义的 api 指定标记
+            $isbhv = Is::nemstr($bhvn);
             //增加 dbn_ 前缀
-            $nn = $dbn."_".$modk."_".$an;
+            $nn = $dbn."_".$modk."_".($isbhv ? $bhvn."_" : "").$an;
             
             //手动修改这些操作的 参数信息
             $oprc = Arr::extend($oprc, [
@@ -90,9 +92,9 @@ class Api extends Parser
                 //!! $orm->responseProxyer 一定是 实例方法
                 "isStatic"  => false,
                 //!! 修改操作标识
-                "oprn"      => "api/model/$dbn/$modk".":".$an,
+                "oprn"      => "api/model/$dbn/$modk".($isbhv ? "/".$bhvn : "").":".$an,
                 //!! 修改自动创建的 route 路由正则
-                "route"     => "/".$pre."\/".$dbn."\/".$modk."\/".$an."(\.*)/",
+                "route"     => "/".$pre."\/".$dbn."\/".$modk."\/".($isbhv ? $bhvn."\/" : "").$an."(\.*)/",
                 //修改参数
                 "name"      => $nn,
                 "title"     => $dbt.">".$modt."：".$oprc["title"],
@@ -106,6 +108,8 @@ class Api extends Parser
                     "method"    => $oprc["method"],
                     //数据模型操作 可能是 静态 或 非静态 方法
                     "isStatic"  => $oprc["isStatic"],
+                    //标记是否是 Behavior 定义的 api
+                    "isBehavior" => $isbhv,
                 ]
             ]);
 
@@ -140,10 +144,56 @@ class Api extends Parser
             $collector
         );
 
+        // 2    收集 模型启用的 Behavior 定义的 接口
+        $boprs = [
+            "apis" => [],
+        ];
+        $bhvs = $this->context["behaviors"] ?? [];
+        foreach ($bhvs as $bhvn => $bhvi) {
+            $bhvcls = $bhvi["class"] ?? null;
+            if (!isset($bhvcls)) continue;
+
+            //优先使用 缓存的 扫描结果，因为一个 Behavior 子类可以被多个模型引用，可能已经扫描过
+            $bhvapis = $bhvcls::getApisCache();
+
+            //如果未收集过
+            if (!Is::nemaso($bhvapis)) {
+                //执行收集
+                $bhvapis = Operation::oprs(
+                    $bhvcls,
+                    "api",
+                    //模型类接口必须是 public 可能是 静态|实例 方法
+                    "public"
+                );
+                //缓存
+                if (Is::nemaso($bhvapis)) {
+                    $bhvcls::cacheApis($bhvapis);
+                }
+                //重新读取缓存
+                $bhvapis = $bhvcls::getApisCache();
+            }
+
+            //!! 需要将 缓存的|收集到的 apis 参数 修改为当前模型对应的 数据库名|模型名
+            if (Is::nemaso($bhvapis)) {
+                foreach ($bhvapis as $an => $ac) {
+                    //!! 调用 $collector 方法处理 oprc 参数
+                    $apic = $collector($ac, $bhvn);
+                    $oprn = $apic["oprn"] ?? null;
+                    if (!isset($oprn)) continue;
+                    //写入
+                    if (!in_array($oprn, $boprs["apis"])) $boprs["apis"][] = $oprn;
+                    $boprs[$oprn] = $apic;
+                }
+            }
+        }
+        //未收集到任何 Behavior 接口
+        if (empty($boprs["apis"])) $boprs = [];
+
         //合并
         if (!Is::nemaso($moprs)) $moprs = [];
         if (!Is::nemaso($roprs)) $roprs = [];
-        $oprs = Arr::extend([], $moprs, $roprs);
+        if (!Is::nemaso($boprs)) $boprs = [];
+        $oprs = Arr::extend([], $moprs, $roprs, $boprs);
         
         //写入 $temp
         $this->setTemp([

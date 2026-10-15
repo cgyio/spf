@@ -51,6 +51,20 @@ class Account extends Model
     public static $config = null;
     //标记 此数据模型(表) 配置参数已经被解析并初始化
     public static $isConfed = false;
+    //标记此模型引用的 Behavior 行为
+    public static $behaviors = [
+        /*
+        "behavior_name" => [
+            "class" => "Behavior 子类全称",
+            "extended" => [
+                # 此 Behavior 为 数据模型 扩展的方法
+                "curd" => [ 方法名数组 ... ],
+                "filter" => [],
+                "biz" => [],
+            ],
+        ],
+        */
+    ];
 
     /**
      * 用户的 auth_list 权限列表中，可能包含 %{DBN|MODK|MODN}% 形式的 通配符
@@ -397,6 +411,66 @@ class Account extends Model
             if (strpos($ri, ":super")!==false) return true;
         }
         return false;
+    }
+
+    /**
+     * getter
+     * @name model_list
+     * @title 可用模型
+     * @desc 此用户拥有权限的数据模型列表
+     * @width 6
+     * @type Array
+     * @jstype Object
+     */
+    protected function modelListGetter()
+    {
+        //获取所有用户权限数组
+        $al = $this->auth_list;
+        //合并为单个字符串，需要使用 strpos
+        $alstr = implode(", ", $al);
+        //Orm 实例
+        $orm = Orm::$current;
+        //当前 Orm 中所有数据库数据模型
+        $mods = $orm->getAllDbModels();
+
+        //超级用户，直接返回
+        if ($this->super_role === true) return $mods;
+
+        //准备输出 []
+        $rtn = [];
+
+        //循环检查每个数据模型，如果在 auth_list 中，则表示此用户有权限
+        foreach ($mods as $dbn => $dbc) {
+            if (!isset($dbc["models"])) continue;
+            foreach ($dbc["models"] as $modk => $modc) {
+                //if (!isset($modc["xpath"])) continue;
+                //$xpath = $modc["xpath"];
+                $pattern = "api\/model\/".$dbn."\/".$modk.":([^,]+),?";
+                $pattern = "/".$pattern."/";
+                //match
+                $mt = preg_match_all($pattern, $alstr, $matches);
+                var_dump($modc["xpath"]);
+                var_dump($matches);
+                if ($mt===false || $mt<=0) continue;
+                //匹配到的 此数据模型的 全部可用操作
+                $oprs = $matches[1];
+
+                //写入 $rtn
+                if (!isset($rtn[$dbn])) {
+                    $rtn[$dbn] = [
+                        "name" => $dbn,
+                        "title" => $dbc["title"],
+                        "desc" => $dbc["desc"],
+                        "models" => []
+                    ];
+                }
+                $rtn[$dbn]["models"][$modk] = $modc;
+                //写入可用操作
+                $rtn[$dbn]["models"][$modk]["oprs"] = $oprs;
+            }
+        }
+
+        return $rtn;
     }
 
 

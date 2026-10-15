@@ -124,7 +124,8 @@ class Api extends Exporter
             "data" => $einfo
         ];
         $ed = Conv::a2j($pd);
-        $code = $ecp->isInnerException()===true ? 500 : 200;
+        //$code = $ecp->isInnerException()===true ? 500 : 200;
+        $code = 200;
 
         $ec = $ecp->ctx("code_no_pre");
 

@@ -12,6 +12,7 @@
  *      Join              解析模型的 关联查询参数
  *      Getter            解析模型类中定义的 fooBarGetter 计算字段，添加到字段列表中
  *      Api               解析模型类中定义的，可用于响应请求的 api 接口方法
+ *      Front             解析模型参数中的 front 前端相关参数
  *      Other             解析其他的模型参数，例如 元数据
  * 
  * 
@@ -28,6 +29,7 @@
 namespace Spf\module\orm\config\model;
 
 use Spf\App;
+use Spf\module\Orm;
 use Spf\module\orm\OrmException;
 use Spf\module\orm\config\DbConfig;
 use Spf\util\Is;
@@ -87,6 +89,7 @@ abstract class Parser
         "join",         //调用 解析类 config\model\parser\Join
         "getter",       //调用 解析类 config\model\parser\Getter
         "api",          //调用 解析类 config\model\parser\Api
+        "front",        //调用 解析类 config\model\parser\Front
         "other",        //调用 解析类 config\model\parser\Other
         
         //其他扩展的解析类，默认在最后执行
@@ -120,6 +123,9 @@ abstract class Parser
     protected $driver = "";
     //当前 数据模型(表) 类全称
     protected $model = "";
+
+    //!! 数据库参数解析阶段，Orm 实例已经创建
+    protected $orm = null;
 
     /**
      * 要解析的 $origin 中 对应配置参数项目 的 默认数据结构
@@ -168,6 +174,8 @@ abstract class Parser
         $this->driver = $config->ctx["driver"];
         //获取 当前数据模型(表) 类全称，已经检查过，一定存在
         $this->model = $this->origin["class"];
+        //orm 实例
+        $this->orm = Orm::$current;
 
         if (Is::nemarr($conf)) {
             //如果传入的 $conf 已经存在内容，表示已有其他 Parser 解析器运行过，直接缓存 处理结果
@@ -185,6 +193,7 @@ abstract class Parser
             $this->context["join"] = [];
             $this->context["columns"] = [];
             $this->context["column"] = [];
+            $this->context["front"] = [];
         }
 
         //!! forDev
@@ -227,6 +236,7 @@ abstract class Parser
                 // isFooBar == false --> 去除 foo_bar 参数
                 if (substr($k, 0,2)==="is" && is_bool($v) && $v===false) {
                     //对应的 特殊字段参数 键名
+                    unset($ctx["column"][$colk][$k]);
                     $ck = Str::snake(substr($k, 2), "_");
                     unset($ctx["column"][$colk][$ck]);
                     continue;
@@ -235,6 +245,7 @@ abstract class Parser
                 // hasFooBar == false --> 去除 foo_bar 参数
                 if (substr($k, 0,3)==="has" && is_bool($v) && $v===false) {
                     //对应的 特殊字段参数 键名
+                    unset($ctx["column"][$colk][$k]);
                     $ck = Str::snake(substr($k, 3), "_");
                     unset($ctx["column"][$colk][$ck]);
                     continue;
@@ -345,6 +356,8 @@ abstract class Parser
             "driver"    => $this->driver,
             "origin"    => $this->origin,
             "temp"      => $this->temp,
+            "context"   => $this->context,
+            "orm"       => $this->orm,
         ];
     }
     

@@ -224,6 +224,9 @@ abstract class Middleware extends Core
                 $midcls::$manualHandleResult = null;
             }
 
+            //var_dump($midcls);
+            //var_dump($midc);
+
             //实例化 此中间件，将自动执行 handle
             $mido = Middleware::current($midc, $midcls);
 

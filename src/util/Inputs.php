@@ -143,6 +143,14 @@ class Inputs extends SpecialUtil
          */
         if ($key==="raw") return $this->origin;
 
+        /**
+         * 使用 type 类型字符串，则返回 完整 context
+         * $inputs->$type   --> $this->ctxGet('ctx')    
+         * 例如：$this->type == 'json' 则：
+         *      $inputs->json   --> $this->context
+         */
+        if ($key === $this->type) return $this->ctxGet('ctx');
+
         //最后调用 ContextProvider trait 中的 __get
         return $this->ctxGet($key);
     }
@@ -343,6 +351,7 @@ class Inputs extends SpecialUtil
 
         return $this->restoreCtx();
     }
+    public function restore() { return $this->reset(); }
 
 
 

@@ -299,6 +299,64 @@ class Curd
     }
 
     /**
+     * 针对传入了 page 分页参数的 curd 查询
+     * 获取 recordCount 记录条目数
+     * !! 用于向前端输出 分页参数
+     * !! 此操作会临时去除 limit 参数，然后调用 count(false) 方法
+     * !! 查询后不销毁 curd 实例，而是恢复 limit 参数，等待真实查询
+     * 
+     * 前端传回 page 分页参数后，retrieve 接口将会执行：
+     *      $queryParams = Request::$current->inputs->json;
+     *      $curd = SomeModel::model()->query($queryParams);
+     *      # 收集格式化后的 最终 query 参数
+     *      $query = $curd->parseArguments();
+     *      # 先获取总记录数，不销毁 curd 实例
+     *      $recordCount = $curd->recordCount(false);
+     *      $page = Arr::extend($curd->whereParser->pageParams, [
+     *          "recordCount" => $recordCount
+     *      ]);
+     *      # 可以做一层 空记录判断，避免无效查询
+     *      if ($recordCount <= 0) { ... }
+     *      # 然后查询记录，此时会默认销毁 curd 实例 
+     *      $rs = $curd->select();
+     *      # 向前端返回数据
+     *      return [
+     *          "result" => $rs->ctx,   # 根据结果集类型(RecordSet|Record)，自动输出 多条|单条 记录
+     *          "query" => $query,
+     *          "page" => $page,
+     *      ];
+     * 
+     * @param Bool $unset 执行 count 方法后，是否销毁当前 curd 实例，默认 false
+     * @return Int 符合条件的 结果集记录数
+     */
+    public function recordCount($unset = false)
+    {
+        //whereParser
+        $wp = $this->whereParser;
+        //如果当前 查询操作未指定 page 参数，直接返回 -1
+        if ($wp->usePage !== true) {
+            if ($unset) {
+                $this->unset();
+            }
+            return -1;
+        }
+        //临时去除 limit
+        if (isset($wp->where["LIMIT"])) unset($wp->where["LIMIT"]);
+
+        //执行 count 方法
+        $recordCount = $this->count($unset);
+        //如果不销毁 当前 curd 实例，则恢复 page 参数
+        if (!$unset) {
+            //重新调用 $wp->page 方法
+            $pp = $wp->pageParams;
+            $wp->page($pp["ipage"] ?? 1, $pp["pagesize"] ?? 100);
+            //恢复由于调用 count 方法而生成的 final 参数
+            $this->final = [];
+        }
+        return $recordCount;
+    } 
+
+    /**
      * 在执行查询前，生成最终需要的 medoo 查询参数
      * 在查询时，可根据 method 组装成 medoo 方法的 参数 args[]
      * @return Array [ "table"=>"", "join"=>[], "field"=>[], "where"=>[] ]
@@ -342,16 +400,18 @@ class Curd
             case "select":
             case "get":
             case "rand":
-            case "count":
             case "max":
             case "min":
             case "avg":
             case "sum":
+                if ($canJoin) $ps[] = $join;
+                $ps[] = Is::nemidx($column) ? $column : "*";
+                if (!empty($where)) $ps[] = $where;
+                break;
+            case "count":
                 if ($canJoin) {
                     $ps[] = $join;
-                    $ps[] = $column;
-                } else {
-                    if (!in_array($method, ["count"])) $ps[] = $column;
+                    $ps[] = "*";
                 }
                 if (!empty($where)) $ps[] = $where;
                 break;
@@ -718,7 +778,27 @@ class Curd
         //返回执行结果
         $rtn["result"] = $result;
         return $rtn;
+    }
 
+
+
+    /**
+     * !! forDev：测试 Medoo 语法
+     * 
+     */
+    public function testMedooSelect($table, $where=[])
+    {
+        $this->db->medoo("debug")->select($table, "*", $where);
+        //从缓冲区读取 sql
+        $sql = ob_get_contents();
+        //清空缓冲区
+        ob_clean();
+        return $sql;
+
+        return [
+            "where" => $where,
+            "SQL" => $sql
+        ];
     }
 
 

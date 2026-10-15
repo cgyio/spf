@@ -29,10 +29,13 @@ namespace Spf\module;
 
 use Spf\Module;
 use Spf\App;
+use Spf\exception\AppException;
 use Spf\module\orm\OrmException;
 use Spf\module\orm\Db;
 use Spf\module\orm\Driver;
 use Spf\module\orm\Types;
+use Spf\module\orm\Behavior;
+use Spf\module\orm\Frontend;
 use Spf\module\orm\config\model\Preparer;
 use Spf\module\orm\config\model\Parser;
 use Spf\module\orm\config\DbConfig;
@@ -70,6 +73,12 @@ class Orm extends Module
         //"数据库唯一 key：DB_****" => Db 实例  或  DbConfig 数据库配置类实例,
     ];
 
+    //Orm 模块使用的 Frontend 前端库的 兼容层实例
+    //!! 可以同时对接多个前端兼容层实例
+    public $frontend = [
+        //"front_name" => null
+    ];
+
 
 
     /**
@@ -81,6 +90,15 @@ class Orm extends Module
     {
         //执行数据库初始化
         $ctx = $this->config->ctx;
+
+        //前端库兼容层 实例化
+        if (Frontend::getFrontendIns($this)!==true) {
+            //发生错误
+            throw new OrmException("前端兼容层实例化失败", "orm/initialize");
+            return false;
+        }
+
+        //初始化数据库
         $dbs = $ctx["dbs"] ?? [];
         $req = $ctx["required"] ?? [];
         
@@ -173,6 +191,13 @@ class Orm extends Module
             }
             return true;
         });
+
+        /**
+         * !! 如果存在 $orm->frontend 前端兼容层实例，获取前端库定义的接口
+         */
+        if (Is::nemaso($orm->frontend)) {
+            $oprs = Frontend::getFrontendOprs($orm, $oprs);
+        }
 
         //返回找到的 操作列表 标准数据格式
         return $oprs;
@@ -445,9 +470,65 @@ class Orm extends Module
      */
 
     /**
-     * 获取当前 Orm 模块中的 所有可用数据库 库名 foo_bar
-     * 
+     * 获取当前 Orm 模块中的 所有可用数据库 以及 库内所有 数据模型
+     * @return Array 
+     *  [
+     *      "dbn" => [
+     *          "name" => "",
+     *          "title" => "",
+     *          "desc" => "",
+     *          "models" => [
+     *              "modk" => [
+     *                  "name" => "",
+     *                  "title" => "",
+     *                  "desc" => "",
+     *                  "xpath" => "dbn/modk",
+     *                  "tpath" => "dbt/modt",
+     *                  "oprs" => "*" | ["retrieve", ...],
+     *                  "columns" => [
+     *                      "col_a", "col_b", ...
+     *                  ]
+     *              ],
+     *              ...
+     *          ]
+     *      ],
+     *      ...
+     *  ]
      */
+    public function getAllDbModels()
+    {
+        $rtn = [];
+        $this->eachDb(function($dbn, $db) use (&$rtn) {
+            //获取数据库配置类实例
+            $cfger = $db instanceof DbConfig ? $db : $db->config;
+            if (!$cfger instanceof DbConfig) return true;
+
+            //返回数据库
+            $rtn[$dbn] = [
+                "name" => $dbn,
+                "title" => $cfger->ctx["title"],
+                "desc" => $cfger->ctx["desc"],
+                "models" => []
+            ];
+
+            //收集此数据库中 所有数据模型的 meta
+            foreach ($cfger->ctx["model"] as $modk => $modc) {
+                //收集
+                $rtn[$dbn]["models"][$modk] = [
+                    "name" => $modk,
+                    "title" => $modc["title"],
+                    "desc" => $modc["desc"],
+                    "xpath" => "$dbn/$modk",
+                    "tpath" => $cfger->ctx["title"]." 🔹 ".$modc["title"],
+                    //!! 默认全部权限
+                    "oprs" => "*",
+                    "columns" => $modc["columns"]
+                ];
+            }
+        });
+
+        return $rtn;
+    }
 
 
 
@@ -468,6 +549,176 @@ class Orm extends Module
 
         return Orm::info();
     }
+
+    /**
+     * api
+     * @name test_medoo_select
+     * @title MedooSelect 方法测试
+     * @auth false
+     * @pause false
+     * @param Array $args 更多 url 参数
+     * @return Array
+     */
+    public function testMedooSelectApi(...$args)
+    {
+        $dbn = "account";
+        $tbn = "account_auth";
+        $db = $this->db($dbn)->model($tbn, true);
+        $curd = $db->curd;
+        $conf = $curd->conf();
+
+        var_dump($conf);
+        exit;
+
+        $rtn = [];
+
+        //LIKE 测试
+        /*$rtn["like"] = $curd->testMedooSelect($tbn, [
+            "name[~]" => [
+                "foo",
+                "%foo%",
+                "%foo%bar%",
+                "AND" => [
+                    "and_a",
+                    "and_b"
+                ],
+            ]
+        ]);
+        $rtn["like_and"] = $curd->testMedooSelect($tbn, [
+            "name[~]" => ["AND" => [
+                "foo",
+                "%foo%",
+                "%foo%bar%",
+            ]]
+        ]);*/
+
+        //jsonWhere
+        /*$wp = $curd->whereParser;
+        $rtn["a"] = $wp->parseJsonWhere("extra", "key_a");
+        $rtn["b"] = $wp->parseJsonWhere("extra", "key_a", "val_a");
+        $rtn["c"] = $wp->parseJsonWhere("extra", "key_a", "val_a", "val_b");
+        $rtn["d"] = $wp->parseJsonWhere("extra", "!key_a%", "val_a", "val_b");
+        $rtn["e"] = $wp->parseJsonWhere("extra", [
+            "key_a" => "",
+            "key_b%" => [
+                "AND" => ["val_ba", "val_bb", "val_bc"]
+            ],
+            "!key_c" => ["val_ca", "val_cb", "val_cc"],
+        ]);
+        $rtn["f"] = $wp->parseJsonWhere("extra", [ "AND" => [
+            "key_a" => "",
+            "key_b%" => [
+                "AND" => ["val_ba", "val_bb", "val_bc"]
+            ],
+            "!key_c" => ["val_ca", "val_cb", "val_cc"],
+        ]]);
+
+        $sql = $curd->testMedooSelect($tbn, $rtn["f"]);
+        $rtn["like"] = $sql;*/
+        //var_dump($sql);
+        //exit;
+
+        $rs = $curd->whereName("~","foo")->whereJson("extra", [ "AND" => [
+            "key_a" => "",
+            "key_b%" => [
+                "AND" => ["val_ba", "val_bb", "val_bc"]
+            ],
+            "!key_c" => ["val_ca", "val_cb", "val_cc"],
+        ]])->debug()->select();
+
+        var_dump($rs);
+        exit;
+        
+        return $rtn;
+    }
+
+    /**
+     * api
+     * @name front_db_config
+     * @title 拉取数据库配置参数
+     * @desc 根据前端库类型返回数据库配置参数
+     * @export api
+     * @auth false
+     * @pause false
+     * @param String $frontend 前端库名称，对应 SomeFrontend::$frontend 参数
+     * @param String $dbn 要获取配置的 数据库名
+     * @param Array $args 更多 url 参数
+     * @return Array
+     */
+    public function frontDbConfigApi($frontend, $dbn, ...$args)
+    {
+        if (!Is::nemstr($frontend) || !Is::nemstr($dbn)) {
+            throw new AppException("缺少必要参数", "app/response");
+            return null;
+        }
+        $orm = $this->Mod("orm");
+
+        //获取对应的 Frontend 前端兼容层实例
+        $frt = $orm->frontend[$frontend];
+        if (!($frt instanceof Frontend)) {
+            throw new AppException("前端兼容层 $frontend 不存在，可能未在 Orm 配置参数中注册这个前端库", "app/response");
+            return null;
+        }
+
+        //直接调用 frontDbConfigApi 方法
+        return $frt->frontDbConfigApi($dbn);
+    }
+
+    /**
+     * api
+     * @title ORM模块可用数据表
+     * @desc 获取当前登录用户的所有可用的数据模型
+     * @export api
+     * @auth true
+     * @role all
+     */
+    public function availableApi(...$args)
+    {
+        //当前登录用户
+        $usr = null;
+        //判断 uac 模块是否就绪
+        $modUacOk = $this->ModOk('Uac');
+        //如果 uac 模块就绪，需要读取当前登录用户
+        if ($modUacOk===true) {
+            $usr = $this->Mod("Uac")->usr;
+        }
+
+        //usr 不存在
+        if (!isset($usr)) {
+            return $this->getAllDbModels();
+        }
+        
+        //调用 账号模型实例的 getter
+        return $usr->model_list;
+    }
+
+    /**
+     * api
+     * @name select_options
+     * @title ORM 模块全局下拉列表
+     * @desc 获取所有可用的下拉列表数据
+     * @export api
+     * @auth false
+     */
+    public function selectOptionsApi(...$args)
+    {
+        return [
+            "enum" => [
+                //计量单位
+                "units" => [
+                    ["label" => "克", "value"=>"克"],
+                    ["label" => "千克", "value"=>"千克"],
+                ],
+            ],
+            //"tree" => [],
+        ];
+    }
+
+
+
+    /**
+     * proxyer 响应代理
+     */
 
     /**
      * 通用 /db/... 接口
@@ -527,12 +778,35 @@ class Orm extends Module
         if (!Is::nemaso($proxy)) return $rep::returnCode(404);
         //是否静态方法
         $isStatic = isset($proxy["isStatic"]) && $proxy["isStatic"]===true;
+        //是否 模型 Behavior 定义的接口
+        $isBehavior = $proxy["isBehavior"] ?? false;
         //实际调用的类
         $rc = $proxy["class"] ?? null;
         //是即调用的方法名
         $rm = $proxy["method"] ?? null;
         //类方法必须存在
         if (!class_exists($rc) || !method_exists($rc, $rm)) return $rep::returnCode(404);
+
+        /**
+         * 根据 可能存在的 $req->inputs->json 中的 query 参数，执行 curd 查询
+         * !! Record | Behavior 实例接口需要依赖 Record 实例
+         */
+        $queryer = function() use ($req, $dbn, $modk) {
+            $query = $req->inputs->json;
+            if (!Is::nemaso($query)) return null;
+            if (isset($query["query"])) $query = $query["query"];
+            if (!Is::nemaso($query)) return null;
+
+            //查询方法，默认 select 可能是 get
+            $qm = $query["method"] ?? "select";
+            if (!in_array($qm, ["select", "get"])) return null;
+            if (isset($query["method"])) unset($query["method"]);
+
+            //执行 curd
+            $res = $this->db($dbn)->model($modk, true)->query($query)->$qm();
+            if (!($res instanceof Record || $res instanceof RecordSet)) return null;
+            return $res;
+        };
 
         //开始调用
 
@@ -541,16 +815,141 @@ class Orm extends Module
             return $this->db($dbn)->$rm(...$args);
         }
 
+        //调用 模型 Behavior 接口
+        if ($isBehavior) {
+            //接口上下文
+            $modcls = $this->db($dbn)->config->ctx("model/$modk/class");
+            if (!class_exists($modcls)) return $rep::returnCode(404);
+            if ($isStatic) {
+                //静态接口 必须传入 模型类作为上下文
+                $ctx = $modcls;
+            } else {
+                //实例接口 必须传入 Record|RecordSet 实例作为上下文
+                $ctx = $queryer();
+                if (empty($ctx)) $ctx = new $modcls([]);
+            }
+            //!! 通过 Behavior 子类的 callApi() 方法，调用接口方法
+            return $rc::callApi($rm, $isStatic, $ctx, ...$args);
+        }
+
         //调用 模型 api
         if ($isStatic) {
             return $rc::$rm(...$args);
         }
 
-        //调用 数据记录 api
-        $rs = new $rc([]);
-        return $rs->$rm(...$args);
+        //调用 数据记录 api 必须使用 Record|RecordSet 实例上下文
+        $ctx = $queryer();
+        if (empty($ctx)) $ctx = new $rc([]);
+        return $ctx->$rm(...$args);
 
         return $rep::returnCode(404);
+    }
+
+    /**
+     * 前端库接口代理
+     * 在 $orm->frontend 中缓存的 前端库兼容类中定义的 前端接口，统一由此方法代理响应
+     * @param Array $args URI 路径参数
+     * @return Array 统一返回数据格式
+     *               !! 如果 $orm->frontend 类中定义了 responseData 方法，则会经过其包裹处理
+     */
+    public function frontendProxyer(...$args)
+    {
+        //App 实例
+        $app = $this->App();
+        //Request 实例
+        $req = $this->Req();
+        //Response 实例
+        $rep = $this->Rep();
+        //oprc
+        $oprc = $req->request->oprc;
+        $oprn = $oprc["oprn"];
+        //所属 Frontend 子类名 foo_bar
+        $frtn = $oprc["frontend"] ?? null;
+
+        if (Frontend::isFrontendOprn($oprn)!==true) {
+            throw new AppException("不是有效的前端接口操作标识", "app/response");
+            return null;
+        }
+
+        //Frontend 前端兼容类 实例
+        $frt = Is::nemstr($frtn) ? $this->frontend[$frtn] : null;
+        if (!($frt instanceof Frontend)) {
+            throw new AppException("前端兼容类实例不存在", "app/response");
+            return null;
+        }
+        $frtcls = get_class($frt);
+
+        //proxy 参数
+        $proxy = $oprc["proxy"] ?? null;
+        if (!Is::nemaso($proxy)) {
+            throw new AppException("此前端接口请求没有包含有效的操作参数", "app/response");
+            return null;
+        }
+
+        //入参转译
+        $trans = $frt->callTranslator($oprn);
+        
+        //准备返回值
+        $rtn = null;
+
+        //执行响应方法
+        if (Is::nemstr($proxy["innerOprn"])) {
+            // 0    前端接口直接被映射到某个内部接口，直接调用
+            //invoke
+            $rtn = $app->operation->invoke(
+                $proxy["innerOprn"],
+                //url 参数
+                $args,
+                //前端 post json 参数，在 invoke 时会复制当前 request->inputs 参数进入沙箱环境，此处不需要额外提供
+                [],
+            );
+        } else{
+            // 1    手动定义的前端接口
+            $cls = $proxy["class"] ?? $frtcls;
+            $m = $proxy["method"] ?? null;
+            if (!class_exists($cls) || !Is::nemstr($m)) {
+                if ($trans===true) $req->inputs->restore();
+                throw new AppException("此前端接口请求没有包含有效的操作参数", "app/response");
+                return null;
+            }
+            $isFrtApi = $cls === $frtcls && method_exists($frt, $m);
+            //执行响应方法
+            if ($isFrtApi) {
+                // 1.1  Frontend 类中的 api 方法
+                $rtn = $frt->$m(...$args);
+            } else if (method_exists($cls, $m)) {
+                // 1.2  静态调用
+                $rtn = $cls::$m(...$args);
+            } else {
+                $clso = new $cls();
+                if (method_exists($clso, $m)) {
+                    // 1.3  实例调用
+                    $rtn = $clso->$m(...$args);
+                }
+            }
+        }
+
+
+        //恢复 Resquest::$current->inputs
+        if ($trans===true) {
+            $req->inputs->restore();
+        }
+
+        //响应数据为空
+        if (is_null($rtn)) {
+            throw new AppException("没有有效的返回数据", "app/response");
+            return null;
+        }
+
+        //responseData 响应数据包裹
+        $rtn = $frt->responseData($rtn);
+        if (is_null($rtn)) {
+            throw new AppException("返回数据无法被正确格式化", "app/response");
+            return null;
+        }
+
+        return $rtn;
+
     }
     
 }

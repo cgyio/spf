@@ -10,6 +10,7 @@ namespace Spf\module\orm;
 use Spf\module\orm\Db;
 use Spf\module\orm\Model;
 use Spf\module\orm\Record;
+use Spf\module\orm\Behavior;
 use Spf\util\Is;
 use Spf\util\Arr;
 use Spf\util\Str;
@@ -122,6 +123,17 @@ class RecordSet implements \ArrayAccess, \IteratorAggregate, \Countable
                 } else {
                     return $rst;
                 }
+            }
+            
+            /**
+             * 调用当前模型的 Behavior 扩展方法
+             * RecordSet 实例可以调用 filter 类型方法
+             *      $newRs = $rs->filterFooBar(...)
+             */
+            if (false !== ($bhvcls = Behavior::hasMethod($key, $this))) {
+                $mthIs = $bhvcls::methodIs($key);
+                if ($mthIs !== "filter") return null;
+                return Behavior::callMethod($key, $args, $this);
             }
 
             /**

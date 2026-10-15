@@ -246,7 +246,7 @@ class BaseException extends \Exception
             $full === true
         ) {
             //详细 错误信息
-            var_dump($this->ctx("xpath"));
+            //var_dump($this->ctx("xpath"));
             $info_d = [
                 "ekey" => $this->getEkey(),
                 "file" => $this->getFile(),

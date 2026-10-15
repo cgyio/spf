@@ -21,7 +21,7 @@ class SpecialUtil
      * !! 子类必须覆盖这些静态参数，否则不同的工具类会相互干扰
      */
     //此工具 在当前会话中的 启用标记
-    public Static $enable = false;
+    public static $enable = false;
     //缓存 框架启动参数中 针对此工具的参数
     protected static $initConf = [];
 

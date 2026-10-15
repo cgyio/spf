@@ -21,6 +21,7 @@ use Spf\module\orm\Record;
 use Spf\module\Orm;
 use Spf\module\orm\Db;
 use Spf\module\orm\Types;
+use Spf\module\orm\Behavior;
 use Spf\module\orm\OrmException;
 use Spf\util\Is;
 use Spf\util\Str;
@@ -56,6 +57,20 @@ class Model extends Record
     public static $config = null;
     //标记 此数据模型(表) 配置参数已经被解析并初始化
     public static $isConfed = false;
+    //标记此模型引用的 Behavior 行为
+    public static $behaviors = [
+        /*
+        "behavior_name" => [
+            "class" => "Behavior 子类全称",
+            "extended" => [
+                # 此 Behavior 为 数据模型 扩展的方法
+                "curd" => [ 方法名数组 ... ],
+                "filter" => [],
+                "biz" => [],
+            ],
+        ],
+        */
+    ];
 
     /**
      * 在 所有 module\orm\config\model\Parser 解析器类处理完成后，最后执行一次 模型参数的 手动处理
@@ -303,15 +318,18 @@ class Model extends Record
         //依次转换
         static::eachColumn(function($colk, $colc) use ($type, $data, &$rtn) {
             //data 中不含此字段
-            if (!isset($data[$colk])) return true;
+            if (!array_key_exists($colk, $data)) return true;
 
             //创建各字段对应 类型的 Types 实例
             $tpo = static::columnTypesIns($colk);
+            if (!isset($tpo)) {
+                $rtn[$colk] = $data[$colk];
+                return true;
+            }
             //调用 类型实例的 from|to 方法
             $rtn[$colk] = $tpo->$type($data[$colk]);
             //释放
             unset($tpo);
-
             return true;
         });
 
@@ -338,11 +356,11 @@ class Model extends Record
         }
 
         $tpo = static::columnTypesIns($colk);
+        if (!isset($tpo)) return $val;
         //调用 类型实例的 from|to 方法
         $rtn = $tpo->$type($val);
         //释放
         unset($tpo);
-
         return $rtn;
     }
 
@@ -356,7 +374,7 @@ class Model extends Record
         if (!static::inited()) return $data;
         $rtn = [];
         static::eachColumn(function($colk, $colc) use ($data, &$rtn) {
-            if (!isset($data[$colk])) return true;
+            if (!array_key_exists($colk, $data)) return true;
             //此字段不是原始字段，可能是 getter 计算字段
             if (!static::isRealInDbColumn($colk)) return true;
             $rtn[$colk] = $data[$colk];
@@ -538,6 +556,7 @@ class Model extends Record
      * 如果一个字段是 计算字段，判断其类型：
      *      0   在模型类中定义的 getter
      *      1   在特殊字段类型 Types 中定义的 getter
+     *      2   在模型启用的 Behavior 中定义的 getter
      * @param String $colk
      * @return Int|null 如果字段不是计算字段，返回 null
      */
@@ -553,10 +572,13 @@ class Model extends Record
         if (static::class===$gcls || is_subclass_of($gcls, static::class)) return 0;
         //在特殊字段类型 Types 中定义的 getter
         if (is_subclass_of($gcls, Types::class)) return 1;
+        //在模型启用的 behavior 中定义的 getter
+        if (is_subclass_of($gcls, Behavior::class)) return 2;
         return null;
     }
     public static function columnGetterIsInModel($colk) { return static::columnGetterIs($colk) === 0; }
     public static function columnGetterIsInTypes($colk) { return static::columnGetterIs($colk) === 1; }
+    public static function columnGetterIsInBehavior($colk) { return static::columnGetterIs($colk) === 2; }
 
     /**
      * 获取模型的特殊字段
@@ -739,10 +761,88 @@ class Model extends Record
      * @auth true
      * @role all
      * @title 查询记录
+     * @param Mixed[] $args 内部调用此方法时，可以传入
+     *                      查询参数，与 Queryer 中定义的参数结构一致
+     *                      第二参数可以是 true | false 指定是否要合并 php://input 中传入的 json，默认 true
+     *                      !! 作为接口使用时，不需要传入任何参数，直接从 input 获取前端传回的 json 作为 query 参数
+     * @return Array 返回的数据结构：
+     *  [
+     *      "result" => [ ... RecordSet|Record->ctx ... ],
+     *      "query" => [ ... 格式化后的 query 参数 ... ],
+     *      # 用于 前端分页组件的 必须参数
+     *      "page" => [
+     *          "ipage" => 1,
+     *          "recordCount" => 350,
+     *          "pagesize" => 100,
+     *          "pageCount" => 4
+     *      ]
+     *  ]
      */
     public static function retrieveApi(...$args)
     {
-        
+        //框架内部调用此方法，可以传入 额外查询参数
+        $extra = !empty($args) ? $args[0] : [];
+        //如果提供了 extra 额外查询参数，则第二参数可以指定是否要 mixin 合并 input json，默认 true
+        $mixin = !empty($extra) ? ((isset($args[1]) && is_bool($args[1])) ? $args[1] : true) : true;
+
+        //开始 curd 查询
+        $curd = static::model()->query($extra, $mixin);
+        //获取 格式化后的 query 查询条件
+        $query = [
+            "origin" => $curd->queryer->context,
+            "parsed" => $curd->parseArguments()
+        ];
+        //获取 recordCount
+        $recordCount = $curd->recordCount(false);
+        //return [
+        //    "recordCount" => $recordCount,
+        //    "query" => $query,
+        //];
+        if ($recordCount < 0) {
+            //!! recordCount == -1 不是空记录，而是表示当前查询不使用分页参数
+            $page = null;
+        } else {
+            //组装要返回前端的 分页参数
+            $wp = $curd->whereParser;
+            $pp = $wp->pageParams;
+            $ipage = $pp["ipage"] ?? 1;
+            $pagesize = $pp["pagesize"] ?? 100;
+            $pageCount = ceil($recordCount / $pagesize);
+            $page = [
+                "ipage" => $ipage,
+                "pagesize" => $pagesize,
+                "pageCount" => $pageCount,
+                "recordCount" => $recordCount
+            ];
+        }
+        //空记录判断
+        //!! recordCount == -1 不是空记录
+        if ($recordCount === 0) {
+            $rs = $curd->debug()->select();
+            //直接返回结果
+            return [
+                "result" => $rs,
+                "query" => $query,
+                "page" => $page
+            ];
+        }
+
+        //执行实际查询
+        /*$rs = $curd->debug()->select();
+        return [
+            "result" => $rs,
+            "query" => $query,
+            "page" => $page
+        ];*/
+        $rs = $curd->select();
+        //返回查询结果
+        $result = $rs->export();    //调用通用 export 输出方法
+        return [
+            "result" => $result,
+            "query" => $query,
+            "page" => $page,
+            "model" => static::$modk,
+        ];
     }
 
     /**

@@ -46,10 +46,14 @@ class ModuleOrmConfig extends ModuleConfig
                 "module/orm/Driver",
                 //数据模型字段类型 资源
                 "module/orm/Types",
+                //数据模型通用行为
+                "module/orm/Behavior",
                 //数据模型配置预处理类
-                "module/orm/config/model/Preparer",
+                //"module/orm/config/model/Preparer",
                 //数据模型配置解析器 资源
                 "module/orm/config/model/Parser",
+                //配合 orm 模块的 不同前端框架的 兼容层
+                "module/orm/Frontend",
             ],
         ],
 
@@ -63,8 +67,25 @@ class ModuleOrmConfig extends ModuleConfig
         //指定数据库配置文件类型  默认 .json
         "dbConfigExt" => ".json",
 
-        //指定数据库前端渲染组件库，通常是有效的 SPF-Vcom 基础组件库(包含必要的 inputer 组件)
-        "frontComponentLib" => "spf",
+        /**
+         * 指定数据库前端渲染组件库（必须包含必要的 inputer|form|table 等基础组件）
+         * !! 如果使用 SPF-Vcom 基础组件库，直接指定组件库名称，例如：
+         *      spf             --> 指向 http://host/app_name/src/vcom/spf/default.js|css...
+         * !! 如果使用第三方 ui 库，则需要使用 SPF-Cdn 或 SPF-Lib 类型资源，例如：
+         *      cdn/deskvue     --> 指向 http://host/app_name/src/cdn/deskvue/main.js|ts|css...
+         * !! 不论使用何种 ui 前短库，都必须在 [框架|网站|App 根路径]/module/orm/frontend/ 路径下定义对应的解析类，例如：
+         *      spf             --> 解析类应放在 [框架|网站|App 根路径]/module/orm/frontend/Spf.php
+         *      cdn/deskvue     --> 解析类应放在 [框架|网站|App 根路径]/module/orm/frontend/CdnDeskvue.php
+         * !! 前端 ui 库解析类属于 ExpandableResource 可以在 框架|网站|应用 三层进行扩展
+         */
+        //"frontComponentLib" => "spf",
+
+        /**
+         * 指定 当前 SPF-Orm 模块使用的 前端库兼容层 名称
+         * !! 必须定义对应的 兼容层类 [*]/module/orm/frontend/FooBar.php
+         * !! 可以指定为 [...] 数组，表示当前 Orm 模块对接了多个前端库
+         */
+        "frontend" => "deskvue",
         
         /**
          * 指定要使用的数据库配置

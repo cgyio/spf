@@ -47,6 +47,9 @@ class AuthorityControl extends Middleware
         $oprc = $req->getOprc();
         $oprn = $oprc["oprn"];
 
+        //var_dump($oprn);
+        //var_dump($oprc);
+
         //!! 如果请求的 操作 auth == false 表示不启用 权限限制，直接跳过此中间件
         if (is_bool($oprc["auth"]) && $oprc["auth"]===false) {
             return true;
@@ -57,8 +60,8 @@ class AuthorityControl extends Middleware
         //!! 检查 $uac->isLogin()，如果未能正确登录，统一报异常
         if ($uac->isLogin()!==true) {
             $this->deniedData = [
-                //退出方式标记为 not_login
-                "type" => "not_login",
+                //退出方式标记
+                "type" => $uac->isManualLogout() === true ? "logout" : "not_login",
                 //明细数据为 jwt-token 解析结果
                 "detail" => $uac->validate,
                 //标记当前请求的 输出方式 api|view|src
@@ -105,6 +108,9 @@ class AuthorityControl extends Middleware
         if ($dtp==="not_login") {
             //调用 Uac 模块 强制抛出未登陆错误
             $this->Mod("uac")->throwException(true);
+        } else if ($dtp === "logout") {
+            //用户已登录，但是标记为 手动登出，抛出错误
+            throw new UacException("用户已登出", "jwt/islogout");
         } else {
             //权鉴拒绝
             $ddt = $dd["detail"];

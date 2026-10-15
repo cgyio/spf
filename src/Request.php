@@ -131,6 +131,7 @@ class Request extends Core
         // 2 创建 Ajax 请求处理实例，获取相应的 参数
         $this->ajax = new Ajax();
         if (!empty($this->ajax->responseHeaders)) {
+            //var_dump($this->ajax->responseHeaders);
             $this->responseHeaders = Arr::extend($this->responseHeaders, $this->ajax->responseHeaders);
         }
 

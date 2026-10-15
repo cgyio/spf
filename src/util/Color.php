@@ -412,8 +412,8 @@ class Color
         //颜色实例化参数
         $opt = [
             "r" => substr($rgb[0], -1)==="%" ? self::pec2hexdec($rgb[0]) : (int)$rgb[0],
-            "g" => substr($rgb[0], -1)==="%" ? self::pec2hexdec($rgb[1]) : (int)$rgb[1],
-            "b" => substr($rgb[0], -1)==="%" ? self::pec2hexdec($rgb[2]) : (int)$rgb[2],
+            "g" => substr($rgb[1], -1)==="%" ? self::pec2hexdec($rgb[1]) : (int)$rgb[1],
+            "b" => substr($rgb[2], -1)==="%" ? self::pec2hexdec($rgb[2]) : (int)$rgb[2],
             "a" => self::alpha2int($alpha),
         ];
         //创建并返回 颜色实例

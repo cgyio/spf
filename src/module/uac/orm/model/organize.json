@@ -28,7 +28,7 @@
         "director": "uuid"
     },
     "join": {
-        "[>]organize (superior)": {
+        "[>]organize (superior):上级": {
             "organize.fid": "superior.orgid"
         },
         "[<]organize (inferior)": {
@@ -55,6 +55,7 @@
                 "multiple": false,
                 "source": {
                     "table": "account",
+                    "title": "主管人",
                     "value": "uuid",
                     "label": "name"
                 }
@@ -65,5 +66,28 @@
                 "type": "datetime"
             }
         }
+    },
+    "front": {
+        "table": {
+            "hide": ["iso"],
+            "mode": {
+                "default": {
+                    "title": "默认模式",
+                    "columns": [
+                        "orgid", "name", "superior.name", "account.name", "desc", "createat_datetime_str"
+                    ],
+                    "isClassic": true
+                },
+                "mini": {
+                    "title": "极简模式",
+                    "columns": [
+                        "name", "desc", "createat"
+                    ],
+                    "isClassic": true,
+                    "vue": ""
+                }
+            }
+        },
+        "form": {}
     }
 }

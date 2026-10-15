@@ -38,9 +38,7 @@ abstract class Loginner
     public static $isCollected = false;
     
     /**
-     * 当某个 数据模型参数解析子类被 collect 收集时，将此解析类附加到 Parser::$parsers[] 解析顺序的 末尾
-     * !! trait 中要求的，子类根据需要覆盖
-     * !! 可以在特定的解析类中，自行处理 解析顺序，例如插入某个其他解析类之前或之后
+     * ExpandableResource 可扩展底层资源类必须的方法
      * @return Bool
      */
     protected static function whenCollect()
@@ -54,7 +52,7 @@ abstract class Loginner
     /**
      * !! 子类必须定义
      */
-    //此 数据模型(表) 参数解析类的 名称 foo_bar
+    //此 登录器类的 名称 foo_bar
     protected static $loginner = "";
     //指定此登录方式的 中文名，用于返回错误信息
     protected static $loginTitle = "";

@@ -125,6 +125,14 @@ class WhereParser extends CurdParser
         "order", "limit", "match", "group", "having",
     ];
 
+    //如果指定了 page 分页参数，则在此处缓存，用于输出到前端分页组件
+    public $pageParams = [
+        "ipage" => 1,
+        "pagesize" => 100,
+    ];
+    //标记本次 curd 使用了 page 分页
+    public $usePage = false;
+
 
     /**
      * 初始化 curd 参数
@@ -398,6 +406,22 @@ class WhereParser extends CurdParser
 
     /**
      * 构造 where 参数
+     * 构造 json 类型字段的 where 参数
+     * !! 参数形式见 parseJsonWhere() 方法
+     * @param Array $args
+     * @return CurdParser $this
+     */
+    public function whereJson(...$args)
+    {
+        $wh = $this->parseJsonWhere(...$args);
+        if (Is::nemaso($wh)) {
+            $this->setParam($wh);
+        }
+        return $this;
+    }
+
+    /**
+     * 构造 where 参数
      * 筛选 某些字段
      * [
      *      "column" => [
@@ -491,6 +515,14 @@ class WhereParser extends CurdParser
     public function page($ipage=1, $pagesize=100)
     {
         $ipage = $ipage<1 ? 1 : $ipage;
+
+        //!! 记录分页参数
+        $this->usePage = true;
+        $this->pageParams = [
+            "ipage" => $ipage,
+            "pagesize" => $pagesize
+        ];
+
         if ($ipage==1) {
             return $this->limit($pagesize);
         }
@@ -879,6 +911,403 @@ class WhereParser extends CurdParser
         return false;
     }
 
+
+
+    /**
+     * !! json 类型字段的 查询条件工具
+     * 针对 json 类型的字段，将传入的 匹配条件，转为 Medoo 支持的 where 参数形式
+     * 入参：
+     *      parseJsonWhere("col_name", [...])
+     *      !! 单条件可以简写
+     *      parseJsonWhere("col_name", "key_a")
+     *      parseJsonWhere("col_name", "key_a", "val_a", "val_b", ...)
+     *      parseJsonWhere("col_name", "key_a", ["AND" => [ ... ]])
+     *      parseJsonWhere("col_name", "!key_a%", "val_a", "val_b", ...)
+     * 
+     * 示例：
+     *  0   输入：[
+     *          # 字段值中必须包含 key_a 键
+     *          "key_a" => "",
+     *      ]
+     *      输出：[
+     *          "col_name[~]" => "\"key_a\":",
+     *      ]
+     *  1   输入：[
+     *          # 字段值中必须包含 key_a 开头的键
+     *          "key_a%" => "",
+     *      ]
+     *      输出：[
+     *          "col_name[~]" => "%\"key_a%\":%",
+     *      ]
+     *  2   输入：[
+     *          # 字段值中必须包含 key_a 键，且键值中必须包含 val_a
+     *          "key_a" => "val_a",
+     *      ]
+     *      输出：[
+     *          "col_name[~]" => "%\"key_a\":%val_a%",
+     *      ]
+     *  3   输入：[
+     *          # 字段值中必须包含 key_a 键，且键值中必须 包含 val_a, val_b, val_c 其中之一
+     *          "key_a" => ["val_a", "val_b", "val_c"],
+     *      ]
+     *      输出：[
+     *          "col_name[~]" => [
+     *              "%\"key_a\":%val_a%",
+     *              "%\"key_a\":%val_b%",
+     *              "%\"key_a\":%val_c%",
+     *          ]
+     *      ]
+     *  4   输入：[
+     *          # 字段值中必须包含 key_a 键，且键值中必须 同时包含 val_a, val_b, val_c
+     *          "key_a" => [
+     *              "AND" => ["val_a", "val_b", "val_c"],
+     *          ]
+     *      ]
+     *      输出：[
+     *          "col_name[~]" => [
+     *              "AND" => [
+     *                  "%\"key_a\":%val_a%",
+     *                  "%\"key_a\":%val_b%",
+     *                  "%\"key_a\":%val_c%",
+     *              ]
+     *          ]
+     *      ]
+     *  5   输入：[
+     *          # 字段值中必须 不包含 key_a 开头的键
+     *          "!key_a%" => "",
+     *      ]
+     *      输出：[
+     *          "col_name[!~]" => "%\"key_a%\":%",
+     *      ]
+     *  6   输入：[
+     *          # 字段值中必须 如果包含 key_a 开头的键值，必须不包含所有 val_a, val_b, val_c 
+     *          "!key_a%" => ["val_a", "val_b", "val_c"],
+     *      ]
+     *      输出：[
+     *          "col_name[!~]" => [
+     *              "%\"key_a\":%val_a%",
+     *              "%\"key_a\":%val_b%",
+     *              "%\"key_a\":%val_c%",
+     *          ]
+     *      ]
+     * 
+     *  7   输入：[
+     *          !! 多个条件，需要指定 AND OR 关系，默认 OR
+     *          
+     *          # 字段值中必须包含 key_a 键
+     *          "key_a" => "",
+     * 
+     *          # 字段值中必须包含 key_b 结尾的键，且键值中必须 包含 val_a, val_b, val_c 其中之一
+     *          "%key_b" => ["val_a", "val_b", "val_c"],
+     *      ]
+     *      输出：[
+     *          "col_name[~]" => [
+     *              "\"key_a\":",
+     *              "%\"%key_b\":%val_a%",
+     *              "%\"%key_b\":%val_b%",
+     *              "%\"%key_b\":%val_c%",
+     *          ]
+     *      ]
+     *  8   输入：[
+     *          !! 多个条件，指定 AND 关系
+     *          "AND" => [
+     *              # 字段值中必须包含 key_a 键
+     *              "key_a" => "",
+     *  
+     *              # 字段值中必须包含 key_b 结尾的键，且键值中必须 包含 val_a, val_b, val_c 其中之一
+     *              "%key_b" => ["val_a", "val_b", "val_c"],
+     *          ]
+     *      ]
+     *      输出：[
+     *          "col_name[~]" => [
+     *              "\"key_a\":",
+     *          ],
+     *          "AND #col_name json" => [
+     *              "col_name[~]" => [
+     *                  "%\"%key_b\":%val_a%",
+     *                  "%\"%key_b\":%val_b%",
+     *                  "%\"%key_b\":%val_c%",
+     *              ]
+     *          ]
+     *      ]
+     *  9   输入：[
+     *          !! 多个条件，默认 OR 关系
+     *          # 字段值中必须 不包含 key_a 键
+     *          "!key_a" => "",
+     *  
+     *          # 字段值中必须包含 key_b 结尾的键，且键值中必须 包含所有 val_a, val_b, val_c
+     *          "%key_b" => [
+     *              "AND" => ["val_a", "val_b", "val_c"]
+     *          ],
+     *      ]
+     *      输出：[
+     *          "OR #col_name injson" => [
+     *              "col_name[!~]" => "\"key_a\":",
+     *              "col_name[~]" => [
+     *                  "AND" => [
+     *                      "%\"%key_b\":%val_a%",
+     *                      "%\"%key_b\":%val_b%",
+     *                      "%\"%key_b\":%val_c%",
+     *                  ]
+     *              ]
+     *          ]
+     *      ]
+     *  10  输入：[
+     *          !! 多个条件，指定 AND 关系
+     *          "AND" => [
+     *              # 字段值中必须 不包含 key_a 键
+     *              "!key_a" => "",
+     *  
+     *              # 字段值中必须包含 key_b 结尾的键，且键值中必须 同时包含 val_a, val_b, val_c
+     *              "%key_b" => [
+     *                  "AND" => ["val_a", "val_b", "val_c"]
+     *              ],
+     *          ]
+     *      ]
+     *      输出：[
+     *          "col_name[!~]" => "\"key_a\":",
+     *          "col_name[~]" => [
+     *              "AND" => [
+     *                  "%\"%key_b\":%val_a%",
+     *                  "%\"%key_b\":%val_b%",
+     *                  "%\"%key_b\":%val_c%",
+     *              ]
+     *          ]
+     *      ]
+     *  
+     * 
+     * @param String $col 要匹配的 json 类型的字段名
+     * @param Array $args 匹配条件
+     * @return Array|null 复合 Medoo 规则的 where 条件格式
+     */
+    protected function parseJsonWhere($col, ...$args)
+    {
+        if (!Is::nemstr($col) || empty($args)) return null;
+
+        //单条件简写
+        if (Is::nemstr($args[0])) {
+            $key = array_shift($args);
+            $val = empty($args) ? "" : (
+                count($args) === 1 ? $args[0] : $args
+            );
+            //var_dump($val);
+            $rule = $this->getJsonRule($key, $val);
+            //var_dump($rule);
+            //if (!is_string($val)) exit;
+            if (is_null($rule)) return null;
+            $sign = $col.$rule[0];
+            return [
+                $sign => $rule[1]
+            ];
+        }
+
+        //多条件
+        $arg = $args[0];
+        if (!Is::nemaso($arg)) return null;
+        //根据 AND|OR 决定 输出结构，默认 OR 关系
+        $and = isset($arg["AND"]) && Is::nemaso($arg["AND"]);
+        //实际条件 []
+        $cdt = $and ? $arg["AND"] : (
+            isset($arg["OR"]) ? $arg["OR"] : $arg
+        );
+
+        //输出结构
+        $andk = "AND #".$col." json_rule";
+        $rtn = [
+            "[~]" => [],
+            "[!~]" => [],
+            $andk => [
+                "[~]" => [],
+                "[!~]" => [],
+            ],
+        ];
+        
+        //依次处理每个单条件
+        foreach ($cdt as $key => $val) {
+            $rule = $this->getJsonRule($key, $val);
+            if (is_null($rule)) continue;
+            $sign = $rule[0];
+            $rule = $rule[1];
+            if (!isset($rtn[$sign])) continue;
+
+            //合并
+            if (isset($rule["AND"])) {
+                //AND 单独合并
+                $rtn[$andk] = Arr::extend($rtn[$andk], [$sign => $rule["AND"]]);
+            } else {
+                $rtn = Arr::extend($rtn, [$sign => $rule]);
+            }
+        }
+
+        //输出
+        $ors = $rtn["[~]"];
+        $nors = $rtn["[!~]"];
+        $ands = $rtn[$andk]["[~]"];
+        $nands = $rtn[$andk]["[!~]"];
+        $hasor = !empty($ors);
+        $hasnor = !empty($nors);
+        $hasors = $hasor || $hasnor;
+        $hasand = !empty($ands);
+        $hasnand = !empty($nands);
+        $hasands = $hasand || $hasnand;
+        //空 条件
+        $norule = !$hasor && !$hasnor && !$hasand && !$hasnand;
+        //包含至少两种 不同条件
+        $multi = $hasor + $hasnor + $hasand + $hasnand >= 2;
+
+        //空条件 返回 null
+        if ($norule) return null;
+
+        //Medoo where 默认使用 AND 关系
+        $ck = $col."[~]";
+        $cnk = $col."[!~]";
+        $ork = "OR #".$col." json_rule";
+        //输出内容
+        $wh = [];
+        if ($hasor) $wh[$ck] = $ors;
+        if ($hasnor) $wh[$cnk] = $nors;
+        if ($and) {
+            //手动指定 AND 关系 json rules
+            if ($hasands) {
+                if ($hasors) $wh[$andk] = [];
+                if ($hasand) $wh[$andk][$ck] = ["AND" => $ands];
+                if ($hasnand) $wh[$andk][$cnk] = ["AND" => $ands];
+            }
+            return $wh;
+        } else {
+            //默认 OR 关系 json rules
+            if ($hasands) {
+                if ($hasors) $wh[$ork] = [];
+                if ($hasand) $wh[$ork][$ck] = ["AND" => $ands];
+                if ($hasnand) $wh[$ork][$cnk] = ["AND" => $ands];
+            }
+
+            if ($multi) {
+                //包含两种或以上的 条件类型，需要外层包裹 OR
+                return [
+                    $ork => $wh
+                ];
+            } else {
+                return $wh;
+            }
+        }
+
+        return null;
+    }
+    //生成 json 单条件
+    protected function getJsonRule($key, $val)
+    {
+        if (!Is::nemstr($key)) return null;
+        //取反
+        $rev = substr($key, 0,1)==="!";
+        if ($rev) $key = substr($key, 1);
+        //medoo like 标记
+        $sign = $rev ? "[!~]" : "[~]";
+        //含有通配符 %
+        $mask = strpos($key, "%")!==false;
+
+        //处理 $val 归一化为 字符串，字符串数组，AND=>字符串数组
+        $val = $this->fixJsonRuleVal($val);
+
+        //val = "" | "..."
+        if (is_string($val)) {
+            $rule = $this->getJsonRuleStr($key, $val, $mask);
+            if ($rule==="") return null;
+            return [ $sign, [$rule] ];
+        }
+
+        //val = [...] indexed
+        if (Is::nemidx($val)) {
+            $rule = $this->getJsonRuleArr($key, $val, $mask);
+            if (!Is::nemidx($rule)) return null;
+            return [ $sign, $rule ];
+        }
+
+        //val = ["AND" => [...]] associate
+        if (Is::nemaso($val) && Is::nemidx($val["AND"])) {
+            $rule = $this->getJsonRuleArr($key, $val["AND"], $mask);
+            if (!Is::nemidx($rule)) return null;
+            return [ $sign, [ "AND" => $rule ] ];
+        } 
+
+        return null;
+    }
+    //将 json 传入条件归一化为 字符串|字符串数组|AND=>字符串数组
+    protected function fixJsonRuleVal($val)
+    {
+        //字符串 直接返回
+        if (is_string($val)) return $val;
+
+        //标量类型 Number | Null | Bool
+        if (is_numeric($val) || is_null($val) || is_bool($val)) {
+            if (is_numeric($val)) $val = (string)$val;
+            if (is_null($val)) $val = "null";
+            if (is_bool($val)) $val = $val ? "true" : "false";
+            return $val;
+        }
+
+        //indexed 数组
+        if (Is::indexed($val)) {
+            //[] 空数组当作不指定
+            if (empty($val)) return "";
+            $rtn = [];
+            foreach ($val as $i) {
+                //不支持 二级 array
+                if (is_array($i)) continue;
+                $vi = $this->fixJsonRuleVal($i);
+                if ($vi==="") continue;
+                $rtn[] = $vi;
+            }
+            if (empty($rtn)) return "";
+            return $rtn;
+        }
+
+        //associate 数组
+        if (Is::associate($val)) {
+            //[] 空数组
+            if (empty($val)) return "";
+            //数组 外层键 只能是 AND | OR 只能有一个
+            if (!isset($val["AND"]) && !isset($val["OR"])) return "";
+            //OR 是默认关系，等同于直接定义 普通数组
+            if (isset($val["OR"])) {
+                if (!Is::nemidx($val["OR"])) return "";
+                return $this->fixJsonRuleVal($val["OR"]);
+            }
+            //AND
+            $ands = $val["AND"];
+            if (!Is::nemidx($ands)) return "";
+            $ands = $this->fixJsonRuleVal($ands);
+            if ($ands==="") return "";
+            return [
+                "AND" => $ands
+            ];
+        }
+
+        //其他形式 不支持
+        return "";
+    }
+    //生成 单条 json 查询条件字符串
+    protected function getJsonRuleStr($key, $val, $mask = null)
+    {
+        if (!Is::nemstr($key) || !is_string($val)) return "";
+        if ($val==="") {
+            if (!is_bool($mask)) $mask = strpos($key, "%")!==false;
+            return $mask ? '%"'.$key.'":%' : '"'.$key.'":';
+        }
+        return '%"'.$key.'":%'.$val.'%';
+    }
+    //生成 一组 json 查询条件 字符串数组
+    protected function getJsonRuleArr($key, $val, $mask = null)
+    {
+        if (!Is::nemstr($key) || !Is::nemidx($val)) return [];
+        $rtn = [];
+        foreach ($val as $i) {
+            $rule = $this->getJsonRuleStr($key, $i, $mask);
+            if ($rule==="") continue;
+            if (!in_array($rule, $rtn)) $rtn[] = $rule;
+        }
+        return $rtn;
+    }
 
 
 }
